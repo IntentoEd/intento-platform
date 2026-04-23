@@ -12,6 +12,9 @@ const ubuntu = Ubuntu({
 export const metadata = {
   title: 'Intento | Mentoria',
   description: 'Painel do Aluno Intento',
+  icons: {
+    icon: '/favicon.png',
+  },
 }
 
 export default function RootLayout({ children }) {
