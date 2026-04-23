@@ -447,11 +447,19 @@ export default function GestaoIndividualAluno() {
                           </p>
                           <div className="flex items-center flex-wrap gap-2 mt-1.5">
                             {/* Tipo de desafio */}
-                            {enc.categoria && (
-                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                                {enc.categoria}
-                              </span>
-                            )}
+                            {enc.categoria && (() => {
+                              const cat = {
+                                'Codificação': 'bg-blue-50 text-blue-700 border-blue-100',
+                                'Revisão':     'bg-emerald-50 text-emerald-700 border-emerald-100',
+                                'Hábitos':     'bg-yellow-50 text-yellow-700 border-yellow-200',
+                                'Prova':       'bg-red-50 text-red-700 border-red-100',
+                              }[enc.categoria] || 'bg-slate-50 text-slate-600 border-slate-200';
+                              return (
+                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${cat}`}>
+                                  {enc.categoria}
+                                </span>
+                              );
+                            })()}
                             {/* Avaliação */}
                             <div className="flex items-center gap-1">
                               <span className="text-[10px] text-slate-400 font-medium">Autoav.:</span>
