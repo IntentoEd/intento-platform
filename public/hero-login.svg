@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 520" fill="none">
+  <!-- Background cards / floating elements -->
+
+  <!-- Card: progresso semanal -->
+  <rect x="30" y="60" width="200" height="110" rx="14" fill="white" fill-opacity="0.07" stroke="white" stroke-opacity="0.12" stroke-width="1"/>
+  <text x="50" y="88" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="700" fill="#D4B726" letter-spacing="0.08em" text-transform="uppercase">PROGRESSO SEMANAL</text>
+  <!-- Bar chart -->
+  <rect x="50"  y="130" width="14" height="24" rx="3" fill="white" fill-opacity="0.15"/>
+  <rect x="70"  y="118" width="14" height="36" rx="3" fill="white" fill-opacity="0.15"/>
+  <rect x="90"  y="108" width="14" height="46" rx="3" fill="white" fill-opacity="0.15"/>
+  <rect x="110" y="100" width="14" height="54" rx="3" fill="#D4B726" fill-opacity="0.7"/>
+  <rect x="130" y="94"  width="14" height="60" rx="3" fill="#D4B726"/>
+  <rect x="150" y="102" width="14" height="52" rx="3" fill="white" fill-opacity="0.15"/>
+  <rect x="170" y="96"  width="14" height="58" rx="3" fill="#D4B726" fill-opacity="0.5"/>
+
+  <!-- Card: métricas -->
+  <rect x="250" y="40" width="190" height="80" rx="14" fill="white" fill-opacity="0.07" stroke="white" stroke-opacity="0.12" stroke-width="1"/>
+  <text x="270" y="65" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="700" fill="#D4B726" letter-spacing="0.08em">HORAS ESTUDADAS</text>
+  <text x="270" y="96" font-family="ui-sans-serif,sans-serif" font-size="30" font-weight="800" fill="white">24h</text>
+  <text x="330" y="96" font-family="ui-sans-serif,sans-serif" font-size="11" font-weight="600" fill="#4ade80">↑ 18%</text>
+  <text x="270" y="112" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="500" fill="white" fill-opacity="0.4">vs semana anterior</text>
+
+  <!-- Card: domínio disciplinas -->
+  <rect x="250" y="140" width="190" height="130" rx="14" fill="white" fill-opacity="0.07" stroke="white" stroke-opacity="0.12" stroke-width="1"/>
+  <text x="270" y="165" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="700" fill="#D4B726" letter-spacing="0.08em">DOMÍNIO POR ÁREA</text>
+
+  <!-- Matematica -->
+  <text x="270" y="186" font-family="ui-sans-serif,sans-serif" font-size="10" font-weight="600" fill="white" fill-opacity="0.7">Matemática</text>
+  <rect x="270" y="190" width="140" height="5" rx="2.5" fill="white" fill-opacity="0.1"/>
+  <rect x="270" y="190" width="96" height="5" rx="2.5" fill="#D4B726"/>
+  <text x="416" y="196" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="700" fill="white" fill-opacity="0.5">68%</text>
+
+  <!-- Ciências Natureza -->
+  <text x="270" y="212" font-family="ui-sans-serif,sans-serif" font-size="10" font-weight="600" fill="white" fill-opacity="0.7">C. Natureza</text>
+  <rect x="270" y="216" width="140" height="5" rx="2.5" fill="white" fill-opacity="0.1"/>
+  <rect x="270" y="216" width="112" height="5" rx="2.5" fill="#D4B726"/>
+  <text x="416" y="222" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="700" fill="white" fill-opacity="0.5">80%</text>
+
+  <!-- Humanas -->
+  <text x="270" y="238" font-family="ui-sans-serif,sans-serif" font-size="10" font-weight="600" fill="white" fill-opacity="0.7">Humanas</text>
+  <rect x="270" y="242" width="140" height="5" rx="2.5" fill="white" fill-opacity="0.1"/>
+  <rect x="270" y="242" width="77" height="5" rx="2.5" fill="#D4B726" fill-opacity="0.6"/>
+  <text x="416" y="248" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="700" fill="white" fill-opacity="0.5">55%</text>
+
+  <!-- Linguagens -->
+  <text x="270" y="264" font-family="ui-sans-serif,sans-serif" font-size="10" font-weight="600" fill="white" fill-opacity="0.7">Linguagens</text>
+  <rect x="270" y="268" width="140" height="5" rx="2.5" fill="white" fill-opacity="0.1"/>
+  <rect x="270" y="268" width="123" height="5" rx="2.5" fill="#D4B726" fill-opacity="0.9"/>
+  <text x="416" y="274" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="700" fill="white" fill-opacity="0.5">88%</text>
+
+  <!-- Card: próxima sessão -->
+  <rect x="30" y="190" width="200" height="90" rx="14" fill="white" fill-opacity="0.07" stroke="white" stroke-opacity="0.12" stroke-width="1"/>
+  <text x="50" y="215" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="700" fill="#D4B726" letter-spacing="0.08em">PRÓXIMA SESSÃO</text>
+  <!-- calendar icon circles -->
+  <circle cx="62" cy="248" r="16" fill="white" fill-opacity="0.08"/>
+  <text x="55" y="252" font-family="ui-sans-serif,sans-serif" font-size="14" fill="white">📅</text>
+  <text x="86" y="243" font-family="ui-sans-serif,sans-serif" font-size="11" font-weight="700" fill="white">Quinta, 24 abr</text>
+  <text x="86" y="258" font-family="ui-sans-serif,sans-serif" font-size="10" font-weight="500" fill="white" fill-opacity="0.5">20h00 · Online</text>
+
+  <!-- Card: nota ENEM simulado -->
+  <rect x="30" y="300" width="130" height="80" rx="14" fill="#D4B726" fill-opacity="0.15" stroke="#D4B726" stroke-opacity="0.3" stroke-width="1"/>
+  <text x="50" y="323" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="700" fill="#D4B726" letter-spacing="0.08em">SIMULADO</text>
+  <text x="50" y="356" font-family="ui-sans-serif,sans-serif" font-size="28" font-weight="800" fill="white">742</text>
+  <text x="94" y="356" font-family="ui-sans-serif,sans-serif" font-size="10" fill="white" fill-opacity="0.4">/1000</text>
+  <text x="50" y="372" font-family="ui-sans-serif,sans-serif" font-size="9" fill="#4ade80" font-weight="600">↑ +38 pts</text>
+
+  <!-- Card: streak -->
+  <rect x="174" y="300" width="100" height="80" rx="14" fill="white" fill-opacity="0.07" stroke="white" stroke-opacity="0.12" stroke-width="1"/>
+  <text x="194" y="323" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="700" fill="#D4B726" letter-spacing="0.08em">STREAK</text>
+  <text x="194" y="358" font-family="ui-sans-serif,sans-serif" font-size="28" font-weight="800" fill="white">14</text>
+  <text x="194" y="372" font-family="ui-sans-serif,sans-serif" font-size="9" fill="white" fill-opacity="0.4">dias seguidos</text>
+
+  <!-- Card: redação -->
+  <rect x="288" y="290" width="152" height="90" rx="14" fill="white" fill-opacity="0.07" stroke="white" stroke-opacity="0.12" stroke-width="1"/>
+  <text x="308" y="313" font-family="ui-sans-serif,sans-serif" font-size="9" font-weight="700" fill="#D4B726" letter-spacing="0.08em">REDAÇÃO</text>
+  <!-- mini gauge -->
+  <circle cx="364" cy="352" r="22" stroke="white" stroke-opacity="0.1" stroke-width="6" fill="none"/>
+  <circle cx="364" cy="352" r="22" stroke="#D4B726" stroke-width="6" fill="none"
+    stroke-dasharray="96 42" stroke-dashoffset="34" stroke-linecap="round"/>
+  <text x="357" y="357" font-family="ui-sans-serif,sans-serif" font-size="11" font-weight="800" fill="white">760</text>
+
+  <!-- Card: mentor comment -->
+  <rect x="30" y="400" width="410" height="80" rx="14" fill="white" fill-opacity="0.06" stroke="white" stroke-opacity="0.1" stroke-width="1"/>
+  <!-- avatar -->
+  <circle cx="56" cy="440" r="18" fill="white" fill-opacity="0.12"/>
+  <text x="48" y="445" font-family="ui-sans-serif,sans-serif" font-size="14" fill="white">👤</text>
+  <text x="82" y="428" font-family="ui-sans-serif,sans-serif" font-size="10" font-weight="700" fill="white">Mentor</text>
+  <text x="82" y="443" font-family="ui-sans-serif,sans-serif" font-size="10" fill="white" fill-opacity="0.55">Foco em equações de 2º grau essa semana.</text>
+  <text x="82" y="458" font-family="ui-sans-serif,sans-serif" font-size="10" fill="white" fill-opacity="0.55">Revisão espaçada no domingo. Boa semana! 🎯</text>
+
+  <!-- Subtle grid dots decoration -->
+  <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+    <circle cx="2" cy="2" r="1" fill="white" fill-opacity="0.06"/>
+  </pattern>
+  <rect x="0" y="0" width="480" height="520" fill="url(#dots)"/>
+</svg>
