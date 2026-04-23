@@ -105,11 +105,44 @@ const labelClass = "block text-xs font-medium text-slate-400 uppercase mb-2 trac
 const DIAS = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
 const HORARIOS = ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
 const CATEGORIAS = {
-  'Codificação': { cor: 'bg-blue-100 text-blue-800 border-blue-200' },
-  'Revisão': { cor: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-  'Hábitos': { cor: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-  'Sono': { cor: 'bg-purple-100 text-purple-800 border-purple-200' },
-  'Outros': { cor: 'bg-slate-100 text-slate-800 border-slate-200' }
+  'Codificação': { cor: 'bg-blue-100 text-blue-800 border-blue-200',    btn: 'bg-blue-500 hover:bg-blue-600 text-white',    dot: 'bg-blue-500'    },
+  'Revisão':     { cor: 'bg-emerald-100 text-emerald-800 border-emerald-200', btn: 'bg-emerald-500 hover:bg-emerald-600 text-white', dot: 'bg-emerald-500' },
+  'Hábitos':     { cor: 'bg-yellow-100 text-yellow-800 border-yellow-200',  btn: 'bg-yellow-500 hover:bg-yellow-600 text-white',  dot: 'bg-yellow-500'  },
+  'Sono':        { cor: 'bg-purple-100 text-purple-800 border-purple-200',  btn: 'bg-purple-500 hover:bg-purple-600 text-white',  dot: 'bg-purple-500'  },
+  'Outros':      { cor: 'bg-slate-100 text-slate-800 border-slate-200',    btn: 'bg-slate-400 hover:bg-slate-500 text-white',    dot: 'bg-slate-400'   },
+};
+
+const TEMPLATE_BASE = {
+  'Segunda-feira_07:00': { categoria: 'Hábitos',     label: '[Hábitos] - Exercício' },
+  'Segunda-feira_08:00': { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
+  'Segunda-feira_09:00': { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
+  'Segunda-feira_10:00': { categoria: 'Revisão',     label: '[Revisão] - Flashcards' },
+  'Segunda-feira_20:00': { categoria: 'Codificação', label: '[Codificação] - Matéria secundária' },
+  'Segunda-feira_21:00': { categoria: 'Revisão',     label: '[Revisão] - Revisão espaçada' },
+  'Terça-feira_07:00':   { categoria: 'Hábitos',     label: '[Hábitos] - Exercício' },
+  'Terça-feira_08:00':   { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
+  'Terça-feira_09:00':   { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
+  'Terça-feira_10:00':   { categoria: 'Revisão',     label: '[Revisão] - Flashcards' },
+  'Terça-feira_20:00':   { categoria: 'Codificação', label: '[Codificação] - Matéria secundária' },
+  'Terça-feira_21:00':   { categoria: 'Revisão',     label: '[Revisão] - Revisão espaçada' },
+  'Quarta-feira_07:00':  { categoria: 'Hábitos',     label: '[Hábitos] - Exercício' },
+  'Quarta-feira_08:00':  { categoria: 'Revisão',     label: '[Revisão] - Revisão geral' },
+  'Quarta-feira_09:00':  { categoria: 'Revisão',     label: '[Revisão] - Revisão geral' },
+  'Quarta-feira_20:00':  { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
+  'Quinta-feira_07:00':  { categoria: 'Hábitos',     label: '[Hábitos] - Exercício' },
+  'Quinta-feira_08:00':  { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
+  'Quinta-feira_09:00':  { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
+  'Quinta-feira_10:00':  { categoria: 'Revisão',     label: '[Revisão] - Flashcards' },
+  'Quinta-feira_20:00':  { categoria: 'Codificação', label: '[Codificação] - Matéria secundária' },
+  'Quinta-feira_21:00':  { categoria: 'Revisão',     label: '[Revisão] - Revisão espaçada' },
+  'Sexta-feira_08:00':   { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
+  'Sexta-feira_09:00':   { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
+  'Sexta-feira_20:00':   { categoria: 'Revisão',     label: '[Revisão] - Revisão semanal' },
+  'Sexta-feira_21:00':   { categoria: 'Revisão',     label: '[Revisão] - Revisão semanal' },
+  'Sábado_08:00':        { categoria: 'Revisão',     label: '[Revisão] - Revisão intensiva' },
+  'Sábado_09:00':        { categoria: 'Revisão',     label: '[Revisão] - Revisão intensiva' },
+  'Sábado_10:00':        { categoria: 'Revisão',     label: '[Revisão] - Revisão intensiva' },
+  'Domingo_22:00':       { categoria: 'Sono',        label: '[Sono] - Dormir' },
 };
 
 // As opções restritas para o Diário
@@ -165,6 +198,7 @@ export default function GestaoIndividualAluno() {
   });
 
   const [grade, setGrade] = useState({});
+  const [gradeHistorico, setGradeHistorico] = useState([]); // stack de undo
   const [selecaoAtual, setSelecaoAtual] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [configSemana, setConfigSemana] = useState({ categoria: 'Codificação', detalhe: '', foco: false });
@@ -172,6 +206,22 @@ export default function GestaoIndividualAluno() {
   const iniciarSelecao = (id) => { setIsDragging(true); setSelecaoAtual([id]); };
   const passarMouse = (id) => { if (isDragging && !selecaoAtual.includes(id)) setSelecaoAtual(prev => [...prev, id]); };
   const finalizarSelecao = () => setIsDragging(false);
+
+  // Undo: salva estado anterior e reverte
+  const pushHistorico = (g) => setGradeHistorico(prev => [...prev.slice(-19), g]);
+  const desfazer = () => {
+    if (gradeHistorico.length === 0) return;
+    const anterior = gradeHistorico[gradeHistorico.length - 1];
+    setGrade(anterior);
+    setGradeHistorico(prev => prev.slice(0, -1));
+  };
+
+  // Resumo de horas por categoria
+  const resumoHoras = Object.values(grade).reduce((acc, item) => {
+    if (!item) return acc;
+    acc[item.categoria] = (acc[item.categoria] || 0) + 1;
+    return acc;
+  }, {});
 
   // =========================================================================
   // CARREGAR DADOS DO GOOGLE
@@ -304,21 +354,41 @@ export default function GestaoIndividualAluno() {
     finally { setCarregandoOnboarding(false); }
   };
 
-  const aplicarCarimbo = () => { /* Mantido igual */
-    const label = `[${configSemana.categoria}]${configSemana.detalhe ? ' - ' + configSemana.detalhe : ''}${configSemana.foco ? ' ' : ''}`;
+  const aplicarCarimbo = () => {
+    pushHistorico({ ...grade });
+    const label = `[${configSemana.categoria}]${configSemana.detalhe ? ' - ' + configSemana.detalhe : ''}`;
     const novaGrade = { ...grade };
     selecaoAtual.forEach(id => { novaGrade[id] = { categoria: configSemana.categoria, label }; });
     setGrade(novaGrade);
     setSelecaoAtual([]);
-    setConfigSemana({ ...configSemana, detalhe: '' });
+    setConfigSemana(prev => ({ ...prev, detalhe: '' }));
   };
 
-  const limparHorarios = () => { /* Mantido igual */
+  const limparHorarios = () => {
+    pushHistorico({ ...grade });
     const novaGrade = { ...grade };
     selecaoAtual.forEach(id => { novaGrade[id] = null; });
     setGrade(novaGrade);
     setSelecaoAtual([]);
   };
+
+  const carregarTemplate = () => {
+    pushHistorico({ ...grade });
+    setGrade(TEMPLATE_BASE);
+    setSelecaoAtual([]);
+  };
+
+  // Atalho Ctrl+Z global (só ativo na aba semana)
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && abaInterna === 'semana') {
+        e.preventDefault();
+        desfazer();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [abaInterna, gradeHistorico]);
 
   const salvarSemana = async () => {
     setSalvandoRotina(true);
@@ -619,56 +689,149 @@ export default function GestaoIndividualAluno() {
         
         {abaInterna === 'semana' && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-in fade-in duration-500">
-            {/* Seu código da semana... */}
-             <div className="space-y-4">
-              {selecaoAtual.length > 0 ? (
-                <div className={cardClass + " border-2 border-intento-blue shadow-xl sticky top-8"}>
-                  <h3 className="font-bold text-intento-blue mb-4">Editando {selecaoAtual.length} horários</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className={labelClass}>Cluster</label>
-                      <select className={inputClass} value={configSemana.categoria} onChange={e => setConfigSemana({...configSemana, categoria: e.target.value})}>
-                        {Object.keys(CATEGORIAS).map(c => <option key={c}>{c}</option>)}
-                      </select>
-                    </div>
-                    <div><label className={labelClass}>Detalhe</label><input type="text" className={inputClass} value={configSemana.detalhe} onChange={e => setConfigSemana({...configSemana, detalhe: e.target.value})} /></div>
-                    <label className="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 rounded-lg"><input type="checkbox" checked={configSemana.foco} onChange={e => setConfigSemana({...configSemana, foco: e.target.checked})} className="w-5 h-5 accent-intento-blue"/><span className="text-sm font-bold text-intento-blue"> Modo Foco</span></label>
-                    <button onClick={aplicarCarimbo} className="w-full bg-intento-blue text-white font-bold py-3 rounded-lg hover:bg-blue-900 transition-all">Aplicar Atividade</button>
-                    <button onClick={limparHorarios} className="w-full border border-red-500 text-red-500 font-bold py-2 rounded-lg hover:bg-red-50 transition-all"> Limpar Seleção</button>
+
+            {/* ── Painel lateral ── */}
+            <div className="space-y-4 lg:sticky lg:top-8 self-start">
+
+              {/* Paleta de categorias — sempre visível */}
+              <div className={cardClass}>
+                <p className={labelClass}>Categoria ativa</p>
+                <div className="grid grid-cols-1 gap-2 mt-1">
+                  {Object.entries(CATEGORIAS).map(([cat, cfg]) => (
+                    <button key={cat} onClick={() => setConfigSemana(prev => ({ ...prev, categoria: cat }))}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-2 ${
+                        configSemana.categoria === cat
+                          ? `${cfg.btn} border-transparent shadow-md scale-[1.02]`
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      }`}>
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dot}`} />
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Detalhe / descrição da atividade */}
+                <div className="mt-4">
+                  <label className={labelClass}>Detalhe <span className="text-slate-300 normal-case font-normal">(opcional)</span></label>
+                  <input type="text" placeholder="Ex: Funções, Redação, Pomodoro..."
+                    className={inputClass + ' text-sm mt-1'}
+                    value={configSemana.detalhe}
+                    onChange={e => setConfigSemana(prev => ({ ...prev, detalhe: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter' && selecaoAtual.length > 0) aplicarCarimbo(); }}
+                  />
+                </div>
+
+                {/* Botões de ação */}
+                {selecaoAtual.length > 0 ? (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs font-semibold text-intento-blue">{selecaoAtual.length} célula{selecaoAtual.length !== 1 ? 's' : ''} selecionada{selecaoAtual.length !== 1 ? 's' : ''}</p>
+                    <button onClick={aplicarCarimbo}
+                      className="w-full bg-intento-blue text-white font-bold py-2.5 rounded-lg hover:bg-blue-900 transition-all text-sm">
+                      Aplicar ({selecaoAtual.length}h)
+                    </button>
+                    <button onClick={limparHorarios}
+                      className="w-full border border-red-300 text-red-500 font-semibold py-2 rounded-lg hover:bg-red-50 transition-all text-sm">
+                      Limpar seleção
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-4 text-xs text-slate-400 font-medium text-center py-2 bg-slate-50 rounded-lg">
+                    Arraste na grade para selecionar →
+                  </p>
+                )}
+              </div>
+
+              {/* Resumo de horas */}
+              {Object.keys(resumoHoras).length > 0 && (
+                <div className={cardClass}>
+                  <p className={labelClass}>Distribuição da semana</p>
+                  <div className="space-y-2 mt-2">
+                    {Object.entries(CATEGORIAS).map(([cat, cfg]) => {
+                      const horas = resumoHoras[cat] || 0;
+                      if (!horas) return null;
+                      const total = Object.values(resumoHoras).reduce((a, b) => a + b, 0);
+                      return (
+                        <div key={cat}>
+                          <div className="flex justify-between text-xs font-medium mb-1">
+                            <span className="flex items-center gap-1.5">
+                              <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
+                              <span className="text-slate-600">{cat}</span>
+                            </span>
+                            <span className="text-slate-500 font-bold">{horas}h</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-500 ${cfg.dot}`}
+                              style={{ width: `${(horas / total) * 100}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <p className="text-xs text-slate-400 font-medium text-right pt-1">
+                      Total: {Object.values(resumoHoras).reduce((a, b) => a + b, 0)}h
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <div className={cardClass + " border-dashed bg-slate-50 text-center py-12 sticky top-8"}>
-                  <p className="text-slate-400 font-medium px-4">Clique e arraste na grade ao lado para preencher.</p>
-                </div>
               )}
-              <button onClick={salvarSemana} disabled={salvandoRotina} className="w-full bg-intento-yellow text-white font-semibold py-3 rounded-lg shadow-sm hover:bg-yellow-500 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-70">
-                {salvandoRotina && <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
-                {salvandoRotina ? 'Sincronizando...' : 'Sincronizar Rotina'}
-              </button>
+
+              {/* Ações globais */}
+              <div className="space-y-2">
+                <button onClick={salvarSemana} disabled={salvandoRotina}
+                  className="w-full bg-intento-yellow text-white font-semibold py-2.5 rounded-lg shadow-sm hover:bg-yellow-500 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-70">
+                  {salvandoRotina && <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
+                  {salvandoRotina ? 'Sincronizando...' : 'Salvar Rotina'}
+                </button>
+                <div className="flex gap-2">
+                  <button onClick={desfazer} disabled={gradeHistorico.length === 0}
+                    title="Desfazer (Ctrl+Z)"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700 rounded-lg text-xs font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                    Desfazer
+                  </button>
+                  <button onClick={carregarTemplate}
+                    title="Carregar semana padrão de exemplo"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-slate-200 text-slate-500 hover:border-intento-blue hover:text-intento-blue rounded-lg text-xs font-semibold transition-all">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 5h16M4 10h10M4 15h16M4 20h10"/></svg>
+                    Template
+                  </button>
+                </div>
+              </div>
             </div>
 
+            {/* ── Grade semanal ── */}
             <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl overflow-x-auto shadow-sm select-none">
-              <table className="w-full text-xs border-collapse min-w-[800px]">
-                <thead><tr className="bg-slate-50 border-b border-slate-200"><th className="p-3 w-16 text-slate-400 font-medium border-r">Hora</th>{DIAS.map(dia => <th key={dia} className="p-3 font-semibold text-intento-blue border-r last:border-0">{dia.split('-')[0]}</th>)}</tr></thead>
+              <table className="w-full text-xs border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="p-3 w-14 text-slate-400 font-medium border-r text-center">Hora</th>
+                    {DIAS.map(dia => (
+                      <th key={dia} className="p-2 font-semibold text-intento-blue border-r last:border-0 text-center">
+                        <span className="hidden sm:inline">{dia.split('-')[0]}</span>
+                        <span className="sm:hidden">{dia.slice(0, 3)}</span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
                 <tbody>
                   {HORARIOS.map(hora => (
                     <tr key={hora} className="border-b border-slate-100 last:border-0">
-                      <td className="p-2 text-center font-bold text-slate-300 border-r bg-slate-50">{hora}</td>
+                      <td className="p-2 text-center text-[10px] font-bold text-slate-400 border-r bg-slate-50 whitespace-nowrap">{hora}</td>
                       {DIAS.map(dia => {
                         const id = `${dia}_${hora}`;
                         const isSelected = selecaoAtual.includes(id);
                         const item = grade[id];
                         return (
-                          <td 
-                            key={id} onMouseDown={() => iniciarSelecao(id)} onMouseEnter={() => passarMouse(id)}
-                            className={`p-1 border-r last:border-0 cursor-crosshair transition-all duration-75 min-w-[100px] h-12 ${isSelected ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : 'hover:bg-slate-50'}`}
+                          <td key={id}
+                            onMouseDown={() => iniciarSelecao(id)}
+                            onMouseEnter={() => passarMouse(id)}
+                            className={`border-r last:border-0 cursor-crosshair transition-all duration-75 h-10 p-0.5 ${
+                              isSelected ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : 'hover:bg-slate-50'
+                            }`}
                           >
                             {item && (
-                              <div className={`h-full w-full p-1.5 rounded-lg font-semibold flex flex-col items-center justify-center text-center leading-tight shadow-sm border ${CATEGORIAS[item.categoria]?.cor || 'bg-slate-200'}`}>
-                                <span className="text-[9px] font-bold uppercase tracking-wider opacity-60 leading-none">{item.categoria}</span>
+                              <div className={`h-full w-full px-1.5 rounded-md font-semibold flex flex-col justify-center leading-tight border ${CATEGORIAS[item.categoria]?.cor || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                <span className="text-[9px] font-bold uppercase tracking-wide opacity-70 leading-none">{item.categoria.slice(0, 3)}</span>
                                 {item.label.replace(/\[.*?\]\s*-?\s*/, '').trim() && (
-                                  <span className="text-[10px] mt-0.5 leading-tight">{item.label.replace(/\[.*?\]\s*-?\s*/, '').trim()}</span>
+                                  <span className="text-[9px] mt-0.5 leading-tight truncate">{item.label.replace(/\[.*?\]\s*-?\s*/, '').trim()}</span>
                                 )}
                               </div>
                             )}
