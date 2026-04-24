@@ -212,9 +212,60 @@ function GraficoTemporal({ registros, visao }) {
   );
 }
 
-function HistoricoAnalitico({ registros, cardClass }) {
+const EDIT_FIELDS = [
+  { idx: 0,  label: 'Semana',        type: 'text' },
+  { idx: 1,  label: 'Mês',           type: 'text' },
+  { idx: 2,  label: 'Data',          type: 'date' },
+  { idx: 3,  label: 'Meta (h)',       type: 'number' },
+  { idx: 4,  label: 'Horas Estudadas', type: 'number' },
+  { idx: 5,  label: 'Domínio (0–1)',  type: 'number', step: '0.01' },
+  { idx: 6,  label: 'Progresso (0–1)', type: 'number', step: '0.01' },
+  { idx: 7,  label: 'Revisões Atras.', type: 'number' },
+  { idx: 8,  label: 'Estresse (1–10)', type: 'number' },
+  { idx: 9,  label: 'Ansiedade (1–10)', type: 'number' },
+  { idx: 10, label: 'Motivação (1–10)', type: 'number' },
+  { idx: 11, label: 'Sono (h)',       type: 'number' },
+  { idx: 12, label: 'Domínio BIO',   type: 'number', step: '0.01' },
+  { idx: 13, label: 'Prog. BIO',     type: 'number', step: '0.01' },
+  { idx: 14, label: 'Domínio QUI',   type: 'number', step: '0.01' },
+  { idx: 15, label: 'Prog. QUI',     type: 'number', step: '0.01' },
+  { idx: 16, label: 'Domínio FIS',   type: 'number', step: '0.01' },
+  { idx: 17, label: 'Prog. FIS',     type: 'number', step: '0.01' },
+  { idx: 18, label: 'Domínio MAT',   type: 'number', step: '0.01' },
+  { idx: 19, label: 'Prog. MAT',     type: 'number', step: '0.01' },
+];
+
+function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
   const [visao, setVisao] = useState('geral');
+  const [editIdx, setEditIdx] = useState(null);
+  const [formEdit, setFormEdit] = useState({});
+  const [salvando, setSalvando] = useState(false);
+
   const cols = VISOES.find(v => v.id === visao)?.cols || VISOES[0].cols;
+
+  const abrirEdit = (i) => {
+    const row = registros[i];
+    const form = {};
+    EDIT_FIELDS.forEach(f => { form[f.idx] = row[f.idx] ?? ''; });
+    setFormEdit(form);
+    setEditIdx(i);
+  };
+
+  const salvarEdit = async () => {
+    if (salvando) return;
+    setSalvando(true);
+    const novaRow = registros[editIdx].map((_, ci) => formEdit[ci] !== undefined ? formEdit[ci] : registros[editIdx][ci]);
+    try {
+      await fetch('/api/mentor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'editarRegistro', idPlanilha, semana: registros[editIdx][0], dataRegistro: registros[editIdx][2], valores: novaRow }),
+      });
+      onUpdate?.(editIdx, novaRow);
+      setEditIdx(null);
+    } catch { /* silencia */ }
+    finally { setSalvando(false); }
+  };
 
   if (!registros || registros.length === 0) {
     return (
@@ -227,7 +278,7 @@ function HistoricoAnalitico({ registros, cardClass }) {
   return (
     <div className="space-y-4 animate-in fade-in">
 
-      {/* ── Card de gráfico temporal ── */}
+      {/* ── Gráfico temporal ── */}
       <div className={cardClass}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
           <div>
@@ -251,36 +302,76 @@ function HistoricoAnalitico({ registros, cardClass }) {
       {/* ── Tabela de dados brutos ── */}
       <div className={cardClass + ' overflow-hidden'}>
         <h2 className="text-sm font-bold text-intento-blue mb-4">Dados Brutos</h2>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              {cols.map(ci => (
-                <th key={ci} className={`p-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${ci === 0 ? 'sticky left-0 bg-slate-50' : ''} ${COL_COLORS[ci] || 'text-slate-400'}`}>
-                  {COL_LABELS[ci]}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {registros.map((reg, i) => (
-              <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                {cols.map((ci, j) => (
-                  <td key={ci} className={`p-3 whitespace-nowrap ${ci === 0 ? 'sticky left-0 bg-white font-bold text-intento-blue text-xs' : `font-medium ${valorColor(ci, reg[ci]) || 'text-slate-600'}`}`}>
-                    {COLUNAS_PERCENT.has(ci)
-                      ? (toPercent(reg[ci]) !== null ? `${toPercent(reg[ci])}%` : '—')
-                      : (reg[ci] ?? '—')}
-                  </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                {cols.map(ci => (
+                  <th key={ci} className={`p-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${ci === 0 ? 'sticky left-0 bg-slate-50' : ''} ${COL_COLORS[ci] || 'text-slate-400'}`}>
+                    {COL_LABELS[ci]}
+                  </th>
                 ))}
+                <th className="p-3 text-[10px] font-bold uppercase tracking-wider text-slate-300"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {registros.map((reg, i) => (
+                <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
+                  {cols.map((ci) => (
+                    <td key={ci} className={`p-3 whitespace-nowrap ${ci === 0 ? 'sticky left-0 bg-white font-bold text-intento-blue text-xs' : `font-medium ${valorColor(ci, reg[ci]) || 'text-slate-600'}`}`}>
+                      {COLUNAS_PERCENT.has(ci)
+                        ? (toPercent(reg[ci]) !== null ? `${toPercent(reg[ci])}%` : '—')
+                        : (reg[ci] ?? '—')}
+                    </td>
+                  ))}
+                  <td className="p-3">
+                    <button onClick={() => abrirEdit(i)} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-intento-blue" title="Editar registro">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      </div>
+      {/* ── Modal de edição ── */}
+      {editIdx !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg flex flex-col overflow-hidden max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
+              <h2 className="text-sm font-semibold text-intento-blue">Editar Registro — {registros[editIdx][0]}</h2>
+              <button onClick={() => setEditIdx(null)} className="text-slate-300 hover:text-slate-500 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto p-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {EDIT_FIELDS.map(f => (
+                  <div key={f.idx}>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">{f.label}</label>
+                    <input
+                      type={f.type}
+                      step={f.step || undefined}
+                      className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-medium text-intento-blue outline-none focus:ring-2 focus:ring-intento-blue"
+                      value={formEdit[f.idx] ?? ''}
+                      onChange={e => setFormEdit(prev => ({ ...prev, [f.idx]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+              <button onClick={() => setEditIdx(null)} className="px-5 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-all">Cancelar</button>
+              <button onClick={salvarEdit} disabled={salvando} className="px-5 py-2 rounded-lg bg-intento-blue text-white text-sm font-semibold hover:bg-blue-900 transition-all disabled:opacity-60">
+                {salvando ? 'Salvando...' : 'Salvar alterações'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-
   );
 }
 
@@ -1247,7 +1338,12 @@ export default function GestaoIndividualAluno() {
         )}
 
         {abaInterna === 'registros' && (
-          <HistoricoAnalitico registros={historicoRegistros} cardClass={cardClass} />
+          <HistoricoAnalitico
+            registros={historicoRegistros}
+            cardClass={cardClass}
+            idPlanilha={params.id}
+            onUpdate={(idx, novaRow) => setHistoricoRegistros(prev => prev.map((r, i) => i === idx ? novaRow : r))}
+          />
         )}
       </div>
 
