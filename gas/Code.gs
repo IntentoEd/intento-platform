@@ -5,20 +5,20 @@
 const ID_PLANILHA_MODELO = "1PXvzmMoM8g1JzN70HVvzaYT5ZMikrqd0bhxgkjPPFp8";
 const ID_PASTA_TRIAGEM   = "1hx2RLHhHkY3nkPSr2tfWvgRZnduqG6u5";
 const EMAIL_GESTOR       = "filippe@metodointento.com.br";
-const ID_PLANILHA_MESTRE_TOPICOS = "1iBTsSzQxo2zXQ6WVuXN1G7ZFooImU6ldFVJA-Ze6OI8";
 const URL_APP            = "https://mentoria.metodointento.com.br";
 
 const ABA = {
-  MESTRE:    "BD_novosalunos",
-  LOGS_ERRO: "Logs de Erro",
-  BASE_GESTAO: "Base_Gestao",
-  ONBOARDING: "BD_onboarding",
-  REGISTROS:  "BD_Registro",
-  ENCONTROS:  "BD_Diario",
-  SEMANA:     "BD_semana",
-  SIMULADOS:  "BD_Sim_ENEM",
-  CADERNO:    "BD_caderno",
-  TOPICOS:    "BD_Topicos"
+  MESTRE:      "BD_Alunos",
+  MENTORES:    "BD_Mentores",
+  LOGS_ERRO:   "Logs_Erro",
+  ONBOARDING:  "BD_Onboarding",
+  DIAGNOSTICO: "BD_Diagnostico",
+  REGISTROS:   "BD_Registro",
+  ENCONTROS:   "BD_Diario",
+  SEMANA:      "BD_Semana",
+  SIMULADOS:   "BD_Sim_ENEM",
+  CADERNO:     "BD_Caderno",
+  TOPICOS:     "BD_Topicos"
 };
 
 const COL_MESTRE = {
@@ -28,8 +28,9 @@ const COL_MESTRE = {
   PROVAS_INTERESSE: 12, CURSO_INTERESSE: 13, PLATAFORMA_ONLINE: 14,
   HISTORICO_ESTUDOS: 15, OBSTACULOS: 16, EXPECTATIVAS: 17,
   NOTA_LINGUAGENS: 18, NOTA_HUMANAS: 19, NOTA_NATUREZA: 20, NOTA_MATEMATICA: 21,
-  ID_PLANILHA: 52, DIAG_BIO: 53, DIAG_QUI: 54, DIAG_FIS: 55, DIAG_MAT: 56,
-  NOTA_REDACAO: 57, STATUS_ONBOARDING: 59
+  ID_PLANILHA: 52,
+  NOTA_REDACAO: 57, MENTOR_RESPONSAVEL: 58, STATUS_ONBOARDING: 59,
+  ULTIMA_DATA_REGISTRO: 60, ULTIMA_SEMANA_REGISTRO: 61, ULTIMO_ENCONTRO: 62
 };
 
 const COL_REG = {
@@ -56,6 +57,10 @@ const COL_SIM = {
 const COL_CAD = {
   ID: 0, DISCIPLINA: 1, TOPICO: 2, DATA_ERRO: 3, PERGUNTA: 4,
   RESPOSTA: 5, ESTAGIO: 6, PROXIMA_REVISAO: 7, HISTORICO: 8
+};
+
+const COL_MENTOR = {
+  EMAIL: 0, NOME: 1, STATUS: 2, DT_ENTRADA: 3
 };
 
 const COL_BD_ONB = {
@@ -165,6 +170,7 @@ function doPost(e) {
     if (acao === "registrarRevisaoCaderno") return handleRegistrarRevisaoCaderno(dados);
     if (acao === "editarRegistro")          return handleEditarRegistro(dados);
     if (acao === "editarEncontro")          return handleEditarEncontro(dados);
+    if (acao === "dashboardLider")          return handleDashboardLider(dados);
 
     throw new Error("Ação não reconhecida: " + acao);
 
@@ -315,9 +321,9 @@ function handleDiagnostico(dados) {
     if (!fileIdEncontrado)       throw new Error("Planilha do aluno não encontrada para este e-mail.");
 
     const ssAluno = SpreadsheetApp.openById(fileIdEncontrado);
-    let abaDiag   = ssAluno.getSheetByName("BD_diagnostico");
+    let abaDiag   = ssAluno.getSheetByName(ABA.DIAGNOSTICO);
     if (!abaDiag) {
-      abaDiag = ssAluno.insertSheet("BD_diagnostico");
+      abaDiag = ssAluno.insertSheet(ABA.DIAGNOSTICO);
       abaDiag.appendRow(["Data", "Acertos_Bio", "Acertos_Qui", "Acertos_Fis", "Acertos_Mat"]);
     }
     abaDiag.appendRow([
@@ -562,64 +568,6 @@ function removerAcentos(str) {
 
 
 // =====================================================================
-// ROBÔ DE SINCRONIZAÇÃO DE PASTAS
-// =====================================================================
-
-function sincronizarMentoresPorPasta() {
-  const ID_PASTA_OPERACOES = "0AO9G3KKilbXzUk9PVA";
-  const MENTORES_MAP = {
-    "anamatos":       "anamatos@metodointento.com.br",
-    "andrerodrigues": "andrerodrigues@metodointento.com.br",
-    "danielberga":    "danielberga@metodointento.com.br",
-    "athinagarcia":   "athinagarcia@metodointento.com.br",
-    "stephaniesenna": "stephaniesenna@metodointento.com.br",
-    "marinagram":     "marinagram@metodointento.com.br",
-    "jessicalima":    "jessicalima@metodointento.com.br",
-    "filippe":        "filippe@metodointento.com.br"
-  };
-
-  const pastaMae   = DriveApp.getFolderById(ID_PASTA_OPERACOES);
-  const subpastas  = pastaMae.getFolders();
-  const mapaDeAlunos = {};
-
-  while (subpastas.hasNext()) {
-    const pastaMentor = subpastas.next();
-    const nomePastaOriginal = pastaMentor.getName();
-    let nomeProcessado = removerAcentos(nomePastaOriginal)
-      .replace(/^[0-9]+\s*/, "").toLowerCase().replace(/\s+/g, "");
-    let emailEncontrado = null;
-    for (let chave in MENTORES_MAP) {
-      if (nomeProcessado.includes(chave) || chave.includes(nomeProcessado)) {
-        emailEncontrado = MENTORES_MAP[chave]; break;
-      }
-      if (nomeProcessado.startsWith("ana") && nomeProcessado.endsWith("matos")) {
-        emailEncontrado = MENTORES_MAP["anamatos"]; break;
-      }
-    }
-    if (emailEncontrado) {
-      const planilhas = pastaMentor.getFilesByType(MimeType.GOOGLE_SHEETS);
-      while (planilhas.hasNext()) mapaDeAlunos[planilhas.next().getId()] = emailEncontrado;
-    }
-  }
-
-  const ssMestre  = SpreadsheetApp.getActiveSpreadsheet();
-  const abaMestre = ssMestre.getSheetByName(ABA.BASE_GESTAO) || ssMestre.getSheetByName(ABA.MESTRE);
-  const matriz    = abaMestre.getDataRange().getValues();
-  const cabecalho = matriz[0];
-  const colMentor = cabecalho.indexOf("Mentor Responsável") + 1;
-  let colID       = cabecalho.indexOf("ID_Planilha");
-  if (colID === -1) colID = COL_MESTRE.ID_PLANILHA;
-  if (colMentor === 0) throw new Error("Coluna 'Mentor Responsável' não encontrada.");
-
-  for (let i = 1; i < matriz.length; i++) {
-    const idAluno = matriz[i][colID];
-    if (idAluno && mapaDeAlunos[idAluno])
-      abaMestre.getRange(i + 1, colMentor).setValue(mapaDeAlunos[idAluno]);
-  }
-}
-
-
-// =====================================================================
 // SALA DO MENTOR
 // =====================================================================
 
@@ -631,10 +579,8 @@ function handleListaAlunosMentor(dados) {
   const abaMestre = ssMestre.getSheetByName(ABA.MESTRE);
   if (!abaMestre) throw new Error("Aba mestre '" + ABA.MESTRE + "' não encontrada.");
 
-  const matriz    = abaMestre.getDataRange().getValues();
-  const cabecalho = matriz[0];
-  const colMentor = cabecalho.indexOf("Mentor Responsável");
-  if (colMentor === -1) throw new Error("Coluna 'Mentor Responsável' não encontrada.");
+  const matriz = abaMestre.getDataRange().getValues();
+  const colMentor = COL_MESTRE.MENTOR_RESPONSAVEL;
 
   const listaFiltrada = [];
   for (let i = 1; i < matriz.length; i++) {
@@ -714,6 +660,7 @@ function handleSalvarNovoEncontro(dados) {
       txt(dados.categoria), txt(dados.meta), txt(dados.exploracao),
       txt(acoes[0]), txt(acoes[1]), txt(acoes[2]), txt(acoes[3]), txt(acoes[4])
     ]);
+    atualizarCacheMestre(idPlanilha, { ULTIMO_ENCONTRO: dataHoje });
     return responderJSON({ status: "sucesso" });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
   finally     { lock.releaseLock(); }
@@ -760,6 +707,44 @@ function handleSalvarSemanaLote(dados) {
 // REGISTRO SEMANAL
 // =====================================================================
 
+/**
+ * Atualiza colunas de cache na mestre para um aluno (via ID_PLANILHA).
+ * updates: { CHAVE_COL_MESTRE: valor, ... } — ex: { ULTIMA_DATA_REGISTRO: '15/04/2026' }
+ * Falha silenciosa — não propaga erro pra operação principal.
+ */
+function atualizarCacheMestre(idPlanilha, updates) {
+  Logger.log('atualizarCacheMestre INICIO · idPlanilha=' + idPlanilha + ' · keys=' + Object.keys(updates).join(','));
+  try {
+    const ssMestre  = SpreadsheetApp.getActiveSpreadsheet();
+    const abaMestre = ssMestre.getSheetByName(ABA.MESTRE);
+    if (!abaMestre) { Logger.log('  aba mestre ' + ABA.MESTRE + ' não encontrada'); return; }
+    const numLinhas = abaMestre.getLastRow() - 1;
+    Logger.log('  linhas na mestre: ' + numLinhas);
+    if (numLinhas < 1) return;
+
+    const ids = abaMestre.getRange(2, COL_MESTRE.ID_PLANILHA + 1, numLinhas, 1).getValues();
+    let linhaAluno = -1;
+    for (let i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]).trim() === String(idPlanilha).trim()) { linhaAluno = i + 2; break; }
+    }
+    if (linhaAluno === -1) {
+      Logger.log('  aluno ' + idPlanilha + ' não encontrado. primeiros 3 ids: ' + JSON.stringify(ids.slice(0,3).map(function(r){return r[0];})));
+      return;
+    }
+    Logger.log('  aluno encontrado na linha ' + linhaAluno);
+
+    Object.keys(updates).forEach(function(chave) {
+      const col = COL_MESTRE[chave];
+      if (typeof col !== 'number') { Logger.log('  chave desconhecida ' + chave); return; }
+      abaMestre.getRange(linhaAluno, col + 1).setValue(updates[chave]);
+      Logger.log('  escrito ' + chave + '=' + updates[chave] + ' na col ' + (col+1));
+    });
+    Logger.log('atualizarCacheMestre FIM OK');
+  } catch (e) {
+    Logger.log('atualizarCacheMestre EXCEPTION: ' + e.message);
+  }
+}
+
 function handleSalvarRegistroGlobal(dados) {
   const lock = LockService.getScriptLock();
   try {
@@ -799,6 +784,10 @@ function handleSalvarRegistroGlobal(dados) {
     }
     const linhaDestino = ultimaLinhaComDados + 1;
     abaDB.getRange(linhaDestino, 1, 1, novaLinha.length).setValues([novaLinha]);
+    atualizarCacheMestre(idPlanilha, {
+      ULTIMA_DATA_REGISTRO:   txt(dados.dataRegistro),
+      ULTIMA_SEMANA_REGISTRO: txt(dados.semana)
+    });
     return responderJSON({ status: "sucesso" });
   } catch (erro) { return responderJSON({ status: "erro", mensagem: erro.message }); }
   finally        { lock.releaseLock(); }
@@ -945,6 +934,9 @@ function handleLoginGlobal(dados) {
     const emailStr = emailNorm(dados.email);
     if (!emailStr) return responderJSON({ status: "erro", mensagem: "E-mail não fornecido." });
 
+    if (emailStr === "filippe@metodointento.com.br")
+      return responderJSON({ status: "sucesso", perfil: "lider", rota: "/selecionar-modo" });
+
     if (emailStr.endsWith("@metodointento.com.br"))
       return responderJSON({ status: "sucesso", perfil: "mentor", rota: "/mentor" });
 
@@ -1031,7 +1023,7 @@ function handleSalvarAutopsia(dados) {
 
 function handleBuscarTopicosGlobais() {
   try {
-    const ssMestre   = SpreadsheetApp.openById(ID_PLANILHA_MESTRE_TOPICOS);
+    const ssMestre   = SpreadsheetApp.getActiveSpreadsheet();
     const abaTopicos = ssMestre.getSheetByName(ABA.TOPICOS);
     if (!abaTopicos) throw new Error("Aba '" + ABA.TOPICOS + "' não encontrada.");
     const matriz             = abaTopicos.getDataRange().getValues();
@@ -1196,9 +1188,9 @@ function handleBuscarOnboarding(dados) {
       }
     }
 
-    // Diagnóstico — pega a última linha (mais recente) de BD_diagnostico
+    // Diagnóstico — pega a última linha (mais recente) de BD_Diagnostico
     let diagnostico = null;
-    const abaDiag = ssAluno.getSheetByName("BD_diagnostico");
+    const abaDiag = ssAluno.getSheetByName(ABA.DIAGNOSTICO);
     if (abaDiag) {
       const matriz = abaDiag.getDataRange().getValues();
       if (matriz.length >= 2) {
@@ -1255,4 +1247,199 @@ function handleEditarRegistro(dados) {
     return responderJSON({ status: "erro", mensagem: "Registro não encontrado." });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
   finally     { lock.releaseLock(); }
+}
+
+
+// =====================================================================
+// PAINEL DO LÍDER
+// =====================================================================
+
+// Lê BD_Mentores e devolve mapa email → { email, nome, dtEntrada } só dos ativos.
+// Tolera ausência da aba (devolve {}) durante migração.
+function lerMentoresAtivos() {
+  var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ssMestre.getSheetByName(ABA.MENTORES);
+  if (!aba) return {};
+  var matriz = aba.getDataRange().getValues();
+  var map = {};
+  for (var i = 1; i < matriz.length; i++) {
+    var row = matriz[i];
+    var email = emailNorm(row[COL_MENTOR.EMAIL]);
+    if (!email || txt(row[COL_MENTOR.STATUS]) !== 'Ativo') continue;
+    map[email] = {
+      email: email,
+      nome:  txt(row[COL_MENTOR.NOME]),
+      dtEntrada: row[COL_MENTOR.DT_ENTRADA]
+    };
+  }
+  return map;
+}
+
+// Semana anterior (dom→sab passados) no formato "DD/MM/YYYY a DD/MM/YYYY"
+// (mesmo formato que getSemanaKey do frontend e ULTIMA_SEMANA_REGISTRO)
+function computarSemanaAnterior_() {
+  var hoje = new Date();
+  var domingo = new Date(hoje);
+  domingo.setDate(hoje.getDate() - hoje.getDay() - 7);
+  var sabado = new Date(domingo);
+  sabado.setDate(domingo.getDate() + 6);
+  var tz = "GMT-3";
+  return Utilities.formatDate(domingo, tz, "dd/MM/yyyy") + ' a ' +
+         Utilities.formatDate(sabado,  tz, "dd/MM/yyyy");
+}
+
+// Agregado da base — lê BD_Registro e BD_Sim_ENEM de cada aluno.
+// Parte cara. Se >45s no log, otimizar.
+function agregarMetricasBase_(alunos) {
+  var distribuicao = [
+    { faixa: '0-5h',   min: 0,  max: 5,   count: 0 },
+    { faixa: '5-10h',  min: 5,  max: 10,  count: 0 },
+    { faixa: '10-15h', min: 10, max: 15,  count: 0 },
+    { faixa: '15-20h', min: 15, max: 20,  count: 0 },
+    { faixa: '20h+',   min: 20, max: 999, count: 0 }
+  ];
+  var historicoPorSemana = {};
+  var somas = { domBio:0, cDomBio:0, domQui:0, cDomQui:0, domFis:0, cDomFis:0, domMat:0, cDomMat:0,
+                progBio:0, cProgBio:0, progQui:0, cProgQui:0, progFis:0, cProgFis:0, progMat:0, cProgMat:0 };
+  var bem = { est:0, cEst:0, ans:0, cAns:0, mot:0, cMot:0, son:0, cSon:0 };
+  var totalSim4W = 0;
+  var quatroSemanasAtras = new Date(new Date().getTime() - 28 * 24 * 60 * 60 * 1000);
+
+  function acc(valor, campoSoma, campoCount, alvo) {
+    var n = parseFloat(valor);
+    if (!isNaN(n) && n > 0) { alvo[campoSoma] += n; alvo[campoCount]++; }
+  }
+
+  for (var a = 0; a < alunos.length; a++) {
+    try {
+      var ss = SpreadsheetApp.openById(alunos[a].idAluno);
+      var abaReg = ss.getSheetByName(ABA.REGISTROS);
+      if (abaReg) {
+        var m = abaReg.getDataRange().getValues();
+        var filtrados = []; for (var k = 1; k < m.length; k++) if (m[k][COL_REG.SEMANA]) filtrados.push(m[k]);
+        var ultimos = filtrados.slice(-12);
+        var ultimo  = ultimos[ultimos.length - 1];
+        var ultimas4 = filtrados.slice(-4);
+
+        if (ultimo) {
+          var horas = parseFloat(ultimo[COL_REG.HORAS]) || 0;
+          for (var f = 0; f < distribuicao.length; f++) {
+            if (horas >= distribuicao[f].min && horas < distribuicao[f].max) { distribuicao[f].count++; break; }
+          }
+          acc(ultimo[COL_REG.ESTRESSE],  'est', 'cEst', bem);
+          acc(ultimo[COL_REG.ANSIEDADE], 'ans', 'cAns', bem);
+          acc(ultimo[COL_REG.MOTIVACAO], 'mot', 'cMot', bem);
+          acc(ultimo[COL_REG.SONO],      'son', 'cSon', bem);
+        }
+
+        for (var u = 0; u < ultimos.length; u++) {
+          var lbl = String(ultimos[u][COL_REG.SEMANA]);
+          if (!historicoPorSemana[lbl]) historicoPorSemana[lbl] = { horas: 0, meta: 0, count: 0 };
+          historicoPorSemana[lbl].horas += parseFloat(ultimos[u][COL_REG.HORAS]) || 0;
+          historicoPorSemana[lbl].meta  += parseFloat(ultimos[u][COL_REG.META])  || 0;
+          historicoPorSemana[lbl].count++;
+        }
+
+        for (var w = 0; w < ultimas4.length; w++) {
+          var r = ultimas4[w];
+          acc(r[COL_REG.DOM_BIO],  'domBio',  'cDomBio',  somas);
+          acc(r[COL_REG.DOM_QUI],  'domQui',  'cDomQui',  somas);
+          acc(r[COL_REG.DOM_FIS],  'domFis',  'cDomFis',  somas);
+          acc(r[COL_REG.DOM_MAT],  'domMat',  'cDomMat',  somas);
+          acc(r[COL_REG.PROG_BIO], 'progBio', 'cProgBio', somas);
+          acc(r[COL_REG.PROG_QUI], 'progQui', 'cProgQui', somas);
+          acc(r[COL_REG.PROG_FIS], 'progFis', 'cProgFis', somas);
+          acc(r[COL_REG.PROG_MAT], 'progMat', 'cProgMat', somas);
+        }
+      }
+
+      var abaSim = ss.getSheetByName(ABA.SIMULADOS);
+      if (abaSim) {
+        var ms = abaSim.getDataRange().getValues();
+        for (var si = 1; si < ms.length; si++) {
+          var rs = ms[si];
+          if (!rs[COL_SIM.ID] || txt(rs[COL_SIM.STATUS]) !== 'Concluída') continue;
+          var raw = rs[COL_SIM.DATA]; var d;
+          if (raw instanceof Date) d = raw;
+          else {
+            var s = String(raw).split(' ')[0];
+            if (s.indexOf('/') > 0) { var p = s.split('/'); d = new Date(+p[2], +p[1]-1, +p[0]); }
+            else d = new Date(s);
+          }
+          if (d && !isNaN(d.getTime()) && d >= quatroSemanasAtras) totalSim4W++;
+        }
+      }
+    } catch (e) { Logger.log('agregar: erro em ' + alunos[a].idAluno + ' — ' + e.message); }
+  }
+
+  var labels = Object.keys(historicoPorSemana).sort(function(a, b) {
+    function pl(l) { var p = l.split(' a ')[0].split('/'); return new Date(+p[2], +p[1]-1, +p[0]).getTime(); }
+    return pl(a) - pl(b);
+  }).slice(-8);
+
+  function avg(s, c) { return c > 0 ? +(s / c).toFixed(1) : 0; }
+
+  return {
+    horasEstudadas: {
+      distribuicao: distribuicao.map(function(d){ return { faixa: d.faixa, count: d.count }; }),
+      historico8Semanas: labels.map(function(l){
+        var h = historicoPorSemana[l];
+        return { semana: l, mediaHoras: avg(h.horas, h.count), mediaMeta: avg(h.meta, h.count) };
+      })
+    },
+    dominioPorMateria:   { bio: avg(somas.domBio,  somas.cDomBio),  qui: avg(somas.domQui,  somas.cDomQui),  fis: avg(somas.domFis,  somas.cDomFis),  mat: avg(somas.domMat,  somas.cDomMat) },
+    progressoPorMateria: { bio: avg(somas.progBio, somas.cProgBio), qui: avg(somas.progQui, somas.cProgQui), fis: avg(somas.progFis, somas.cProgFis), mat: avg(somas.progMat, somas.cProgMat) },
+    bemEstar:            { estresse: avg(bem.est, bem.cEst), ansiedade: avg(bem.ans, bem.cAns), motivacao: avg(bem.mot, bem.cMot), sono: avg(bem.son, bem.cSon) },
+    simuladosUltimas4Semanas: totalSim4W
+  };
+}
+
+function handleDashboardLider(dados) {
+  try {
+    var email = emailNorm(dados.email);
+    if (email !== 'filippe@metodointento.com.br') {
+      return responderJSON({ status: 'erro', codigo: 403, mensagem: 'Não autorizado' });
+    }
+
+    var semanaAtual = computarSemanaAnterior_();
+    var ssMestre  = SpreadsheetApp.getActiveSpreadsheet();
+    var abaMestre = ssMestre.getSheetByName(ABA.MESTRE);
+    if (!abaMestre) throw new Error('Aba mestre não encontrada');
+    var matriz = abaMestre.getDataRange().getValues();
+
+    var mentoresAtivos = lerMentoresAtivos();
+    var alunos = [];
+    for (var i = 1; i < matriz.length; i++) {
+      var row = matriz[i];
+      var statusOn   = txt(row[COL_MESTRE.STATUS_ONBOARDING]);
+      var idPlanilha = txt(row[COL_MESTRE.ID_PLANILHA]);
+      if (statusOn !== 'Onboarding Completo' || !idPlanilha) continue;
+      var emailMentor = emailNorm(row[COL_MESTRE.MENTOR_RESPONSAVEL]);
+      var mentorObj = mentoresAtivos[emailMentor];
+      alunos.push({
+        idAluno: idPlanilha,
+        nome:    txt(row[COL_MESTRE.NOME]),
+        email:   emailNorm(row[COL_MESTRE.EMAIL]),
+        mentor:  emailMentor,
+        mentorNome:  mentorObj ? mentorObj.nome : emailMentor,
+        mentorAtivo: !!mentorObj,
+        registrouSemanaAtual: txt(row[COL_MESTRE.ULTIMA_SEMANA_REGISTRO]) === semanaAtual,
+        ultimoEncontro: txt(row[COL_MESTRE.ULTIMO_ENCONTRO])
+      });
+    }
+
+    if (dados.skipAgregado) {
+      return responderJSON({ status: 'sucesso', semanaAtual: semanaAtual, alunos: alunos, agregado: null });
+    }
+
+    Logger.log('dashboardLider: agregando ' + alunos.length + ' alunos');
+    var t0 = new Date().getTime();
+    var agregado = agregarMetricasBase_(alunos);
+    Logger.log('dashboardLider: agregado em ' + ((new Date().getTime() - t0) / 1000) + 's');
+
+    return responderJSON({ status: 'sucesso', semanaAtual: semanaAtual, alunos: alunos, agregado: agregado });
+  } catch (e) {
+    Logger.log('dashboardLider EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
 }

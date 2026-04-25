@@ -10,6 +10,7 @@ const TTL_MS = {
   listaAlunosMentor:    5  * 60 * 1000,      // 5min
   buscarOnboarding:     60 * 60 * 1000,      // 1h
   buscarDadosAluno:     60 * 1000,           // 60s
+  dashboardLider:       2  * 60 * 1000,      // 2min — dashboard do líder, dados mudam a cada write
 };
 
 // Quais ações de escrita invalidam quais ações de leitura
@@ -28,10 +29,13 @@ function chavesParaInvalidar(acaoEscrita, dados) {
     case 'incrementarRepeticao':
     case 'deletarCardCaderno':
     case 'registrarRevisaoCaderno':
-      return ids.flatMap(id => [`buscarDadosAluno|${id}`, `buscarOnboarding|${id}`]);
+      return [
+        ...ids.flatMap(id => [`buscarDadosAluno|${id}`, `buscarOnboarding|${id}`]),
+        'dashboardLider|*',  // qualquer mutação invalida o dashboard do líder
+      ];
     case 'onboarding':
     case 'diagnostico':
-      return ['listaAlunosMentor|*'];
+      return ['listaAlunosMentor|*', 'dashboardLider|*'];
     default:
       return [];
   }
