@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Line } from '@/components/Charts';
+import { LoadingScreen, LoadingInline } from '@/components/Loading';
 
 // ── Colunas do histórico (índices da array retornada pelo backend) ──────────
 // [0]Semana [1]Mês [2]Data [3]Meta [4]Horas [5]Domínio [6]Progresso [7]Revisões
@@ -747,7 +748,7 @@ export default function GestaoIndividualAluno() {
     finally { setSalvandoRotina(false); }
   };
 
-  if (carregando) return <div className="p-8 text-center text-intento-blue font-medium animate-pulse text-sm">Carregando dados...</div>;
+  if (carregando) return <LoadingScreen mensagem="Carregando dados do aluno..." />;
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 lg:p-8 font-sans" onMouseUp={finalizarSelecao}>
@@ -1323,9 +1324,7 @@ export default function GestaoIndividualAluno() {
         {/* ================================================================== */}
         {abaInterna === 'onboarding' && (
           <div className="space-y-5 animate-in fade-in duration-500">
-            {carregandoOnboarding && (
-              <div className="text-center py-12 text-slate-400 text-sm font-medium animate-pulse">Carregando dados de onboarding...</div>
-            )}
+            {carregandoOnboarding && <LoadingInline mensagem="Carregando dados de onboarding..." />}
             {!carregandoOnboarding && erroOnboarding && (
               <div className="bg-red-50 border border-red-100 rounded-xl p-5 text-sm text-red-600 font-medium">
                 Erro ao carregar: <span className="font-normal">{erroOnboarding}</span>

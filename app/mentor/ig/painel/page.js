@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMentor } from '@/lib/MentorContext';
+import { LoadingInline } from '@/components/Loading';
 
 // ─── Paleta de cores por tema ────────────────────────────────────────────────
 const borderColorMap = {
@@ -216,11 +217,7 @@ function ExportarAcompanhamento() {
           Selecione um aluno para visualizar o card.
         </div>
       )}
-      {alunoId && carregando && (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#060242]"></div>
-        </div>
-      )}
+      {alunoId && carregando && <LoadingInline mensagem="Carregando dados do aluno..." className="h-64" />}
       {erro && <div className="text-center text-red-500 font-medium text-sm mt-12">{erro}</div>}
 
       {/* ── Card exportável ────────────────────────────────────────── */}

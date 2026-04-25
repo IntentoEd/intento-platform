@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMentor } from '@/lib/MentorContext';
+import { LoadingInline } from '@/components/Loading';
 
 const CATEGORIA_COR = {
   'Codificação': { bg: '#dbeafe', fg: '#1e3a8a' },
@@ -117,11 +118,7 @@ function ExportarDiario() {
         </button>
       </div>
 
-      {carregando && (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#060242]"></div>
-        </div>
-      )}
+      {carregando && <LoadingInline mensagem="Carregando encontro..." className="h-64" />}
       {erro && <div className="text-center text-red-500 font-medium text-sm mt-12">{erro}</div>}
 
       {encontro && !carregando && (

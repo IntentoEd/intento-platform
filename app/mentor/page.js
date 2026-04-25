@@ -6,6 +6,7 @@ import Link from 'next/link';
 import ModalRegistro from '../../components/ModalRegistro';
 import { auth } from '@/lib/firebase';
 import { useMentor } from '@/lib/MentorContext';
+import { LoadingScreen } from '@/components/Loading';
 
 // Chave da semana de referência (semana anterior, dom→sab) — mesma lógica do modal
 function getSemanaKey() {
@@ -77,14 +78,7 @@ export default function PainelGlobalMentor() {
   const totalRegistrados = alunos.filter(a => registradosSemana[String(a.id)]).length;
   const semanaRef = getSemanaKey();
 
-  if (carregando) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-intento-blue mb-4" />
-        <p className="text-intento-blue font-semibold text-sm animate-pulse">Sincronizando Painel...</p>
-      </div>
-    );
-  }
+  if (carregando) return <LoadingScreen mensagem="Sincronizando Painel..." />;
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 lg:p-8 font-sans">
