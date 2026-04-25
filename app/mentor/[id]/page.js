@@ -847,12 +847,19 @@ export default function GestaoIndividualAluno() {
                 <div className="p-8 border-2 border-dashed rounded-xl text-center text-slate-400 font-bold">Nenhum encontro registrado.</div>
               ) : (
                 <div className="space-y-4">
-                  {historicoDiarios.map((enc, i) => (
+                  {historicoDiarios.map((enc, i) => {
+                    const expandido = expandidoId === i;
+                    const toggleExpand = () => setExpandidoId(expandido ? null : i);
+                    return (
                     <div key={i} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden transition-all">
                       {/* CABEÇALHO DA SANFONA */}
-                      <button
-                        onClick={() => setExpandidoId(expandidoId === i ? null : i)}
-                        className="w-full text-left px-5 py-4 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors"
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={expandido}
+                        onClick={toggleExpand}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(); } }}
+                        className="w-full text-left px-5 py-4 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus:bg-slate-50"
                       >
                         {/* Data */}
                         <span className="shrink-0 bg-intento-blue text-white px-3 py-1.5 rounded-lg text-xs font-semibold min-w-[100px] text-center">
@@ -887,39 +894,43 @@ export default function GestaoIndividualAluno() {
                           </div>
                         </div>
 
-                        {/* Chevron */}
-                        <svg className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ${expandidoId === i ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                      </button>
-                      
+                        {/* Ações discretas (icon-only) */}
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <Link
+                            href={`/mentor/ig/diario?id=${params.id}&linha=${enc.linha}&nome=${encodeURIComponent(nomeAluno || '')}`}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Exportar encontro"
+                            aria-label="Exportar encontro"
+                            className="p-2 rounded-lg text-slate-400 hover:text-intento-blue hover:bg-white transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); abrirEdicaoEncontro(enc); }}
+                            title="Editar encontro"
+                            aria-label="Editar encontro"
+                            className="p-2 rounded-lg text-slate-400 hover:text-intento-blue hover:bg-white transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                          </button>
+                          <span className="w-px h-5 bg-slate-200 mx-1" aria-hidden="true" />
+                          {/* Chevron */}
+                          <svg className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${expandido ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/>
+                          </svg>
+                        </div>
+                      </div>
+
                       {/* CONTEÚDO EXPANDIDO (TODOS OS CAMPOS) */}
-                      {expandidoId === i && (
+                      {expandido && (
                         <div className="p-6 border-t border-slate-100 bg-slate-50 space-y-6 animate-in fade-in">
 
-                          {/* Topo: Categoria + ações */}
-                          <div className="flex items-center justify-between gap-3">
+                          {/* Topo: Categoria */}
+                          <div>
                             <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                               Desafio: {enc.categoria || 'Não Categorizado'}
                             </span>
-                            <div className="flex items-center gap-2">
-                              <Link
-                                href={`/mentor/ig/diario?id=${params.id}&linha=${enc.linha}&nome=${encodeURIComponent(nomeAluno || '')}`}
-                                className="text-xs font-semibold text-slate-500 hover:text-intento-blue flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-intento-blue bg-white transition"
-                                title="Exportar este encontro"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                Exportar
-                              </Link>
-                              <button
-                                onClick={() => abrirEdicaoEncontro(enc)}
-                                className="text-xs font-semibold text-slate-500 hover:text-intento-blue flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-intento-blue bg-white transition"
-                                title="Editar este encontro"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                Editar
-                              </button>
-                            </div>
                           </div>
 
                           {/* Grid de Vitórias e Desafios */}
@@ -960,7 +971,8 @@ export default function GestaoIndividualAluno() {
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
