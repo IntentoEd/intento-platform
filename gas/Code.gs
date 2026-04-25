@@ -558,8 +558,24 @@ function obterDadosDoPainel(ss, emailAluno) {
       }
     }
 
-    const rotina     = {};
-    const rotinaDias = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+    // Semana Padrão (rotina): lê BD_semana e monta { dia: [{hora, atividade}, ...] }
+    // BD_semana é gravado pelo mentor com colunas na ordem Seg→Dom; o painel do aluno
+    // espera rotinaDias em ordem Dom→Sáb (alinhado com new Date().getDay()).
+    const rotinaDias       = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+    const COLUNAS_BD_SEMANA = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"];
+    const HORARIOS_ROTINA  = ["07:00","08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"];
+    const rotina = {};
+    rotinaDias.forEach(function(d) { rotina[d] = []; });
+    const abaSemanaPadrao = ss.getSheetByName(ABA.SEMANA);
+    if (abaSemanaPadrao) {
+      const matrizSemana = abaSemanaPadrao.getRange(2, 2, 16, 7).getValues();
+      for (let l = 0; l < 16; l++) {
+        for (let c = 0; c < 7; c++) {
+          const atividade = txt(matrizSemana[l][c]);
+          if (atividade) rotina[COLUNAS_BD_SEMANA[c]].push({ hora: HORARIOS_ROTINA[l], atividade: atividade });
+        }
+      }
+    }
 
     return {
       aluno: { nome: nomeAluno }, snapshot: snapshot, mensal: mensal,
