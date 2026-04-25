@@ -98,7 +98,7 @@ function testCacheMestre() {
     ULTIMA_DATA_REGISTRO:   'TESTE_DIAGNOSTICO',
     ULTIMA_SEMANA_REGISTRO: 'TESTE_DIAGNOSTICO'
   });
-  Logger.log('===== FIM — verifique colunas BI/BJ da linha do aluno ' + alunoTeste.nome + ' =====');
+  Logger.log('===== FIM — verifique a aba Cache_Alunos · linha do ' + alunoTeste.nome + ' =====');
 }
 
 /**
@@ -182,5 +182,5 @@ function testCacheEncontro() {
   atualizarCacheMestre(alunoTeste.id, {
     ULTIMO_ENCONTRO: 'TESTE_ENCONTRO'
   });
-  Logger.log('===== FIM — verifique coluna BK da linha do aluno ' + alunoTeste.nome + ' =====');
+  Logger.log('===== FIM — verifique a aba Cache_Alunos · ultimo_encontro do ' + alunoTeste.nome + ' =====');
 }

@@ -10,6 +10,7 @@ const URL_APP            = "https://mentoria.metodointento.com.br";
 const ABA = {
   MESTRE:      "BD_Alunos",
   MENTORES:    "BD_Mentores",
+  CACHE:       "Cache_Alunos",
   LOGS_ERRO:   "Logs_Erro",
   ONBOARDING:  "BD_Onboarding",
   DIAGNOSTICO: "BD_Diagnostico",
@@ -29,8 +30,12 @@ const COL_MESTRE = {
   HISTORICO_ESTUDOS: 15, OBSTACULOS: 16, EXPECTATIVAS: 17,
   NOTA_LINGUAGENS: 18, NOTA_HUMANAS: 19, NOTA_NATUREZA: 20, NOTA_MATEMATICA: 21,
   ID_PLANILHA: 52,
-  NOTA_REDACAO: 57, MENTOR_RESPONSAVEL: 58, STATUS_ONBOARDING: 59,
-  ULTIMA_DATA_REGISTRO: 60, ULTIMA_SEMANA_REGISTRO: 61, ULTIMO_ENCONTRO: 62
+  NOTA_REDACAO: 57, MENTOR_RESPONSAVEL: 58, STATUS_ONBOARDING: 59
+};
+
+// Cache_Alunos: cache em aba separada — escrita em writes, leitura em dashboardLider
+const COL_CACHE = {
+  ID_PLANILHA: 0, ULTIMA_DATA_REGISTRO: 1, ULTIMA_SEMANA_REGISTRO: 2, ULTIMO_ENCONTRO: 3
 };
 
 const COL_REG = {
@@ -708,41 +713,71 @@ function handleSalvarSemanaLote(dados) {
 // =====================================================================
 
 /**
- * Atualiza colunas de cache na mestre para um aluno (via ID_PLANILHA).
- * updates: { CHAVE_COL_MESTRE: valor, ... } — ex: { ULTIMA_DATA_REGISTRO: '15/04/2026' }
- * Falha silenciosa — não propaga erro pra operação principal.
+ * Atualiza linha do aluno na aba Cache_Alunos. Se o aluno não tem linha
+ * ainda, cria uma nova (appendRow). Falha silenciosa — não propaga erro
+ * pra operação principal.
+ * updates: { CHAVE_COL_CACHE: valor, ... }
+ * Ex: atualizarCacheMestre(id, { ULTIMA_DATA_REGISTRO: '15/04/2026', ULTIMA_SEMANA_REGISTRO: '06/04/2026 a 12/04/2026' })
  */
 function atualizarCacheMestre(idPlanilha, updates) {
   Logger.log('atualizarCacheMestre INICIO · idPlanilha=' + idPlanilha + ' · keys=' + Object.keys(updates).join(','));
   try {
-    const ssMestre  = SpreadsheetApp.getActiveSpreadsheet();
-    const abaMestre = ssMestre.getSheetByName(ABA.MESTRE);
-    if (!abaMestre) { Logger.log('  aba mestre ' + ABA.MESTRE + ' não encontrada'); return; }
-    const numLinhas = abaMestre.getLastRow() - 1;
-    Logger.log('  linhas na mestre: ' + numLinhas);
-    if (numLinhas < 1) return;
+    const ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+    const abaCache = ssMestre.getSheetByName(ABA.CACHE);
+    if (!abaCache) { Logger.log('  aba ' + ABA.CACHE + ' não encontrada'); return; }
 
-    const ids = abaMestre.getRange(2, COL_MESTRE.ID_PLANILHA + 1, numLinhas, 1).getValues();
+    const lastRow = abaCache.getLastRow();
     let linhaAluno = -1;
-    for (let i = 0; i < ids.length; i++) {
-      if (String(ids[i][0]).trim() === String(idPlanilha).trim()) { linhaAluno = i + 2; break; }
+    if (lastRow >= 2) {
+      const ids = abaCache.getRange(2, COL_CACHE.ID_PLANILHA + 1, lastRow - 1, 1).getValues();
+      for (let i = 0; i < ids.length; i++) {
+        if (String(ids[i][0]).trim() === String(idPlanilha).trim()) { linhaAluno = i + 2; break; }
+      }
     }
+
     if (linhaAluno === -1) {
-      Logger.log('  aluno ' + idPlanilha + ' não encontrado. primeiros 3 ids: ' + JSON.stringify(ids.slice(0,3).map(function(r){return r[0];})));
+      // Cria nova linha de cache pra esse aluno
+      const novaLinha = [String(idPlanilha), '', '', ''];
+      Object.keys(updates).forEach(function(chave) {
+        const col = COL_CACHE[chave];
+        if (typeof col === 'number') novaLinha[col] = updates[chave];
+      });
+      abaCache.appendRow(novaLinha);
+      Logger.log('  novo registro de cache criado para ' + idPlanilha);
       return;
     }
-    Logger.log('  aluno encontrado na linha ' + linhaAluno);
 
     Object.keys(updates).forEach(function(chave) {
-      const col = COL_MESTRE[chave];
+      const col = COL_CACHE[chave];
       if (typeof col !== 'number') { Logger.log('  chave desconhecida ' + chave); return; }
-      abaMestre.getRange(linhaAluno, col + 1).setValue(updates[chave]);
-      Logger.log('  escrito ' + chave + '=' + updates[chave] + ' na col ' + (col+1));
+      abaCache.getRange(linhaAluno, col + 1).setValue(updates[chave]);
+      Logger.log('  escrito ' + chave + '=' + updates[chave] + ' na col ' + (col + 1));
     });
     Logger.log('atualizarCacheMestre FIM OK');
   } catch (e) {
     Logger.log('atualizarCacheMestre EXCEPTION: ' + e.message);
   }
+}
+
+// Lê toda a Cache_Alunos e devolve mapa idPlanilha → { ultimaDataRegistro, ultimaSemanaRegistro, ultimoEncontro }
+function lerCacheTodos() {
+  const ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+  const abaCache = ssMestre.getSheetByName(ABA.CACHE);
+  if (!abaCache) return {};
+  const lastRow = abaCache.getLastRow();
+  if (lastRow < 2) return {};
+  const matriz = abaCache.getRange(2, 1, lastRow - 1, 4).getValues();
+  const mapa = {};
+  for (let i = 0; i < matriz.length; i++) {
+    const id = String(matriz[i][COL_CACHE.ID_PLANILHA]).trim();
+    if (!id) continue;
+    mapa[id] = {
+      ultimaDataRegistro:   txt(matriz[i][COL_CACHE.ULTIMA_DATA_REGISTRO]),
+      ultimaSemanaRegistro: txt(matriz[i][COL_CACHE.ULTIMA_SEMANA_REGISTRO]),
+      ultimoEncontro:       txt(matriz[i][COL_CACHE.ULTIMO_ENCONTRO])
+    };
+  }
+  return mapa;
 }
 
 function handleSalvarRegistroGlobal(dados) {
@@ -1415,6 +1450,7 @@ function handleDashboardLider(dados) {
     var matriz = abaMestre.getDataRange().getValues();
 
     var mentoresAtivos = lerMentoresAtivos();
+    var cacheAlunos    = lerCacheTodos();
     var alunos = [];
     for (var i = 1; i < matriz.length; i++) {
       var row = matriz[i];
@@ -1423,6 +1459,7 @@ function handleDashboardLider(dados) {
       if (statusOn !== 'Onboarding Completo' || !idPlanilha) continue;
       var emailMentor = emailNorm(row[COL_MESTRE.MENTOR_RESPONSAVEL]);
       var mentorObj = mentoresAtivos[emailMentor];
+      var c = cacheAlunos[idPlanilha] || {};
       alunos.push({
         idAluno: idPlanilha,
         nome:    txt(row[COL_MESTRE.NOME]),
@@ -1430,8 +1467,8 @@ function handleDashboardLider(dados) {
         mentor:  emailMentor,
         mentorNome:  mentorObj ? mentorObj.nome : emailMentor,
         mentorAtivo: !!mentorObj,
-        registrouSemanaAtual: txt(row[COL_MESTRE.ULTIMA_SEMANA_REGISTRO]) === semanaAtual,
-        ultimoEncontro: txt(row[COL_MESTRE.ULTIMO_ENCONTRO])
+        registrouSemanaAtual: c.ultimaSemanaRegistro === semanaAtual,
+        ultimoEncontro: c.ultimoEncontro || ''
       });
     }
 
