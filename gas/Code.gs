@@ -1165,16 +1165,45 @@ function calcularProximaRevisao(dataBaseStr, estagio) {
 function handleBuscarOnboarding(dados) {
   try {
     const idPlanilha = exigirIdPlanilha(dados, "idPlanilhaAluno");
-    const aba        = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.ONBOARDING);
-    if (!aba) return responderJSON({ status: "sucesso", onboarding: null });
-    const linhas = aba.getDataRange().getValues();
-    if (linhas.length < 2) return responderJSON({ status: "sucesso", onboarding: null });
-    const cabecalho = linhas[0];
-    const linha     = linhas[1];
-    const obj       = {};
-    for (let i = 0; i < cabecalho.length; i++)
-      if (cabecalho[i]) obj[txt(cabecalho[i])] = linha[i] || "";
-    return responderJSON({ status: "sucesso", onboarding: obj });
+    const ssAluno    = SpreadsheetApp.openById(idPlanilha);
+
+    // Onboarding (formulário inicial)
+    let onboarding = null;
+    const abaOn = ssAluno.getSheetByName(ABA.ONBOARDING);
+    if (abaOn) {
+      const linhas = abaOn.getDataRange().getValues();
+      if (linhas.length >= 2) {
+        const cabecalho = linhas[0];
+        const linha     = linhas[1];
+        const obj       = {};
+        for (let i = 0; i < cabecalho.length; i++)
+          if (cabecalho[i]) obj[txt(cabecalho[i])] = linha[i] || "";
+        onboarding = obj;
+      }
+    }
+
+    // Diagnóstico — pega a última linha (mais recente) de BD_diagnostico
+    let diagnostico = null;
+    const abaDiag = ssAluno.getSheetByName("BD_diagnostico");
+    if (abaDiag) {
+      const matriz = abaDiag.getDataRange().getValues();
+      if (matriz.length >= 2) {
+        const ultima = matriz[matriz.length - 1];
+        const dataRaw = ultima[0];
+        const dataFmt = dataRaw instanceof Date
+          ? Utilities.formatDate(dataRaw, Session.getScriptTimeZone(), "dd/MM/yyyy")
+          : String(dataRaw || "");
+        diagnostico = {
+          data:       dataFmt,
+          biologia:   num(ultima[1]),
+          quimica:    num(ultima[2]),
+          fisica:     num(ultima[3]),
+          matematica: num(ultima[4]),
+        };
+      }
+    }
+
+    return responderJSON({ status: "sucesso", onboarding: onboarding, diagnostico: diagnostico });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
 }
 

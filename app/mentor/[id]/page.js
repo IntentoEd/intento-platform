@@ -435,6 +435,7 @@ export default function GestaoIndividualAluno() {
   const [gradeModificada, setGradeModificada] = useState(false);
   const [salvandoRotina, setSalvandoRotina] = useState(false);
   const [dadosOnboarding, setDadosOnboarding] = useState(null);
+  const [dadosDiagnostico, setDadosDiagnostico] = useState(null);
   const [carregandoOnboarding, setCarregandoOnboarding] = useState(false);
   const [erroOnboarding, setErroOnboarding] = useState('');
 
@@ -660,6 +661,7 @@ export default function GestaoIndividualAluno() {
       const data = await res.json();
       if (data.status === 'sucesso') {
         setDadosOnboarding(data.onboarding || {});
+        setDadosDiagnostico(data.diagnostico || null);
       } else {
         setErroOnboarding(data.mensagem || 'Erro desconhecido retornado pelo servidor.');
       }
@@ -1412,6 +1414,68 @@ export default function GestaoIndividualAluno() {
                         </div>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Diagnóstico Teórico */}
+                  <div className={cardClass}>
+                    <div className="flex items-baseline justify-between mb-4 border-b pb-3">
+                      <h2 className="text-base font-semibold text-intento-blue">Diagnóstico Teórico</h2>
+                      {dadosDiagnostico?.data && (
+                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Realizado em {dadosDiagnostico.data}</p>
+                      )}
+                    </div>
+                    {!dadosDiagnostico ? (
+                      <p className="text-sm text-slate-400 font-medium py-4 text-center">O aluno ainda não realizou o diagnóstico.</p>
+                    ) : (() => {
+                      const disc = [
+                        { label: 'Biologia',   key: 'biologia',   color: '#10b981', tw: 'text-emerald-600' },
+                        { label: 'Química',    key: 'quimica',    color: '#3b82f6', tw: 'text-blue-600' },
+                        { label: 'Física',     key: 'fisica',     color: '#f97316', tw: 'text-orange-500' },
+                        { label: 'Matemática', key: 'matematica', color: '#a855f7', tw: 'text-purple-500' },
+                      ];
+                      const total = disc.reduce((s, d) => s + (dadosDiagnostico[d.key] || 0), 0);
+                      const pct = (n) => Math.round((n / 45) * 100);
+                      return (
+                        <>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+                            {disc.map(d => {
+                              const acertos = dadosDiagnostico[d.key] || 0;
+                              return (
+                                <div key={d.key} className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100" style={{ borderTop: `3px solid ${d.color}` }}>
+                                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{d.label}</p>
+                                  <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{acertos}<span className="text-xs text-slate-400 font-medium">/45</span></p>
+                                  <p className="text-[10px] text-slate-400 mt-1">{pct(acertos)}%</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="space-y-3">
+                            {disc.map(d => {
+                              const acertos = dadosDiagnostico[d.key] || 0;
+                              const p = pct(acertos);
+                              return (
+                                <div key={d.key}>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2 h-2 rounded-full" style={{ background: d.color }} />
+                                      <span className="text-xs font-semibold text-slate-700">{d.label}</span>
+                                    </div>
+                                    <span className="text-[11px] font-medium text-slate-400">{acertos}/45 <span className="text-slate-300">·</span> {p}%</span>
+                                  </div>
+                                  <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${p}%`, background: d.color }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="mt-5 pt-4 border-t border-slate-100 flex items-baseline justify-between">
+                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</span>
+                            <span className="text-sm font-bold text-intento-blue">{total}<span className="text-xs text-slate-400 font-medium">/180 · {Math.round((total/180)*100)}%</span></span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Hábitos */}
