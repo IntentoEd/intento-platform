@@ -380,38 +380,24 @@ const CATEGORIAS = {
   'Outros':      { cor: 'bg-slate-100 text-slate-800 border-slate-200',    btn: 'bg-slate-400 hover:bg-slate-500 text-white',    dot: 'bg-slate-400'   },
 };
 
-const TEMPLATE_BASE = {
-  'Segunda-feira_07:00': { categoria: 'Hábitos',     label: '[Hábitos] - Exercício' },
-  'Segunda-feira_08:00': { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
-  'Segunda-feira_09:00': { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
-  'Segunda-feira_10:00': { categoria: 'Revisão',     label: '[Revisão] - Flashcards' },
-  'Segunda-feira_20:00': { categoria: 'Codificação', label: '[Codificação] - Matéria secundária' },
-  'Segunda-feira_21:00': { categoria: 'Revisão',     label: '[Revisão] - Revisão espaçada' },
-  'Terça-feira_07:00':   { categoria: 'Hábitos',     label: '[Hábitos] - Exercício' },
-  'Terça-feira_08:00':   { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
-  'Terça-feira_09:00':   { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
-  'Terça-feira_10:00':   { categoria: 'Revisão',     label: '[Revisão] - Flashcards' },
-  'Terça-feira_20:00':   { categoria: 'Codificação', label: '[Codificação] - Matéria secundária' },
-  'Terça-feira_21:00':   { categoria: 'Revisão',     label: '[Revisão] - Revisão espaçada' },
-  'Quarta-feira_07:00':  { categoria: 'Hábitos',     label: '[Hábitos] - Exercício' },
-  'Quarta-feira_08:00':  { categoria: 'Revisão',     label: '[Revisão] - Revisão geral' },
-  'Quarta-feira_09:00':  { categoria: 'Revisão',     label: '[Revisão] - Revisão geral' },
-  'Quarta-feira_20:00':  { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
-  'Quinta-feira_07:00':  { categoria: 'Hábitos',     label: '[Hábitos] - Exercício' },
-  'Quinta-feira_08:00':  { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
-  'Quinta-feira_09:00':  { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
-  'Quinta-feira_10:00':  { categoria: 'Revisão',     label: '[Revisão] - Flashcards' },
-  'Quinta-feira_20:00':  { categoria: 'Codificação', label: '[Codificação] - Matéria secundária' },
-  'Quinta-feira_21:00':  { categoria: 'Revisão',     label: '[Revisão] - Revisão espaçada' },
-  'Sexta-feira_08:00':   { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
-  'Sexta-feira_09:00':   { categoria: 'Codificação', label: '[Codificação] - Matéria principal' },
-  'Sexta-feira_20:00':   { categoria: 'Revisão',     label: '[Revisão] - Revisão semanal' },
-  'Sexta-feira_21:00':   { categoria: 'Revisão',     label: '[Revisão] - Revisão semanal' },
-  'Sábado_08:00':        { categoria: 'Revisão',     label: '[Revisão] - Revisão intensiva' },
-  'Sábado_09:00':        { categoria: 'Revisão',     label: '[Revisão] - Revisão intensiva' },
-  'Sábado_10:00':        { categoria: 'Revisão',     label: '[Revisão] - Revisão intensiva' },
-  'Domingo_22:00':       { categoria: 'Hábitos',     label: '[Hábitos] - Dormir' },
-};
+const TEMPLATE_BASE = (() => {
+  const dias = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+  const exercicio = new Set(['Segunda-feira', 'Quarta-feira', 'Sexta-feira']);
+  const tpl = {};
+  dias.forEach(dia => {
+    tpl[`${dia}_08:00`] = { categoria: 'Revisão',     label: '[Revisão] - Revisão' };
+    tpl[`${dia}_09:00`] = { categoria: 'Codificação', label: '[Codificação] - Matéria principal' };
+    tpl[`${dia}_10:00`] = { categoria: 'Codificação', label: '[Codificação] - Matéria principal' };
+    tpl[`${dia}_11:00`] = { categoria: 'Codificação', label: '[Codificação] - Matéria principal' };
+    tpl[`${dia}_14:00`] = { categoria: 'Revisão',     label: '[Revisão] - Revisão' };
+    tpl[`${dia}_15:00`] = { categoria: 'Codificação', label: '[Codificação] - Matéria principal' };
+    tpl[`${dia}_16:00`] = { categoria: 'Codificação', label: '[Codificação] - Matéria principal' };
+    if (exercicio.has(dia)) {
+      tpl[`${dia}_17:00`] = { categoria: 'Hábitos',   label: '[Hábitos] - Exercício Físico' };
+    }
+  });
+  return tpl;
+})();
 
 // As opções restritas para o Diário
 const CATEGORIAS_DESAFIO = ['Codificação', 'Revisão', 'Hábitos', 'Prova'];
