@@ -1182,9 +1182,20 @@ export default function PainelDoAluno() {
               
               {abaAtiva === 3 && (
                 <div className="space-y-6 animate-in fade-in duration-500">
-                  <div className={`${cardClass} border-t-2 border-t-intento-yellow text-center py-12`}>
-                    <p className="text-[10px] font-medium text-intento-yellow uppercase tracking-wider mb-4">Meta Principal</p>
-                    <p className="text-2xl md:text-4xl font-bold text-intento-blue">{plano.meta}</p>
+                  <div className="bg-intento-yellow rounded-2xl shadow-md text-center py-14 px-6 relative overflow-hidden">
+                    <div className="absolute inset-0 opacity-10 pointer-events-none">
+                      <svg className="absolute top-4 right-4 w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                    </div>
+                    <div className="relative">
+                      <div className="inline-flex items-center gap-2 mb-4">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        <p className="text-xs font-bold text-white/90 uppercase tracking-[0.2em]">Meta Principal</p>
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      </div>
+                      <p className="text-3xl md:text-5xl font-bold text-white leading-tight max-w-3xl mx-auto">{plano.meta}</p>
+                    </div>
                   </div>
                   {!ultimoEncontro ? (
                     <div className={cardClass + ' text-center py-16'}>
