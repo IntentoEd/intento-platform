@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
-import { Bar, Line, Doughnut } from '@/components/Charts';
+import { Bar, Line } from '@/components/Charts';
 
 const cardClass = "bg-white rounded-xl border border-slate-200 p-6 shadow-sm transition-colors";
 const inputClass = "w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue transition-all font-medium text-intento-blue";
@@ -809,10 +809,10 @@ export default function PainelDoAluno() {
                                   <label className={labelClass}>Motivo (Causa Raiz)</label>
                                   <select className="w-full p-3 border border-slate-200 rounded-lg font-bold text-slate-700 outline-none focus:border-intento-yellow bg-white appearance-none" value={erro.tipo} onChange={e => atualizarErro(erro.id, { tipo: e.target.value })}>
                                     <option value="">Classificar Erro...</option>
-                                    <option value="Atenção">Deslize / Atenção</option>
+                                    <option value="Lacuna">Lacuna</option>
+                                    <option value="Recordação">Recordação</option>
                                     <option value="Interpretação">Interpretação</option>
-                                    <option value="Recordação">Recordação / Branco</option>
-                                    <option value="Lacuna">Lacuna Teórica</option>
+                                    <option value="Atenção">Atenção</option>
                                   </select>
                                 </div>
                               </div>
@@ -1271,16 +1271,119 @@ export default function PainelDoAluno() {
                     </button>
                   </div>
 
-                  <div>
-                    <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-6">Métricas Gerais</h3>
-                    <div className="grid grid-cols-3 gap-4 mb-2">
-                      <div className={`${cardClass} text-center bg-slate-50`}><p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Simulados</p><p className="text-3xl font-bold text-intento-blue mt-1">{simKpi.realizados || 0}</p></div>
-                      <div className={`${cardClass} text-center border-b-2 border-b-intento-yellow`}><p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média Acertos</p><p className="text-4xl font-bold text-intento-yellow mt-1">{simKpi.medAcertos || 0}</p></div>
-                      <div className={`${cardClass} text-center border-b-2 border-b-intento-blue`}><p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média Redação</p><p className="text-4xl font-bold text-intento-blue mt-1">{simKpi.medRedacao || 0}</p></div>
+                  <div className="space-y-6">
+                    <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Métricas Gerais</h3>
+
+                    {/* Linha 1 — KPIs principais */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className={`${cardClass} text-center bg-slate-50`}>
+                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Simulados Realizados</p>
+                        <p className="text-3xl font-bold text-intento-blue mt-1">{simKpi.realizados || 0}</p>
+                        <p className="text-[10px] font-medium text-slate-400 mt-1">total</p>
+                      </div>
+                      <div className={`${cardClass} text-center border-b-2 border-b-intento-yellow`}>
+                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Acertos</p>
+                        <p className="text-4xl font-bold text-intento-yellow mt-1">{simKpi.medAcertos || 0}<span className="text-base text-slate-400 font-medium">/180</span></p>
+                        <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                      </div>
+                      <div className={`${cardClass} text-center border-b-2 border-b-intento-blue`}>
+                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Redação</p>
+                        <p className="text-4xl font-bold text-intento-blue mt-1">{simKpi.medRedacao || 0}</p>
+                        <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                      </div>
                     </div>
+
+                    {/* Linha 2 — Média por disciplina (últimos 3) */}
+                    <div>
+                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-3">Média por disciplina · últimos 3 simulados</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {[
+                          { label: 'Linguagens',   key: 'medLG',  color: '#0ea5e9', tw: 'text-sky-600' },
+                          { label: 'Humanas',      key: 'medCH',  color: '#f97316', tw: 'text-orange-500' },
+                          { label: 'Natureza',     key: 'medCN',  color: '#10b981', tw: 'text-emerald-600' },
+                          { label: 'Matemática',   key: 'medMAT', color: '#ef4444', tw: 'text-red-500' },
+                        ].map(d => (
+                          <div key={d.key} className={`${cardClass} text-center py-4`} style={{ borderTop: `3px solid ${d.color}` }}>
+                            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{d.label}</p>
+                            <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{simKpi[d.key] || 0}<span className="text-xs text-slate-400 font-medium">/45</span></p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Linha 3 — Tipos de erros + Histórico */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className={`${cardClass} col-span-1`}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4 text-center">Tipos de Erros</h3><div className="h-64 flex justify-center"><Doughnut data={{ labels: ['Lacuna', 'Recordação', 'Interpretação', 'Atenção'], datasets: [{ data: [simKpi.erros?.lac || 0, simKpi.erros?.rec || 0, simKpi.erros?.inter || 0, simKpi.erros?.atencao || 0], backgroundColor: ['#ef4444', '#8b5cf6', '#3b82f6', '#D4B726'] }] }} options={{ cutout: '65%', maintainAspectRatio: false }} /></div></div>
-                      <div className={`${cardClass} col-span-2`}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Histórico de Provas</h3><div className="h-64"><Line data={{ labels: histSim.labels || [], datasets: [{ label: 'LG', data: histSim.lg || [], borderColor: '#0ea5e9' }, { label: 'CH', data: histSim.ch || [], borderColor: '#f97316' }, { label: 'CN', data: histSim.cn || [], borderColor: '#10b981' }, { label: 'MAT', data: histSim.mat || [], borderColor: '#ef4444' }] }} options={chartOptions} /></div></div>
+
+                      {/* Barras horizontais ranqueadas */}
+                      <div className={`${cardClass} col-span-1`}>
+                        <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Tipos de Erros</h3>
+                        <p className="text-[10px] font-medium text-slate-400 mb-5">média dos últimos 3 simulados</p>
+                        {(() => {
+                          const tipos = [
+                            { nome: 'Lacuna',        valor: simKpi.erros?.lac || 0,     trilho: 'bg-red-100',     barra: 'bg-red-500',     dot: 'bg-red-500' },
+                            { nome: 'Recordação',    valor: simKpi.erros?.rec || 0,     trilho: 'bg-purple-100',  barra: 'bg-purple-500',  dot: 'bg-purple-500' },
+                            { nome: 'Interpretação', valor: simKpi.erros?.inter || 0,   trilho: 'bg-blue-100',    barra: 'bg-blue-500',    dot: 'bg-blue-500' },
+                            { nome: 'Atenção',       valor: simKpi.erros?.atencao || 0, trilho: 'bg-yellow-100',  barra: 'bg-yellow-500',  dot: 'bg-yellow-500' },
+                          ].sort((a, b) => b.valor - a.valor);
+                          const total = tipos.reduce((s, t) => s + t.valor, 0);
+                          if (total === 0) {
+                            return <p className="text-xs text-slate-400 font-medium py-8 text-center">Faça seu primeiro simulado para ver a análise.</p>;
+                          }
+                          return (
+                            <div className="space-y-3">
+                              {tipos.map(t => {
+                                const pct = Math.round((t.valor / total) * 100);
+                                return (
+                                  <div key={t.nome}>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`w-2 h-2 rounded-full ${t.dot}`} />
+                                        <span className="text-xs font-semibold text-slate-700">{t.nome}</span>
+                                      </div>
+                                      <span className="text-[11px] font-medium text-slate-400">{t.valor} <span className="text-slate-300">·</span> {pct}%</span>
+                                    </div>
+                                    <div className={`w-full h-2 rounded-full ${t.trilho} overflow-hidden`}>
+                                      <div className={`h-full rounded-full ${t.barra} transition-all duration-500`} style={{ width: `${pct}%` }} />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Histórico de Provas */}
+                      <div className={`${cardClass} col-span-2`}>
+                        <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Histórico de Provas</h3>
+                        <div className="h-64">
+                          <Line
+                            data={{
+                              labels: histSim.labels || [],
+                              datasets: [
+                                { label: 'LG',   data: histSim.lg  || [], borderColor: '#0ea5e9', backgroundColor: '#0ea5e9', tension: 0.3 },
+                                { label: 'CH',   data: histSim.ch  || [], borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 },
+                                { label: 'CN',   data: histSim.cn  || [], borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.3 },
+                                { label: 'MAT',  data: histSim.mat || [], borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.3 },
+                                {
+                                  label: 'Meta',
+                                  data: (histSim.labels || []).map(() => 40),
+                                  borderColor: '#94a3b8',
+                                  backgroundColor: 'transparent',
+                                  borderDash: [6, 4],
+                                  pointRadius: 0,
+                                  borderWidth: 1.5,
+                                },
+                              ],
+                            }}
+                            options={{
+                              ...chartOptions,
+                              scales: { ...(chartOptions?.scales || {}), y: { min: 0, max: 45 } },
+                            }}
+                          />
+                        </div>
+                      </div>
+
                     </div>
                   </div>
 
