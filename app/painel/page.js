@@ -1182,6 +1182,10 @@ export default function PainelDoAluno() {
               
               {abaAtiva === 3 && (
                 <div className="space-y-6 animate-in fade-in duration-500">
+                  <div className={`${cardClass} border-t-2 border-t-intento-yellow text-center py-12`}>
+                    <p className="text-[10px] font-medium text-intento-yellow uppercase tracking-wider mb-4">Meta Principal</p>
+                    <p className="text-2xl md:text-4xl font-bold text-intento-blue">{plano.meta}</p>
+                  </div>
                   {!ultimoEncontro ? (
                     <div className={cardClass + ' text-center py-16'}>
                       <p className="text-sm text-slate-400 font-medium">Nenhum encontro registrado pelo seu mentor ainda.</p>
