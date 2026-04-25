@@ -1047,38 +1047,119 @@ export default function PainelDoAluno() {
               
               {abaAtiva === 2 && (
                 <div className="space-y-10 animate-in fade-in duration-500">
-                  <div className={cardClass}>
-                    <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Consistência — Horas vs Meta Semanal</h3>
-                    <div className="flex flex-wrap gap-2">{historicoConsistencia.map((bateuMeta, i) => (<div key={i} title={`Semana ${i + 1}: ${bateuMeta ? 'Meta Cumprida' : 'Meta Não Cumprida'}`} className={`w-7 h-7 rounded ${bateuMeta ? 'bg-emerald-400' : 'bg-red-300'}`}></div>))}{[1, 2, 3, 4].slice(historicoConsistencia.length).map(i => (<div key={`ph${i}`} className="w-7 h-7 rounded border border-slate-200 bg-slate-50"></div>))}</div>
-                    {(() => {
-                      const h = historicoConsistencia;
-                      const n = h.length;
-                      if (n < 2) return null;
-                      const last3 = h.slice(-3);
-                      const prev = h[n - 2];
-                      const curr = h[n - 1];
-                      let msg = null, style = '';
-                      if (n >= 3 && last3.every(Boolean)) {
-                        msg = "Três semanas consecutivas batendo a meta. Esse é o ritmo de quem aprova — mantenha.";
-                        style = "bg-emerald-50 border-emerald-200 text-emerald-800";
-                      } else if (n >= 3 && last3.every(v => !v)) {
-                        msg = "Três semanas abaixo da meta. É hora de agir: revise sua rotina com o mentor e ajuste o plano ainda essa semana.";
-                        style = "bg-red-50 border-red-200 text-red-700";
-                      } else if (!prev && curr) {
-                        msg = "Você se recuperou essa semana! A consistência começa exatamente assim — uma semana de retomada de cada vez.";
-                        style = "bg-emerald-50 border-emerald-200 text-emerald-800";
-                      } else if (prev && !curr) {
-                        msg = "Essa semana ficou abaixo da meta. Seu histórico mostra que você sabe o que fazer — retome o ritmo na próxima.";
-                        style = "bg-amber-50 border-amber-200 text-amber-800";
-                      }
-                      if (!msg) return null;
-                      return (
-                        <p className={`mt-4 text-sm font-medium leading-relaxed px-4 py-3 rounded-lg border ${style}`}>
-                          {msg}
-                        </p>
-                      );
-                    })()}
-                  </div>
+                  {(() => {
+                    const horasArr  = mensal.horas  || [];
+                    const metasArr  = mensal.meta   || [];
+                    const labelsArr = mensal.labels || [];
+                    const semanas = labelsArr.map((label, i) => {
+                      const h = parseFloat(horasArr[i]) || 0;
+                      const m = parseFloat(metasArr[i]) || 0;
+                      const pct = m > 0 ? Math.round((h / m) * 100) : 0;
+                      return { label, horas: h, meta: m, pct };
+                    });
+                    const ultimas    = semanas.slice(-8);
+                    const dentroMeta = semanas.filter(s => s.pct >= 100).length;
+                    const atual      = semanas[semanas.length - 1];
+
+                    const corBarra = (pct) => {
+                      if (pct >= 120) return { bg: 'bg-sky-400',     border: 'bg-sky-500',     text: 'text-sky-700' };
+                      if (pct >= 100) return { bg: 'bg-emerald-400', border: 'bg-emerald-500', text: 'text-emerald-700' };
+                      if (pct >= 80)  return { bg: 'bg-amber-400',   border: 'bg-amber-500',   text: 'text-amber-700' };
+                      return                 { bg: 'bg-red-400',     border: 'bg-red-500',     text: 'text-red-700' };
+                    };
+                    const MAX = 150; // teto visual
+
+                    return (
+                      <div className={cardClass}>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 mb-1">
+                          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide">Consistência — Horas vs Meta</h3>
+                          {semanas.length > 0 && (
+                            <p className="text-[11px] font-medium text-slate-400">
+                              <span className="text-slate-700 font-bold">{dentroMeta} de {semanas.length}</span> semana{semanas.length !== 1 ? 's' : ''} dentro da meta
+                              {atual && (
+                                <> <span className="text-slate-300 mx-1.5">·</span> Atual <span className={`font-bold ${corBarra(atual.pct).text}`}>{atual.pct}%</span></>
+                              )}
+                            </p>
+                          )}
+                        </div>
+
+                        {semanas.length === 0 ? (
+                          <p className="text-xs text-slate-400 font-medium py-10 text-center">Sem registros semanais ainda.</p>
+                        ) : (
+                          <>
+                            <div className="mt-6 flex">
+                              {/* Eixo Y */}
+                              <div className="w-9 h-32 flex flex-col justify-between text-[9px] text-slate-300 font-medium text-right pr-2">
+                                <span>{MAX}%</span>
+                                <span className="text-slate-400 font-bold">100%</span>
+                                <span>50%</span>
+                                <span>0%</span>
+                              </div>
+
+                              {/* Área de plot */}
+                              <div className="flex-1 relative h-32">
+                                {/* Linhas de grade */}
+                                <div className="absolute inset-0 pointer-events-none">
+                                  <div className="absolute top-0 left-0 right-0 border-t border-slate-100" />
+                                  <div className="absolute left-0 right-0 border-t-2 border-dashed border-slate-300" style={{ top: `${((MAX - 100) / MAX) * 100}%` }} />
+                                  <div className="absolute left-0 right-0 border-t border-slate-100" style={{ top: `${((MAX - 50) / MAX) * 100}%` }} />
+                                  <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200" />
+                                </div>
+
+                                {/* Barras */}
+                                <div className="absolute inset-0 flex items-end gap-1.5 px-1">
+                                  {ultimas.map((s, i) => {
+                                    const display = Math.min(s.pct, MAX);
+                                    const cor = corBarra(s.pct);
+                                    return (
+                                      <div key={i} className="flex-1 flex flex-col justify-end h-full group cursor-default" title={`${s.label} · ${s.horas}h de ${s.meta}h · ${s.pct}%`}>
+                                        <div className={`w-full ${cor.bg} rounded-t-sm relative transition-all group-hover:brightness-110`} style={{ height: `${(display / MAX) * 100}%` }}>
+                                          <span className={`absolute -top-4 left-1/2 -translate-x-1/2 text-[9px] font-bold ${cor.text} whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity`}>
+                                            {s.pct}%
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Eixo X (datas) */}
+                            <div className="flex pl-9 mt-2 gap-1.5 px-1">
+                              {ultimas.map((s, i) => (
+                                <div key={i} className="flex-1 text-center text-[9px] text-slate-400 font-medium truncate">
+                                  {String(s.label).split(' a ')[0]}
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Legenda */}
+                            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 mt-5 text-[10px] text-slate-500 font-medium">
+                              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400"/>&lt;80%</div>
+                              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400"/>80–99%</div>
+                              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400"/>100–119%</div>
+                              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-sky-400"/>120%+</div>
+                              <div className="flex items-center gap-1.5"><span className="w-3 border-t-2 border-dashed border-slate-300"/>Meta</div>
+                            </div>
+
+                            {/* Mensagem factual condicional */}
+                            {(() => {
+                              const last3 = semanas.slice(-3);
+                              if (last3.length < 3) return null;
+                              if (last3.every(s => s.pct >= 100)) {
+                                return <p className="mt-4 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-md">3 semanas seguidas dentro da meta.</p>;
+                              }
+                              if (last3.every(s => s.pct < 80)) {
+                                return <p className="mt-4 text-xs font-medium text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-md">3 semanas seguidas abaixo de 80% da meta.</p>;
+                              }
+                              return null;
+                            })()}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {(!semanal.geral || semanal.geral.length === 0) ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center">
                       <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mb-5">
