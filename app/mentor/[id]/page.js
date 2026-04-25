@@ -430,6 +430,7 @@ export default function GestaoIndividualAluno() {
   const [historicoDiarios, setHistoricoDiarios] = useState([]);
   const [historicoRegistros, setHistoricoRegistros] = useState([]);
   const [dadosSimulados, setDadosSimulados] = useState({ kpi: null, hist: null, lista: [] });
+  const [simuladoAberto, setSimuladoAberto] = useState(null);
   const [abaInterna, setAbaInterna] = useState('diario');
   const [statusMsg, setStatusMsg] = useState("");
   const [salvandoEncontro, setSalvandoEncontro] = useState(false);
@@ -489,10 +490,15 @@ export default function GestaoIndividualAluno() {
   // CARREGAR DADOS DO GOOGLE
   // =========================================================================
   useEffect(() => {
-    const handleEsc = (e) => { if (e.key === 'Escape' && modalAberto) setModalAberto(false); };
+    const handleEsc = (e) => {
+      if (e.key !== 'Escape') return;
+      if (simuladoAberto) { setSimuladoAberto(null); return; }
+      if (encontroEdit)   { setEncontroEdit(null);   return; }
+      if (modalAberto)    { setModalAberto(false);   return; }
+    };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [modalAberto]);
+  }, [modalAberto, encontroEdit, simuladoAberto]);
 
   useEffect(() => {
     const carregarDados = async () => {
@@ -1421,16 +1427,20 @@ export default function GestaoIndividualAluno() {
                 </div>
               </div>
 
-              {/* Lista de simulados */}
+              {/* Lista de simulados — mais recentes primeiro */}
               <div className="pt-4 border-t border-slate-100">
                 <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-4">Simulados realizados</h3>
                 {lista.length === 0 ? (
                   <p className="text-xs text-slate-400 font-medium py-8 text-center">Nenhum simulado registrado.</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {lista.slice().reverse().map(sim => {
+                    {lista.slice().sort((a, b) => String(b.data || '').localeCompare(String(a.data || ''))).map(sim => {
                       const total = (sim.lg || 0) + (sim.ch || 0) + (sim.cn || 0) + (sim.mat || 0);
                       const concluido = sim.status === 'Concluída';
+                      const temAnalise = concluido && (
+                        (sim.errosLista && sim.errosLista.length > 0) ||
+                        sim.kolb?.exp || sim.kolb?.ref || sim.kolb?.con || sim.kolb?.acao || sim.kolb?.redacao
+                      );
                       return (
                         <div key={sim.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                           <div className={`text-white text-[10px] font-semibold uppercase tracking-wide py-2 text-center ${concluido ? 'bg-emerald-500' : 'bg-amber-500'}`}>
@@ -1460,24 +1470,156 @@ export default function GestaoIndividualAluno() {
                                 <span className="font-bold text-intento-blue">{sim.redacao}</span>
                               </div>
                             )}
-                            {concluido && (sim.kolb?.exp || sim.kolb?.ref || sim.kolb?.con || sim.kolb?.acao || sim.kolb?.redacao) && (
-                              <details className="border-t border-slate-100 pt-3">
-                                <summary className="text-[11px] font-semibold text-intento-blue cursor-pointer hover:underline">Ver análise (Kolb)</summary>
-                                <div className="mt-3 space-y-2 text-[11px]">
-                                  {sim.kolb?.exp && <div><p className="font-bold text-slate-500 uppercase tracking-wider text-[9px] mb-0.5">Experiência</p><p className="text-slate-700 whitespace-pre-wrap">{sim.kolb.exp}</p></div>}
-                                  {sim.kolb?.ref && <div><p className="font-bold text-slate-500 uppercase tracking-wider text-[9px] mb-0.5">Reflexão</p><p className="text-slate-700 whitespace-pre-wrap">{sim.kolb.ref}</p></div>}
-                                  {sim.kolb?.con && <div><p className="font-bold text-slate-500 uppercase tracking-wider text-[9px] mb-0.5">Conceituação</p><p className="text-slate-700 whitespace-pre-wrap">{sim.kolb.con}</p></div>}
-                                  {sim.kolb?.acao && <div><p className="font-bold text-slate-500 uppercase tracking-wider text-[9px] mb-0.5">Ação</p><p className="text-slate-700 whitespace-pre-wrap">{sim.kolb.acao}</p></div>}
-                                  {sim.kolb?.redacao && <div><p className="font-bold text-slate-500 uppercase tracking-wider text-[9px] mb-0.5">Redação</p><p className="text-slate-700 whitespace-pre-wrap">{sim.kolb.redacao}</p></div>}
-                                </div>
-                              </details>
-                            )}
                           </div>
+                          {temAnalise && (
+                            <button
+                              onClick={() => setSimuladoAberto(sim)}
+                              className="w-full text-xs font-semibold text-intento-blue bg-slate-50 hover:bg-intento-blue hover:text-white border-t border-slate-100 py-2.5 transition-colors flex items-center justify-center gap-1.5"
+                            >
+                              Ver análise completa
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                            </button>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* MODAL: Análise completa do simulado */}
+        {simuladoAberto && (() => {
+          const sim = simuladoAberto;
+          const ESTILO_TIPO = {
+            'Lacuna':        { bg: 'bg-red-50',    text: 'text-red-700',    border: 'border-red-200',    dot: 'bg-red-500' },
+            'Recordação':    { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', dot: 'bg-purple-500' },
+            'Interpretação': { bg: 'bg-blue-50',   text: 'text-blue-700',   border: 'border-blue-200',   dot: 'bg-blue-500' },
+            'Atenção':       { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', dot: 'bg-yellow-500' },
+          };
+          const ESTILO_AREA = {
+            'Linguagens':  '#0ea5e9',
+            'Humanas':     '#f97316',
+            'Natureza':    '#10b981',
+            'Matemática':  '#ef4444',
+          };
+          const errosPorArea = (sim.errosLista || []).reduce((acc, e) => {
+            const a = e.area || 'Outros';
+            if (!acc[a]) acc[a] = [];
+            acc[a].push(e);
+            return acc;
+          }, {});
+          const totalAcertos = (sim.lg || 0) + (sim.ch || 0) + (sim.cn || 0) + (sim.mat || 0);
+
+          return (
+            <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in"
+                 onClick={(e) => { if (e.target === e.currentTarget) setSimuladoAberto(null); }}>
+              <div className="bg-slate-50 w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+
+                {/* Header */}
+                <div className="bg-white px-8 py-5 border-b border-slate-200 flex justify-between items-start gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{sim.modelo || 'ENEM'} · {sim.data}</p>
+                    <h2 className="text-base font-semibold text-intento-blue mt-0.5">{sim.especificacao || 'Análise do Simulado'}</h2>
+                    <div className="flex items-center gap-4 mt-2 text-xs">
+                      <span className="text-slate-500">Acertos: <span className="font-bold text-intento-blue">{totalAcertos}/180</span></span>
+                      {sim.redacao > 0 && <span className="text-slate-500">Redação: <span className="font-bold text-intento-blue">{sim.redacao}</span></span>}
+                    </div>
+                  </div>
+                  <button onClick={() => setSimuladoAberto(null)} className="text-slate-400 hover:text-red-500 transition-colors shrink-0">
+                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+
+                {/* Corpo */}
+                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
+
+                  {/* ANÁLISE OBJETIVA */}
+                  <section>
+                    <div className="flex items-baseline justify-between mb-4">
+                      <h3 className="text-sm font-semibold text-intento-blue">Análise Objetiva</h3>
+                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{(sim.errosLista || []).length} erros classificados</p>
+                    </div>
+                    {(!sim.errosLista || sim.errosLista.length === 0) ? (
+                      <p className="text-xs text-slate-400 font-medium py-4 text-center bg-white rounded-xl border border-slate-200">Nenhum erro registrado.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {Object.entries(errosPorArea).map(([area, erros]) => (
+                          <div key={area} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                            <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2" style={{ borderLeft: `3px solid ${ESTILO_AREA[area] || '#94a3b8'}` }}>
+                              <p className="text-xs font-bold text-intento-blue">{area}</p>
+                              <span className="text-[10px] text-slate-400 font-medium">· {erros.length} {erros.length === 1 ? 'erro' : 'erros'}</span>
+                            </div>
+                            <div className="divide-y divide-slate-100">
+                              {erros.map(e => {
+                                const t = ESTILO_TIPO[e.tipo] || { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200', dot: 'bg-slate-400' };
+                                return (
+                                  <div key={e.id || `${area}-${e.questao}`} className="px-4 py-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                                    <div className="md:col-span-1">
+                                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">{e.questao || '—'}</span>
+                                    </div>
+                                    <div className="md:col-span-4">
+                                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Disciplina</p>
+                                      <p className="text-xs font-semibold text-slate-700 mt-0.5">{e.disciplina || '—'}</p>
+                                    </div>
+                                    <div className="md:col-span-5">
+                                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tópico</p>
+                                      <p className="text-xs font-medium text-slate-600 mt-0.5">{e.topico || '—'}</p>
+                                    </div>
+                                    <div className="md:col-span-2 flex md:justify-end">
+                                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border ${t.bg} ${t.text} ${t.border}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${t.dot}`} />
+                                        {e.tipo || '—'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* ANÁLISE SUBJETIVA */}
+                  {(sim.kolb?.exp || sim.kolb?.ref || sim.kolb?.con || sim.kolb?.acao || sim.kolb?.redacao) && (
+                    <section>
+                      <div className="flex items-baseline justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-intento-blue">Análise Subjetiva (Kolb)</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                          { titulo: 'Experiência',   texto: sim.kolb?.exp,     accent: 'border-l-blue-400' },
+                          { titulo: 'Reflexão',      texto: sim.kolb?.ref,     accent: 'border-l-purple-400' },
+                          { titulo: 'Conceituação',  texto: sim.kolb?.con,     accent: 'border-l-amber-400' },
+                          { titulo: 'Ação',          texto: sim.kolb?.acao,    accent: 'border-l-emerald-400' },
+                        ].filter(b => b.texto).map(b => (
+                          <div key={b.titulo} className={`bg-white rounded-xl border border-slate-200 border-l-4 ${b.accent} p-4`}>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{b.titulo}</p>
+                            <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{b.texto}</p>
+                          </div>
+                        ))}
+                        {sim.kolb?.redacao && (
+                          <div className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-rose-400 p-4 md:col-span-2">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Análise da Redação</p>
+                            <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{sim.kolb.redacao}</p>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                </div>
+
+                <div className="bg-white p-5 border-t border-slate-200 flex justify-end">
+                  <button onClick={() => setSimuladoAberto(null)} className="text-sm font-semibold text-slate-500 hover:text-intento-blue transition-colors px-4 py-2">
+                    Fechar
+                  </button>
+                </div>
+
               </div>
             </div>
           );

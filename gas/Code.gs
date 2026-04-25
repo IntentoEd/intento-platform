@@ -829,10 +829,12 @@ function lerSimulados(ss) {
       ? Utilities.formatDate(row[COL_SIM.DATA], Session.getScriptTimeZone(), "yyyy-MM-dd")
       : String(row[COL_SIM.DATA]).split(" ")[0];
     let errosObj = { atencao: 0, inter: 0, rec: 0, lac: 0 };
+    let errosLista = [];
     try {
       if (row[COL_SIM.ERROS_JSON]) {
         const parsed = JSON.parse(String(row[COL_SIM.ERROS_JSON]));
         if (Array.isArray(parsed)) {
+          errosLista = parsed.filter(function(e) { return e && (e.tipo || e.questao || e.disciplina || e.topico); });
           parsed.forEach(function(e) {
             const tipo = txt(e && e.tipo);
             if (tipo === 'Atenção')             errosObj.atencao++;
@@ -854,7 +856,8 @@ function lerSimulados(ss) {
       id: String(row[COL_SIM.ID]), status: txt(row[COL_SIM.STATUS]) || "Pendente",
       data: dataStr, modelo: "ENEM", especificacao: txt(row[COL_SIM.ESPECIFICACAO]),
       lg: num(row[COL_SIM.LG]), ch: num(row[COL_SIM.CH]), cn: num(row[COL_SIM.CN]),
-      mat: num(row[COL_SIM.MAT]), redacao: num(row[COL_SIM.REDACAO]), erros: errosObj,
+      mat: num(row[COL_SIM.MAT]), redacao: num(row[COL_SIM.REDACAO]),
+      erros: errosObj, errosLista: errosLista,
       kolb: {
         exp: txt(row[COL_SIM.KOLB_EXP]), ref: txt(row[COL_SIM.KOLB_REF]),
         con: txt(row[COL_SIM.KOLB_CON]), acao: txt(row[COL_SIM.KOLB_ACAO]),
