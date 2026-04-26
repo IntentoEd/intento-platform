@@ -1564,40 +1564,62 @@ function handleDesignarMentor(dados) {
 
     var emailsEnviados = { aluno: false, mentor: false };
 
-    // Email pro aluno
+    // Email pro aluno (GmailApp = mais confiável que MailApp pra entregabilidade)
     if (dadosAluno.email) {
       try {
-        MailApp.sendEmail({
-          to: dadosAluno.email,
-          subject: 'Intento — seu mentor foi designado',
-          htmlBody:
-            '<p>Olá <b>' + (dadosAluno.nome || '') + '</b>,</p>' +
-            '<p>Você foi designado(a) para o(a) mentor(a) <b>' + mentorObj.nome + '</b>.</p>' +
-            '<p>Em breve ele(a) entrará em contato com você pelo WhatsApp para agendar a primeira reunião e alinhar os primeiros passos da sua mentoria.</p>' +
-            '<p>Se tiver alguma dúvida nesse meio tempo, é só responder este email.</p>' +
-            '<p>Bons estudos!<br/><b>Equipe Intento</b></p>'
-        });
+        GmailApp.sendEmail(
+          dadosAluno.email,
+          'Sua mentoria começa agora — bem-vindo(a) à Intento',
+          'Olá ' + (dadosAluno.nome || '') + ',\n\n' +
+          'Você foi designado(a) para o(a) mentor(a) ' + mentorObj.nome + '.\n\n' +
+          'Em breve ele(a) entrará em contato com você pelo WhatsApp para agendar a primeira reunião e alinhar os primeiros passos da sua mentoria.\n\n' +
+          'Se tiver alguma dúvida nesse meio tempo, é só responder este email diretamente.\n\n' +
+          'Bons estudos!\n— Filippe Ximenes\nEquipe Intento',
+          {
+            name: 'Filippe Ximenes — Intento',
+            replyTo: 'filippe@metodointento.com.br',
+            htmlBody:
+              '<p>Olá <b>' + (dadosAluno.nome || '') + '</b>,</p>' +
+              '<p>Você foi designado(a) para o(a) mentor(a) <b>' + mentorObj.nome + '</b>.</p>' +
+              '<p>Em breve ele(a) entrará em contato com você pelo WhatsApp para agendar a primeira reunião e alinhar os primeiros passos da sua mentoria.</p>' +
+              '<p>Se tiver alguma dúvida nesse meio tempo, é só responder este email diretamente.</p>' +
+              '<p>Bons estudos!<br/>— Filippe Ximenes<br/><b>Equipe Intento</b></p>'
+          }
+        );
         emailsEnviados.aluno = true;
+        Logger.log('email aluno OK: ' + dadosAluno.email);
       } catch (e) { Logger.log('email aluno falhou: ' + e.message); }
     }
 
     // Email pro mentor
     try {
-      MailApp.sendEmail({
-        to: emailMentor,
-        subject: 'Intento — novo mentorado designado',
-        htmlBody:
-          '<p>Olá <b>' + mentorObj.nome + '</b>,</p>' +
-          '<p>Um novo mentorado foi designado pra você:</p>' +
-          '<ul>' +
-            '<li><b>Nome:</b> ' + (dadosAluno.nome || '—') + '</li>' +
-            '<li><b>Email:</b> ' + (dadosAluno.email || '—') + '</li>' +
-            '<li><b>Telefone:</b> ' + (dadosAluno.telefone || '—') + '</li>' +
-          '</ul>' +
-          '<p>Por favor, entre em contato em até 48h e cadastre o primeiro encontro no Diário de Bordo após a reunião inicial.</p>' +
-          '<p><b>Equipe Intento</b></p>'
-      });
+      GmailApp.sendEmail(
+        emailMentor,
+        'Novo mentorado: ' + (dadosAluno.nome || 'sem nome'),
+        'Olá ' + mentorObj.nome + ',\n\n' +
+        'Um novo mentorado foi designado pra você:\n\n' +
+        '- Nome: ' + (dadosAluno.nome || '—') + '\n' +
+        '- Email: ' + (dadosAluno.email || '—') + '\n' +
+        '- Telefone: ' + (dadosAluno.telefone || '—') + '\n\n' +
+        'Por favor, entre em contato em até 48h e cadastre o primeiro encontro no Diário de Bordo após a reunião inicial.\n\n' +
+        '— Filippe Ximenes\nEquipe Intento',
+        {
+          name: 'Filippe Ximenes — Intento',
+          replyTo: 'filippe@metodointento.com.br',
+          htmlBody:
+            '<p>Olá <b>' + mentorObj.nome + '</b>,</p>' +
+            '<p>Um novo mentorado foi designado pra você:</p>' +
+            '<ul>' +
+              '<li><b>Nome:</b> ' + (dadosAluno.nome || '—') + '</li>' +
+              '<li><b>Email:</b> ' + (dadosAluno.email || '—') + '</li>' +
+              '<li><b>Telefone:</b> ' + (dadosAluno.telefone || '—') + '</li>' +
+            '</ul>' +
+            '<p>Por favor, entre em contato em até 48h e cadastre o primeiro encontro no Diário de Bordo após a reunião inicial.</p>' +
+            '<p>— Filippe Ximenes<br/><b>Equipe Intento</b></p>'
+        }
+      );
       emailsEnviados.mentor = true;
+      Logger.log('email mentor OK: ' + emailMentor);
     } catch (e) { Logger.log('email mentor falhou: ' + e.message); }
 
     return responderJSON({
