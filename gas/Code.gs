@@ -175,6 +175,7 @@ function doPost(e) {
     if (acao === "editarRegistro")          return handleEditarRegistro(dados);
     if (acao === "editarEncontro")          return handleEditarEncontro(dados);
     if (acao === "dashboardLider")          return handleDashboardLider(dados);
+    if (acao === "designarMentor")          return handleDesignarMentor(dados);
 
     throw new Error("Ação não reconhecida: " + acao);
 
@@ -1491,8 +1492,12 @@ function handleDashboardLider(dados) {
       });
     }
 
+    var listaMentoresAtivos = Object.keys(mentoresAtivos).map(function(e) {
+      return { email: e, nome: mentoresAtivos[e].nome };
+    }).sort(function(a, b) { return a.nome.localeCompare(b.nome); });
+
     if (dados.skipAgregado) {
-      return responderJSON({ status: 'sucesso', semanaAtual: semanaAtual, alunos: alunos, agregado: null });
+      return responderJSON({ status: 'sucesso', semanaAtual: semanaAtual, alunos: alunos, mentoresAtivos: listaMentoresAtivos, agregado: null });
     }
 
     Logger.log('dashboardLider: agregando ' + alunos.length + ' alunos');
@@ -1500,9 +1505,111 @@ function handleDashboardLider(dados) {
     var agregado = agregarMetricasBase_(alunos);
     Logger.log('dashboardLider: agregado em ' + ((new Date().getTime() - t0) / 1000) + 's');
 
-    return responderJSON({ status: 'sucesso', semanaAtual: semanaAtual, alunos: alunos, agregado: agregado });
+    return responderJSON({ status: 'sucesso', semanaAtual: semanaAtual, alunos: alunos, mentoresAtivos: listaMentoresAtivos, agregado: agregado });
   } catch (e) {
     Logger.log('dashboardLider EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
+}
+
+
+// =====================================================================
+// DESIGNAR MENTOR (Líder → atribui mentor a aluno + notifica por email)
+// =====================================================================
+function handleDesignarMentor(dados) {
+  try {
+    var emailLider = emailNorm(dados.email);
+    if (emailLider !== 'filippe@metodointento.com.br') {
+      return responderJSON({ status: 'erro', codigo: 403, mensagem: 'Não autorizado' });
+    }
+
+    var idAluno = txt(dados.idAluno);
+    var emailMentor = emailNorm(dados.emailMentor);
+    if (!idAluno || !emailMentor) {
+      return responderJSON({ status: 'erro', mensagem: 'idAluno e emailMentor obrigatórios' });
+    }
+
+    // Mentor deve estar Ativo em BD_Mentores
+    var mentoresAtivos = lerMentoresAtivos();
+    var mentorObj = mentoresAtivos[emailMentor];
+    if (!mentorObj) {
+      return responderJSON({ status: 'erro', mensagem: 'Mentor não cadastrado como Ativo em BD_Mentores' });
+    }
+
+    // Localiza aluno em BD_Alunos
+    var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+    var abaMestre = ssMestre.getSheetByName(ABA.MESTRE);
+    if (!abaMestre) throw new Error('BD_Alunos não encontrada');
+    var matriz = abaMestre.getDataRange().getValues();
+    var linhaAluno = -1;
+    var dadosAluno = null;
+    for (var i = 1; i < matriz.length; i++) {
+      if (txt(matriz[i][COL_MESTRE.ID_PLANILHA]) === idAluno) {
+        linhaAluno = i + 1;
+        dadosAluno = {
+          nome: txt(matriz[i][COL_MESTRE.NOME]),
+          email: txt(matriz[i][COL_MESTRE.EMAIL]),
+          telefone: txt(matriz[i][COL_MESTRE.TELEFONE]),
+          mentorAnterior: emailNorm(matriz[i][COL_MESTRE.MENTOR_RESPONSAVEL])
+        };
+        break;
+      }
+    }
+    if (linhaAluno === -1) {
+      return responderJSON({ status: 'erro', mensagem: 'Aluno não encontrado em BD_Alunos' });
+    }
+
+    // Atualiza coluna mentor_responsavel na mestre
+    abaMestre.getRange(linhaAluno, COL_MESTRE.MENTOR_RESPONSAVEL + 1).setValue(emailMentor);
+
+    var emailsEnviados = { aluno: false, mentor: false };
+
+    // Email pro aluno
+    if (dadosAluno.email) {
+      try {
+        MailApp.sendEmail({
+          to: dadosAluno.email,
+          subject: 'Intento — seu mentor foi designado',
+          htmlBody:
+            '<p>Olá <b>' + (dadosAluno.nome || '') + '</b>,</p>' +
+            '<p>Você foi designado(a) para o(a) mentor(a) <b>' + mentorObj.nome + '</b>.</p>' +
+            '<p>Em breve ele(a) entrará em contato com você pelo WhatsApp para agendar a primeira reunião e alinhar os primeiros passos da sua mentoria.</p>' +
+            '<p>Se tiver alguma dúvida nesse meio tempo, é só responder este email.</p>' +
+            '<p>Bons estudos!<br/><b>Equipe Intento</b></p>'
+        });
+        emailsEnviados.aluno = true;
+      } catch (e) { Logger.log('email aluno falhou: ' + e.message); }
+    }
+
+    // Email pro mentor
+    try {
+      MailApp.sendEmail({
+        to: emailMentor,
+        subject: 'Intento — novo mentorado designado',
+        htmlBody:
+          '<p>Olá <b>' + mentorObj.nome + '</b>,</p>' +
+          '<p>Um novo mentorado foi designado pra você:</p>' +
+          '<ul>' +
+            '<li><b>Nome:</b> ' + (dadosAluno.nome || '—') + '</li>' +
+            '<li><b>Email:</b> ' + (dadosAluno.email || '—') + '</li>' +
+            '<li><b>Telefone:</b> ' + (dadosAluno.telefone || '—') + '</li>' +
+          '</ul>' +
+          '<p>Por favor, entre em contato em até 48h e cadastre o primeiro encontro no Diário de Bordo após a reunião inicial.</p>' +
+          '<p><b>Equipe Intento</b></p>'
+      });
+      emailsEnviados.mentor = true;
+    } catch (e) { Logger.log('email mentor falhou: ' + e.message); }
+
+    return responderJSON({
+      status: 'sucesso',
+      mentorAnterior: dadosAluno.mentorAnterior,
+      mentorNovo: emailMentor,
+      mentorNome: mentorObj.nome,
+      aluno: { nome: dadosAluno.nome, telefone: dadosAluno.telefone, email: dadosAluno.email },
+      emailsEnviados: emailsEnviados
+    });
+  } catch (e) {
+    Logger.log('handleDesignarMentor EXCEPTION: ' + e.message);
     return responderJSON({ status: 'erro', mensagem: e.message });
   }
 }

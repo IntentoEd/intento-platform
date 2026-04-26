@@ -35,6 +35,7 @@ function chavesParaInvalidar(acaoEscrita, dados) {
       ];
     case 'onboarding':
     case 'diagnostico':
+    case 'designarMentor':
       return ['listaAlunosMentor|*', 'dashboardLider|*'];
     default:
       return [];
