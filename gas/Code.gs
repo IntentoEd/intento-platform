@@ -466,11 +466,31 @@ function handleDiagnostico(dados) {
 // SERVIÇOS E EXTRAÇÃO DE DADOS
 // =====================================================================
 
+// Retry exponencial pra erros transitórios do Drive (ex: "Service error: Drive").
+// Não retenta erros de permissão/ID inválido — esses são determinísticos.
+function _retryDrive(fn, tentativas) {
+  tentativas = tentativas || 3;
+  let ultimoErro;
+  for (let i = 0; i < tentativas; i++) {
+    try { return fn(); }
+    catch (e) {
+      ultimoErro = e;
+      const msg = String(e.message || '');
+      if (!/Service error|tempor[áa]ri|Internal|timed?\s*out|backend/i.test(msg)) throw e;
+      Logger.log('_retryDrive tentativa ' + (i+1) + '/' + tentativas + ' falhou: ' + msg);
+      if (i < tentativas - 1) Utilities.sleep(500 * Math.pow(2, i)); // 500ms, 1s, 2s
+    }
+  }
+  throw ultimoErro;
+}
+
 function provisionarPlanilhaAluno(nomeMentorado, emailMentorado, arrayOnboarding) {
   const primeiroNome  = nomeMentorado.split(" ")[0];
   const pastaTriagem  = DriveApp.getFolderById(ID_PASTA_TRIAGEM);
   const arquivoModelo = DriveApp.getFileById(ID_PLANILHA_MODELO);
-  const novoArquivo   = arquivoModelo.makeCopy("Mentoria - " + nomeMentorado, pastaTriagem);
+  const novoArquivo   = _retryDrive(function() {
+    return arquivoModelo.makeCopy("Mentoria - " + nomeMentorado, pastaTriagem);
+  });
   const idNovaPlanilha = novoArquivo.getId();
 
   const novaPlanilha = SpreadsheetApp.openById(idNovaPlanilha);
