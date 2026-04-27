@@ -14,3 +14,21 @@ body {
   background: #ffffff;
   color: #171717;
 }
+
+/* Safe area: aplica padding equivalente ao notch/câmera/home indicator
+   quando o app roda como PWA instalada (standalone). No browser normal
+   não muda nada. */
+@media all and (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Utility classes pra usar em headers sticky/fixed que precisam respeitar
+   a safe area mesmo dentro do body já com padding (ex: barra superior do
+   /lider que é sticky). */
+.safe-area-top { padding-top: env(safe-area-inset-top); }
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
