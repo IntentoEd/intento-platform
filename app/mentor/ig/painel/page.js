@@ -33,7 +33,7 @@ function MiniCardExport({ item, isFirstWeek, fullBorder }) {
   const currNum = parseFloat(String(currFmt).replace('%', '').replace(',', '.')) || 0;
   const prevNum = parseFloat(String(prevFmt).replace('%', '').replace(',', '.')) || 0;
   const diff = currNum - prevNum;
-  const inverted = String(item.name ?? '').toLowerCase().includes('atrasado');
+  const inverted = String(item.name ?? '').toLowerCase().includes('atrasad');
   const positivo = inverted ? diff < 0 : diff > 0;
   const theme = item.theme || 'slate';
   const borderColor = borderColorMap[theme];
