@@ -7,6 +7,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { Bar, Line } from '@/components/Charts';
 import { LoadingScreen } from '@/components/Loading';
 import { getCache, setCache, tempoRelativo } from '@/lib/cacheClient';
+import PushToggle from '@/components/PushToggle';
 
 const EMAIL_LIDER = 'filippe@metodointento.com.br';
 
@@ -246,7 +247,10 @@ export default function PainelLider() {
             </p>
           </div>
         </div>
-        <button onClick={sair} className="text-sm font-semibold text-slate-400 hover:text-red-500 transition">Sair</button>
+        <div className="flex items-center gap-3">
+          <PushToggle email={EMAIL_LIDER} />
+          <button onClick={sair} className="text-sm font-semibold text-slate-400 hover:text-red-500 transition">Sair</button>
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">

@@ -8,18 +8,19 @@ const EMAIL_GESTOR       = "filippe@metodointento.com.br";
 const URL_APP            = "https://mentoria.metodointento.com.br";
 
 const ABA = {
-  MESTRE:      "BD_Alunos",
-  MENTORES:    "BD_Mentores",
-  CACHE:       "Cache_Alunos",
-  LOGS_ERRO:   "Logs_Erro",
-  ONBOARDING:  "BD_Onboarding",
-  DIAGNOSTICO: "BD_Diagnostico",
-  REGISTROS:   "BD_Registro",
-  ENCONTROS:   "BD_Diario",
-  SEMANA:      "BD_Semana",
-  SIMULADOS:   "BD_Sim_ENEM",
-  CADERNO:     "BD_Caderno",
-  TOPICOS:     "BD_Topicos"
+  MESTRE:        "BD_Alunos",
+  MENTORES:      "BD_Mentores",
+  CACHE:         "Cache_Alunos",
+  PUSH_SUBS:     "Push_Subscriptions",
+  LOGS_ERRO:     "Logs_Erro",
+  ONBOARDING:    "BD_Onboarding",
+  DIAGNOSTICO:   "BD_Diagnostico",
+  REGISTROS:     "BD_Registro",
+  ENCONTROS:     "BD_Diario",
+  SEMANA:        "BD_Semana",
+  SIMULADOS:     "BD_Sim_ENEM",
+  CADERNO:       "BD_Caderno",
+  TOPICOS:       "BD_Topicos"
 };
 
 // Layout slim de BD_Alunos (23 cols A–W, snake_case headers)
@@ -35,6 +36,11 @@ const COL_MESTRE = {
 // Cache_Alunos: cache em aba separada — escrita em writes, leitura em dashboardLider
 const COL_CACHE = {
   ID_PLANILHA: 0, ULTIMA_DATA_REGISTRO: 1, ULTIMA_SEMANA_REGISTRO: 2, ULTIMO_ENCONTRO: 3
+};
+
+// Push_Subscriptions: 1 linha por device subscrito
+const COL_PUSH = {
+  EMAIL: 0, ENDPOINT: 1, P256DH: 2, AUTH: 3, DT_SUBSCRICAO: 4, USER_AGENT: 5
 };
 
 const COL_REG = {
@@ -176,6 +182,9 @@ function doPost(e) {
     if (acao === "editarEncontro")          return handleEditarEncontro(dados);
     if (acao === "dashboardLider")          return handleDashboardLider(dados);
     if (acao === "designarMentor")          return handleDesignarMentor(dados);
+    if (acao === "subscribePush")           return handleSubscribePush(dados);
+    if (acao === "unsubscribePush")         return handleUnsubscribePush(dados);
+    if (acao === "listarPushSubscriptions") return handleListarPushSubscriptions(dados);
 
     throw new Error("Ação não reconhecida: " + acao);
 
@@ -1632,6 +1641,110 @@ function handleDesignarMentor(dados) {
     });
   } catch (e) {
     Logger.log('handleDesignarMentor EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
+}
+
+
+// =====================================================================
+// PUSH NOTIFICATIONS — subscriptions
+// =====================================================================
+
+function handleSubscribePush(dados) {
+  try {
+    var email = emailNorm(dados.email);
+    var sub = dados.subscription || {};
+    if (!email) return responderJSON({ status: 'erro', mensagem: 'email obrigatório' });
+    if (!sub.endpoint || !sub.keys?.p256dh || !sub.keys?.auth)
+      return responderJSON({ status: 'erro', mensagem: 'subscription inválida' });
+
+    var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+    var aba = ssMestre.getSheetByName(ABA.PUSH_SUBS);
+    if (!aba) return responderJSON({ status: 'erro', mensagem: 'aba ' + ABA.PUSH_SUBS + ' não encontrada' });
+
+    // Se já existir linha com mesmo endpoint (mesmo device), atualiza em vez de duplicar
+    var lastRow = aba.getLastRow();
+    if (lastRow >= 2) {
+      var endpoints = aba.getRange(2, COL_PUSH.ENDPOINT + 1, lastRow - 1, 1).getValues();
+      for (var i = 0; i < endpoints.length; i++) {
+        if (String(endpoints[i][0]) === sub.endpoint) {
+          var linha = i + 2;
+          aba.getRange(linha, 1, 1, 6).setValues([[
+            email, sub.endpoint, sub.keys.p256dh, sub.keys.auth,
+            new Date(), txt(dados.userAgent)
+          ]]);
+          return responderJSON({ status: 'sucesso', updated: true });
+        }
+      }
+    }
+
+    aba.appendRow([email, sub.endpoint, sub.keys.p256dh, sub.keys.auth, new Date(), txt(dados.userAgent)]);
+    return responderJSON({ status: 'sucesso', created: true });
+  } catch (e) {
+    Logger.log('subscribePush EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
+}
+
+function handleUnsubscribePush(dados) {
+  try {
+    var endpoint = txt(dados.endpoint);
+    if (!endpoint) return responderJSON({ status: 'erro', mensagem: 'endpoint obrigatório' });
+
+    var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+    var aba = ssMestre.getSheetByName(ABA.PUSH_SUBS);
+    if (!aba) return responderJSON({ status: 'sucesso', removidas: 0 });
+
+    var lastRow = aba.getLastRow();
+    if (lastRow < 2) return responderJSON({ status: 'sucesso', removidas: 0 });
+
+    var endpoints = aba.getRange(2, COL_PUSH.ENDPOINT + 1, lastRow - 1, 1).getValues();
+    var removidas = 0;
+    for (var i = endpoints.length - 1; i >= 0; i--) {
+      if (String(endpoints[i][0]) === endpoint) {
+        aba.deleteRow(i + 2);
+        removidas++;
+      }
+    }
+    return responderJSON({ status: 'sucesso', removidas: removidas });
+  } catch (e) {
+    Logger.log('unsubscribePush EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
+}
+
+// Lista subscriptions filtradas por email(s). Aceita { email } ou { emails: [...] }.
+function handleListarPushSubscriptions(dados) {
+  try {
+    var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+    var aba = ssMestre.getSheetByName(ABA.PUSH_SUBS);
+    if (!aba) return responderJSON({ status: 'sucesso', subscriptions: [] });
+
+    var lastRow = aba.getLastRow();
+    if (lastRow < 2) return responderJSON({ status: 'sucesso', subscriptions: [] });
+
+    var matriz = aba.getRange(2, 1, lastRow - 1, 6).getValues();
+    var emailsFiltro = null;
+    if (dados.email) emailsFiltro = [emailNorm(dados.email)];
+    else if (Array.isArray(dados.emails)) emailsFiltro = dados.emails.map(emailNorm);
+
+    var subs = [];
+    for (var i = 0; i < matriz.length; i++) {
+      var em = emailNorm(matriz[i][COL_PUSH.EMAIL]);
+      if (!em) continue;
+      if (emailsFiltro && emailsFiltro.indexOf(em) === -1) continue;
+      subs.push({
+        email:    em,
+        endpoint: String(matriz[i][COL_PUSH.ENDPOINT]),
+        keys: {
+          p256dh: String(matriz[i][COL_PUSH.P256DH]),
+          auth:   String(matriz[i][COL_PUSH.AUTH])
+        }
+      });
+    }
+    return responderJSON({ status: 'sucesso', subscriptions: subs });
+  } catch (e) {
+    Logger.log('listarPushSubscriptions EXCEPTION: ' + e.message);
     return responderJSON({ status: 'erro', mensagem: e.message });
   }
 }

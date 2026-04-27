@@ -7,6 +7,7 @@ import ModalRegistro from '../../components/ModalRegistro';
 import { auth } from '@/lib/firebase';
 import { useMentor } from '@/lib/MentorContext';
 import { LoadingScreen } from '@/components/Loading';
+import PushToggle from '@/components/PushToggle';
 
 // Chave da semana de referência (semana anterior, dom→sab) — mesma lógica do modal
 function getSemanaKey() {
@@ -92,6 +93,7 @@ export default function PainelGlobalMentor() {
             <p className="text-slate-400 text-sm font-medium mt-0.5">Bem-vindo(a), {mentorLogado}</p>
           </div>
           <div className="flex items-center gap-3">
+            <PushToggle email={emailMentor} />
             {ehLider && (
               <button
                 onClick={() => router.push('/selecionar-modo')}

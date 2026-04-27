@@ -9,6 +9,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 import { Bar, Line } from '@/components/Charts';
 import { getCache, setCache } from '@/lib/cacheClient';
+import PushToggle from '@/components/PushToggle';
 
 const cardClass = "bg-white rounded-xl border border-slate-200 p-6 shadow-sm transition-colors";
 const inputClass = "w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue transition-all font-medium text-intento-blue";
@@ -666,6 +667,9 @@ export default function PainelDoAluno() {
 
         {/* Logout + Toggle */}
         <div className={`border-t border-slate-100 ${sidebarColapsada ? 'p-2 flex flex-col items-center gap-2' : 'p-4 space-y-2'}`}>
+          {!sidebarColapsada && sessao?.email && (
+            <div className="px-1 pb-1"><PushToggle email={sessao.email} /></div>
+          )}
           <button
             onClick={() => { sessionStorage.removeItem('emailLogado'); auth.signOut(); router.push('/'); }}
             title={sidebarColapsada ? 'Sair do Sistema' : undefined}
