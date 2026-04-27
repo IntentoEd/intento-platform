@@ -228,12 +228,12 @@ export default function ModalRegistro({ alunos, alunoPreSelecionado, onClose, on
                       <div className="flex gap-2">
                         <div className="flex-1">
                           <label className={labelClass + ' text-[9px]'}>Dom.</label>
-                          <input type="text" className={inputClass + ' text-xs p-2'}
+                          <input type="number" inputMode="decimal" min="0" step="0.01" className={inputClass + ' text-xs p-2'}
                             value={form[dKey]} onChange={e => handleChange(dKey, e.target.value)} />
                         </div>
                         <div className="flex-1">
                           <label className={labelClass + ' text-[9px]'}>Prog.</label>
-                          <input type="text" className={inputClass + ' text-xs p-2'}
+                          <input type="number" inputMode="decimal" min="0" step="0.01" className={inputClass + ' text-xs p-2'}
                             value={form[pKey]} onChange={e => handleChange(pKey, e.target.value)} />
                         </div>
                       </div>

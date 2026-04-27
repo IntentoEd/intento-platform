@@ -751,14 +751,14 @@ export default function GestaoIndividualAluno() {
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* HEADER GERAL */}
-        <div className="flex justify-between items-center">
-          <button onClick={() => router.push('/mentor')} className="text-sm font-medium text-slate-400 hover:text-intento-blue transition-colors">← Voltar ao Painel Global</button>
-          <div className="flex gap-2">
-            <button onClick={() => setAbaInterna('diario')} className={`px-5 py-2 font-semibold rounded-lg transition-all text-sm ${abaInterna === 'diario' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Diário de Bordo</button>
-            <button onClick={() => setAbaInterna('semana')} className={`px-5 py-2 font-semibold rounded-lg transition-all text-sm ${abaInterna === 'semana' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Semana Padrão</button>
-            <button onClick={() => setAbaInterna('registros')} className={`px-5 py-2 font-semibold rounded-lg transition-all text-sm ${abaInterna === 'registros' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Histórico Analítico</button>
-            <button onClick={() => setAbaInterna('simulados')} className={`px-5 py-2 font-semibold rounded-lg transition-all text-sm ${abaInterna === 'simulados' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Simulados</button>
-            <button onClick={() => { setAbaInterna('onboarding'); carregarOnboarding(); }} className={`px-5 py-2 font-semibold rounded-lg transition-all text-sm ${abaInterna === 'onboarding' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Onboarding</button>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+          <button onClick={() => router.push('/mentor')} className="text-sm font-medium text-slate-400 hover:text-intento-blue transition-colors self-start shrink-0">← Voltar</button>
+          <div className="flex gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
+            <button onClick={() => setAbaInterna('diario')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'diario' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Diário de Bordo</button>
+            <button onClick={() => setAbaInterna('semana')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'semana' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Semana Padrão</button>
+            <button onClick={() => setAbaInterna('registros')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'registros' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Histórico Analítico</button>
+            <button onClick={() => setAbaInterna('simulados')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'simulados' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Simulados</button>
+            <button onClick={() => { setAbaInterna('onboarding'); carregarOnboarding(); }} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'onboarding' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Onboarding</button>
           </div>
         </div>
 

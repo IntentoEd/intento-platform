@@ -815,6 +815,39 @@ function lerCacheTodos() {
   return mapa;
 }
 
+// Lê BD_Registro do aluno e identifica a SEMANA mais recente registrada
+// (parsing de "DD/MM/YYYY a DD/MM/YYYY" → maior data início). Atualiza
+// o cache em Cache_Alunos com essa semana, garantindo que ULTIMA_SEMANA_REGISTRO
+// reflete o estado real mesmo após edições.
+function _atualizarCacheUltimoRegistro(idPlanilha, abaRegistro) {
+  try {
+    var matriz = abaRegistro.getDataRange().getValues();
+    var semanaMaisRecente = '';
+    var dataInicioMaisRecente = 0;
+    for (var i = 1; i < matriz.length; i++) {
+      var sem = String(matriz[i][COL_REG.SEMANA] || '').trim();
+      if (!sem) continue;
+      var ini = sem.split(' a ')[0];
+      var p = ini.split('/');
+      if (p.length !== 3) continue;
+      var t = new Date(+p[2], +p[1] - 1, +p[0]).getTime();
+      if (t > dataInicioMaisRecente) {
+        dataInicioMaisRecente = t;
+        semanaMaisRecente = sem;
+      }
+    }
+    if (semanaMaisRecente) {
+      var dataFmt = Utilities.formatDate(new Date(dataInicioMaisRecente), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+      atualizarCacheMestre(idPlanilha, {
+        ULTIMA_SEMANA_REGISTRO: semanaMaisRecente,
+        ULTIMA_DATA_REGISTRO:   dataFmt
+      });
+    }
+  } catch (e) {
+    Logger.log('_atualizarCacheUltimoRegistro EXCEPTION: ' + e.message);
+  }
+}
+
 function handleSalvarRegistroGlobal(dados) {
   const lock = LockService.getScriptLock();
   try {
@@ -854,10 +887,7 @@ function handleSalvarRegistroGlobal(dados) {
     }
     const linhaDestino = ultimaLinhaComDados + 1;
     abaDB.getRange(linhaDestino, 1, 1, novaLinha.length).setValues([novaLinha]);
-    atualizarCacheMestre(idPlanilha, {
-      ULTIMA_DATA_REGISTRO:   txt(dados.dataRegistro),
-      ULTIMA_SEMANA_REGISTRO: txt(dados.semana)
-    });
+    _atualizarCacheUltimoRegistro(idPlanilha, abaDB);
     return responderJSON({ status: "sucesso" });
   } catch (erro) { return responderJSON({ status: "erro", mensagem: erro.message }); }
   finally        { lock.releaseLock(); }
@@ -1312,6 +1342,7 @@ function handleEditarRegistro(dados) {
           num(dados.dominioMat), num(dados.progressoMat)
         ];
         aba.getRange(i + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+        _atualizarCacheUltimoRegistro(idPlanilha, aba);
         return responderJSON({ status: "sucesso" });
       }
     }
