@@ -6,6 +6,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Bar, Line } from '@/components/Charts';
 import { LoadingScreen } from '@/components/Loading';
+import { getCache, setCache, tempoRelativo } from '@/lib/cacheClient';
 
 const EMAIL_LIDER = 'filippe@metodointento.com.br';
 
@@ -23,8 +24,10 @@ export default function PainelLider() {
   const router = useRouter();
   const [autorizado, setAutorizado] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState('');
   const [dados, setDados] = useState(null);
+  const [cacheTs, setCacheTs] = useState(null);
 
   // Filtros
   const [mentoresSelecionados, setMentoresSelecionados] = useState([]);
@@ -53,11 +56,23 @@ export default function PainelLider() {
     return () => unsub();
   }, [router]);
 
-  // Fetch
+  // Fetch (com cache client-side: exibe último estado conhecido enquanto rede carrega)
   useEffect(() => {
     if (!autorizado) return;
-    setCarregando(true);
+
+    // 1) Tenta servir do cache imediatamente
+    const cached = getCache('dashboardLider');
+    if (cached) {
+      setDados(cached.data);
+      setCacheTs(cached.ts);
+      setCarregando(false);
+      setAtualizando(true); // mostra "atualizando..." em background
+    } else {
+      setCarregando(true);
+    }
     setErro('');
+
+    // 2) Em paralelo dispara fetch real
     fetch('/api/mentor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -65,11 +80,16 @@ export default function PainelLider() {
     })
       .then(r => r.json())
       .then(d => {
-        if (d.status !== 'sucesso') { setErro(d.mensagem || 'Erro ao carregar dashboard.'); return; }
+        if (d.status !== 'sucesso') {
+          if (!cached) setErro(d.mensagem || 'Erro ao carregar dashboard.');
+          return;
+        }
         setDados(d);
+        setCache('dashboardLider', d);
+        setCacheTs(Date.now());
       })
-      .catch(() => setErro('Erro de conexão.'))
-      .finally(() => setCarregando(false));
+      .catch(() => { if (!cached) setErro('Erro de conexão.'); })
+      .finally(() => { setCarregando(false); setAtualizando(false); });
   }, [autorizado]);
 
   // Lista de mentores únicos (do agregado)
@@ -208,7 +228,22 @@ export default function PainelLider() {
           <button onClick={() => router.push('/selecionar-modo')} className="text-sm font-medium text-slate-400 hover:text-intento-blue transition">← Voltar</button>
           <div>
             <h1 className="text-base font-semibold text-intento-blue">Painel do Líder</h1>
-            <p className="text-[11px] text-slate-400 font-medium">Semana de referência: {dados?.semanaAtual || '—'}</p>
+            <p className="text-[11px] text-slate-400 font-medium">
+              Semana de referência: {dados?.semanaAtual || '—'}
+              {cacheTs && (
+                <span className="ml-2">
+                  ·{' '}
+                  {atualizando ? (
+                    <span className="text-amber-600 inline-flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      atualizando…
+                    </span>
+                  ) : (
+                    <span className="text-emerald-600">atualizado {tempoRelativo(cacheTs)}</span>
+                  )}
+                </span>
+              )}
+            </p>
           </div>
         </div>
         <button onClick={sair} className="text-sm font-semibold text-slate-400 hover:text-red-500 transition">Sair</button>

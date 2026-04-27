@@ -8,6 +8,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import { Bar, Line } from '@/components/Charts';
+import { getCache, setCache } from '@/lib/cacheClient';
 
 const cardClass = "bg-white rounded-xl border border-slate-200 p-6 shadow-sm transition-colors";
 const inputClass = "w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue transition-all font-medium text-intento-blue";
@@ -149,31 +150,44 @@ export default function PainelDoAluno() {
       const emailDefinitivo = (user && user.email) ? user.email : sessionStorage.getItem('emailLogado');
       if (!emailDefinitivo) { router.push('/'); return; }
 
+      const cacheKey = 'login_' + emailDefinitivo;
+
+      // Aplica resposta na UI (server ou cache)
+      const aplicar = (resposta) => {
+        setSessao(resposta);
+        const d = new Date('2026-11-01T00:00:00');
+        const diff = Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
+        setDiasEnem(diff > 0 ? diff : 0);
+        if (resposta.dadosPainel?.sim?.lista) setSimuladosLista(resposta.dadosPainel.sim.lista);
+        else setSimuladosLista([]);
+        const savedChecks = {};
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('Intento_')) savedChecks[key] = localStorage.getItem(key) === 'true';
+        }
+        setCheckboxes(savedChecks);
+      };
+
+      // 1) Cache imediato se válido (aluno completo)
+      const cached = getCache(cacheKey);
+      if (cached && cached.data && cached.data.status === 200 && cached.data.perfil !== 'PENDENTE') {
+        aplicar(cached.data);
+        setCarregando(false);
+      }
+
+      // 2) Fetch real em paralelo
       try {
         const res = await fetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'login', email: emailDefinitivo }) });
         const resposta = await res.json();
 
         if (resposta.status === 200) {
-          if (resposta.perfil === 'PENDENTE') { router.push('/hub'); } 
+          if (resposta.perfil === 'PENDENTE') { router.push('/hub'); }
           else {
-            setSessao(resposta);
-            const d = new Date('2026-11-01T00:00:00');
-            const diff = Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
-            setDiasEnem(diff > 0 ? diff : 0);
-            if (resposta.dadosPainel?.sim?.lista) {
-              setSimuladosLista(resposta.dadosPainel.sim.lista);
-            } else {
-              setSimuladosLista([]); // Limpa os mocks se não houver dados reais
-            }
-            const savedChecks = {};
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i);
-              if (key && key.startsWith('Intento_')) savedChecks[key] = localStorage.getItem(key) === 'true';
-            }
-            setCheckboxes(savedChecks);
+            aplicar(resposta);
+            setCache(cacheKey, resposta);
           }
-        } else { router.push('/'); }
-      } catch (e) { router.push('/'); } 
+        } else if (!cached) { router.push('/'); }
+      } catch (e) { if (!cached) router.push('/'); }
       finally { setCarregando(false); }
     });
     return () => unsubscribe();
