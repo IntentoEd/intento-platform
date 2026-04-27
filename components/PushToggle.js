@@ -61,8 +61,21 @@ export default function PushToggle({ email }) {
       const data = await res.json();
       if (data.status !== 'sucesso') throw new Error(data.mensagem || 'falha ao registrar');
       setEstado('active');
-      setMensagem('Notificações ativas neste dispositivo');
-      setTimeout(() => setMensagem(''), 4000);
+      setMensagem('Notificações ativas — você vai receber um teste em alguns segundos');
+
+      // Dispara push de teste imediato pra confirmar que tudo funciona
+      fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          title: '🔔 Notificações ativadas',
+          body: 'Tudo pronto! Você receberá lembretes importantes da Intento por aqui.',
+          url: '/',
+        }),
+      }).catch(() => {});
+
+      setTimeout(() => setMensagem(''), 6000);
     } catch (e) {
       setEstado('inactive');
       setMensagem('Erro: ' + e.message);
@@ -105,22 +118,55 @@ export default function PushToggle({ email }) {
     );
   }
 
+  const testar = async () => {
+    if (!email) return;
+    setMensagem('Enviando teste...');
+    try {
+      const res = await fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          title: '🔔 Teste de notificação',
+          body: 'Se você está vendo isso, as notificações estão funcionando!',
+          url: '/',
+        }),
+      });
+      const data = await res.json();
+      if (data.enviadas > 0) setMensagem('Notificação enviada — confira na tela');
+      else setMensagem('Sem subscription ativa neste email — desative e ative de novo');
+      setTimeout(() => setMensagem(''), 6000);
+    } catch (e) {
+      setMensagem('Erro: ' + e.message);
+    }
+  };
+
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
-        onClick={estado === 'active' ? desativar : ativar}
-        disabled={estado === 'working'}
-        className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg transition disabled:opacity-50 ${
-          estado === 'active'
-            ? 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
-            : 'text-intento-blue bg-white border border-intento-blue/30 hover:bg-intento-blue/5'
-        }`}
-      >
-        {estado === 'working' ? '...'
-          : estado === 'active' ? '🔔 Notificações ativas'
-          : '🔔 Ativar notificações'}
-      </button>
-      {mensagem && <p className="text-[10px] text-slate-400 font-medium">{mensagem}</p>}
+      <div className="flex items-center gap-2">
+        {estado === 'active' && (
+          <button
+            onClick={testar}
+            className="text-[11px] font-semibold text-slate-500 hover:text-intento-blue px-2 py-1.5 transition"
+          >
+            Testar
+          </button>
+        )}
+        <button
+          onClick={estado === 'active' ? desativar : ativar}
+          disabled={estado === 'working'}
+          className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg transition disabled:opacity-50 ${
+            estado === 'active'
+              ? 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
+              : 'text-intento-blue bg-white border border-intento-blue/30 hover:bg-intento-blue/5'
+          }`}
+        >
+          {estado === 'working' ? '...'
+            : estado === 'active' ? '🔔 Notificações ativas'
+            : '🔔 Ativar notificações'}
+        </button>
+      </div>
+      {mensagem && <p className="text-[10px] text-slate-400 font-medium max-w-[260px] text-right">{mensagem}</p>}
     </div>
   );
 }
