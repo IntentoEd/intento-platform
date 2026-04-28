@@ -9,15 +9,52 @@ import { NextResponse } from 'next/server';
 // Em (B) o webhook decide tipoPerfil/nome/nomeRelacionado e concatena os extras
 // (modalidade, motivo, histórico WPP) em `anotacoes`. Tudo o que vem cru é
 // preservado em dados_typebot_raw na BD_Leads.
-function normalizarPayload(corpo) {
+
+// Normaliza chaves: lowercase + remove acentos + colapsa espaços/hífens em underscore
+// + aplica aliases conhecidos. Tolerante a "Name", "nome filho", "e-mail - pais", etc.
+function normalizarChaves(obj) {
+  const out = {};
+  Object.keys(obj || {}).forEach((k) => {
+    const limpa = String(k)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    if (limpa) out[limpa] = obj[k];
+  });
+  const aliases = {
+    e_mail: 'email',
+    e_mail_pais: 'email',
+    email_pais: 'email',
+    telefone_pais: 'telefone',
+    phone_formatted: 'telefone',
+    phone: 'telefone',
+    motivo_da_busca: 'motivo_busca',
+    esta_no: 'esta_em',
+    nome_pai: 'nome_pais',
+    nome_filho_pais: 'nome_filho',
+    nome_aluno: 'nome_filho',
+  };
+  Object.keys(aliases).forEach((from) => {
+    if (out[from] !== undefined && out[aliases[from]] === undefined) {
+      out[aliases[from]] = out[from];
+    }
+  });
+  return out;
+}
+
+function normalizarPayload(corpoOriginal) {
+  const corpo = normalizarChaves(corpoOriginal);
+
   let nome = corpo.nome || '';
-  let tipoPerfil = corpo.tipoPerfil || '';
-  let nomeRelacionado = corpo.nomeRelacionado || '';
+  let tipoPerfil = corpo.tipoperfil || corpo.tipo_perfil || '';
+  let nomeRelacionado = corpo.nomerelacionado || corpo.nome_relacionado || '';
 
   if (!nome) {
-    if (corpo.nome_pais) {
+    if (corpo.nome_pais || corpo.nome_filho) {
       tipoPerfil = 'pai';
-      nome = corpo.nome_pais;
+      nome = corpo.nome_pais || corpo.name || '';
       nomeRelacionado = corpo.nome_filho || '';
     } else if (corpo.nome_acr) {
       tipoPerfil = 'self';
@@ -35,7 +72,7 @@ function normalizarPayload(corpo) {
 
   if (!tipoPerfil) tipoPerfil = 'self';
 
-  const telefone = corpo.telefone || corpo.phone_formatted || '';
+  const telefone = corpo.telefone || '';
 
   // Extras do Typebot que não cabem em colunas dedicadas vão pra anotações.
   // Preservados também em dados_typebot_raw (JSON cru).
@@ -46,6 +83,7 @@ function normalizarPayload(corpo) {
     corpo.deseja_comecar_em ? `Quer começar em: ${corpo.deseja_comecar_em}` : null,
     corpo.autoavaliacao_progresso ? `Autoavaliação progresso: ${corpo.autoavaliacao_progresso}` : null,
     corpo.finalizou_aplicacao ? `Finalizou typebot: ${corpo.finalizou_aplicacao}` : null,
+    corpo.compromisso ? `Compromisso: ${corpo.compromisso}` : null,
     corpo.nome_asr ? '⚠ Aluno SEM responsável financeiro' : null,
     corpo.historico_conversa ? `\nHistórico WPP:\n${corpo.historico_conversa}` : null,
   ].filter(Boolean);
@@ -59,13 +97,13 @@ function normalizarPayload(corpo) {
     cidade: corpo.cidade || '',
     estado: corpo.estado || '',
     orcamento: corpo.orcamento || corpo.orcamento_referido || '',
-    tempoPreparando: corpo.tempoPreparando || corpo.estuda_ha || '',
+    tempoPreparando: corpo.tempopreparando || corpo.tempo_preparando || corpo.estuda_ha || '',
     vestibulares: corpo.vestibulares || corpo.editais_interesse || '',
-    cursoInteresse: corpo.cursoInteresse || corpo.medicina_ou_outros || '',
+    cursoInteresse: corpo.cursointeresse || corpo.curso_interesse || corpo.medicina_ou_outros || '',
     origem: corpo.origem || '',
-    indicadoPor: corpo.indicadoPor || corpo.mentor_indicacao || corpo.aluno_indicacao || '',
+    indicadoPor: corpo.indicadopor || corpo.indicado_por || corpo.mentor_indicacao || corpo.aluno_indicacao || '',
     anotacoes: linhasAnotacao.join('\n'),
-    dadosTypebotRaw: corpo,
+    dadosTypebotRaw: corpoOriginal,
   };
 }
 
