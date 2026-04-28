@@ -107,6 +107,22 @@ function normalizarPayload(corpoOriginal) {
   };
 }
 
+// Tenta dar JSON.parse no body. Se falhar, conserta padrões comuns de
+// Typebot/Make onde valores vêm embrulhados como array-string malformado:
+//   "campo": "["valor"]"  →  "campo": "valor"
+//   "campo": "[valor]"    →  "campo": "valor"
+async function lerCorpoTolerante(request) {
+  const texto = await request.text();
+  try {
+    return JSON.parse(texto);
+  } catch (e1) {
+    const consertado = texto
+      .replace(/:\s*"\["([^"]*)"\]"/g, ': "$1"')
+      .replace(/:\s*"\[([^"\]]*)\]"/g, ': "$1"');
+    return JSON.parse(consertado);
+  }
+}
+
 export async function POST(request) {
   const segredo = request.headers.get('x-webhook-secret');
   const esperado = process.env.LEADS_WEBHOOK_SECRET;
@@ -115,7 +131,7 @@ export async function POST(request) {
   }
 
   try {
-    const corpo = await request.json();
+    const corpo = await lerCorpoTolerante(request);
     const norm = normalizarPayload(corpo);
 
     if (!norm.nome || !norm.telefone) {
