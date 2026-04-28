@@ -20,6 +20,7 @@ export default function ModalNovoLead({ email, vendedoresDisponiveis = [], ehLid
     anotacoes: '',
     proximaAcao: '',
     vendedor: ehLider ? '' : email,
+    plano: '',
   });
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -147,6 +148,22 @@ export default function ModalNovoLead({ email, vendedoresDisponiveis = [], ehLid
               </select>
             </div>
           )}
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600">Plano (opcional, define depois se ainda não fechou)</label>
+            <select
+              value={form.plano}
+              onChange={(e) => set('plano', e.target.value)}
+              className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md bg-white"
+            >
+              <option value="">— A definir —</option>
+              <option value="Padrão">Padrão (quinzenal por 3m, depois mensal)</option>
+              <option value="Mensal">Mensal (1/mês)</option>
+              <option value="Quinzenal">Quinzenal (2/mês)</option>
+              <option value="Semanal">Semanal (4/mês)</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
 
           <div>
             <label className="text-xs font-semibold text-slate-600">Anotações</label>

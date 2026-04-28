@@ -451,6 +451,67 @@ export default function PainelLider() {
           </div>
         )}
 
+        {/* Encontros do mês corrente */}
+        <div className={cardClass}>
+          <h3 className="text-base font-semibold text-intento-blue mb-1">Encontros do mês corrente</h3>
+          <p className="text-[11px] text-slate-400 font-medium mb-4">realizados / esperados · respeita filtros · ordenado pelos mais atrasados</p>
+
+          {(() => {
+            const comPlano = alunosFiltrados.filter(a => a.encontrosEsperados !== null && a.encontrosEsperados > 0);
+            const semPlano = alunosFiltrados.filter(a => a.encontrosEsperados === null);
+            if (comPlano.length === 0 && semPlano.length === 0) {
+              return <p className="text-xs text-slate-400 italic text-center py-6">Nenhum aluno encontrado nos filtros.</p>;
+            }
+            const ordenados = [...comPlano].sort((a, b) => {
+              const pa = (a.encontrosMesCorrente || 0) / a.encontrosEsperados;
+              const pb = (b.encontrosMesCorrente || 0) / b.encontrosEsperados;
+              return pa - pb;
+            });
+            return (
+              <>
+                {ordenados.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {ordenados.map(a => {
+                      const realizados = a.encontrosMesCorrente || 0;
+                      const ratio = realizados / a.encontrosEsperados;
+                      const cor = ratio >= 1
+                        ? 'bg-emerald-50 border-emerald-200'
+                        : ratio >= 0.5
+                        ? 'bg-amber-50 border-amber-200'
+                        : 'bg-red-50 border-red-200';
+                      const corText = ratio >= 1 ? 'text-emerald-700' : ratio >= 0.5 ? 'text-amber-700' : 'text-red-700';
+                      return (
+                        <div key={a.idAluno} className={`flex items-center justify-between gap-2 p-2.5 rounded-lg border ${cor}`}>
+                          <span className="text-xs font-semibold text-slate-700 truncate flex-1">{a.nome}</span>
+                          <span className={`text-xs font-bold whitespace-nowrap ${corText}`}>
+                            {realizados}/{a.encontrosEsperados}
+                          </span>
+                          <span className="text-[10px] text-slate-400 whitespace-nowrap">{a.plano}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {semPlano.length > 0 && (
+                  <details className="mt-4">
+                    <summary className="text-xs font-semibold text-slate-400 cursor-pointer hover:text-slate-600">
+                      {semPlano.length} aluno{semPlano.length !== 1 ? 's' : ''} sem cálculo (Custom ou sem plano)
+                    </summary>
+                    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {semPlano.map(a => (
+                        <div key={a.idAluno} className="flex items-center justify-between gap-2 p-2 rounded-lg border bg-slate-50 border-slate-200">
+                          <span className="text-xs font-medium text-slate-600 truncate flex-1">{a.nome}</span>
+                          <span className="text-xs text-slate-400">{a.plano || '—'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </>
+            );
+          })()}
+        </div>
+
         {/* Visão analítica — sempre visão geral, não respeita filtros */}
         <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-3 pt-4">
           <h2 className="text-base font-semibold text-intento-blue">Visão analítica</h2>

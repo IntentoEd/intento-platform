@@ -156,6 +156,7 @@ export default function ModalLead({
               <Info label="Orçamento" v={lead.orcamento} />
               <Info label="Tempo preparando" v={lead.tempoPreparando} />
               <Info label="Vendedor" v={lead.vendedor || '—'} />
+              <Info label="Plano" v={lead.plano} />
               <Info label="Próxima ação" v={lead.proximaAcao} />
             </div>
           ) : (
@@ -221,6 +222,21 @@ export default function ModalLead({
                   </select>
                 </div>
               )}
+              <div>
+                <label className="text-xs font-semibold text-slate-600">Plano</label>
+                <select
+                  value={form.plano || ''}
+                  onChange={(e) => set('plano', e.target.value)}
+                  className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md bg-white"
+                >
+                  <option value="">— Sem plano definido —</option>
+                  <option value="Padrão">Padrão (quinzenal por 3m, depois mensal)</option>
+                  <option value="Mensal">Mensal (1 encontro/mês)</option>
+                  <option value="Quinzenal">Quinzenal (2 encontros/mês)</option>
+                  <option value="Semanal">Semanal (4 encontros/mês)</option>
+                  <option value="Custom">Custom (sem cálculo automático)</option>
+                </select>
+              </div>
             </div>
           )}
 
