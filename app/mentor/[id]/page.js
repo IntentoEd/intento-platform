@@ -44,35 +44,32 @@ function valorColor() {
   return '';
 }
 
-// Datasets por visão para o gráfico temporal
+// Configurações por visão para o gráfico temporal
 // Para a visão "geral", yAxisID separa escalas: yPercent (0-100%) e yRaw (valores brutos)
-const CHART_VISOES = {
-  geral: [
-    { label: 'Domínio (%)',      col: 5,  color: '#D4B726', yAxisID: 'yPercent' },
-    { label: 'Progresso (%)',    col: 6,  color: '#10b981', yAxisID: 'yPercent' },
-    { label: 'Horas Estudadas',  col: 4,  color: '#060242', yAxisID: 'yRaw' },
-    { label: 'Meta Semanal',     col: 3,  color: '#94a3b8', yAxisID: 'yRaw' },
-    { label: 'Revisões Atras.',  col: 7,  color: '#f87171', yAxisID: 'yRaw' },
-  ],
-  emocional: [
-    { label: 'Estresse',   col: 8,  color: '#f87171' },
-    { label: 'Ansiedade',  col: 9,  color: '#fb923c' },
-    { label: 'Motivação',  col: 10, color: '#10b981' },
-    { label: 'Sono',       col: 11, color: '#a855f7' },
-  ],
-  disciplinas: [
-    { label: 'Biologia',   col: 12, color: '#10b981' },
-    { label: 'Química',    col: 14, color: '#3b82f6' },
-    { label: 'Física',     col: 16, color: '#fb923c' },
-    { label: 'Matemática', col: 18, color: '#a855f7' },
-  ],
-};
+const GERAL_CONFIG = [
+  { key: 'dominio',   label: 'Domínio (%)',     col: 5, color: '#D4B726', yAxisID: 'yPercent' },
+  { key: 'progresso', label: 'Progresso (%)',   col: 6, color: '#10b981', yAxisID: 'yPercent' },
+  { key: 'horas',     label: 'Horas Estudadas', col: 4, color: '#060242', yAxisID: 'yRaw' },
+  { key: 'meta',      label: 'Meta Semanal',    col: 3, color: '#94a3b8', yAxisID: 'yRaw' },
+  { key: 'revisoes',  label: 'Revisões Atras.', col: 7, color: '#f87171', yAxisID: 'yRaw' },
+];
 
-function GraficoTemporal({ registros, visao }) {
+const EMOCIONAL_CONFIG = [
+  { label: 'Estresse',   col: 8,  color: '#f87171' },
+  { label: 'Ansiedade',  col: 9,  color: '#fb923c' },
+  { label: 'Motivação',  col: 10, color: '#10b981' },
+  { label: 'Sono',       col: 11, color: '#a855f7' },
+];
+
+const DISCIPLINAS_CONFIG = [
+  { key: 'BIO', label: 'Biologia',   color: '#10b981', dCol: 12, pCol: 13 },
+  { key: 'QUI', label: 'Química',    color: '#3b82f6', dCol: 14, pCol: 15 },
+  { key: 'FIS', label: 'Física',     color: '#fb923c', dCol: 16, pCol: 17 },
+  { key: 'MAT', label: 'Matemática', color: '#a855f7', dCol: 18, pCol: 19 },
+];
+
+function GraficoTemporal({ registros, series, isGeral }) {
   const labels = registros.map(r => r[0] || '');
-  const series = CHART_VISOES[visao] || CHART_VISOES.geral;
-
-  const isGeral = visao === 'geral';
 
   const data = {
     labels,
@@ -92,9 +89,13 @@ function GraficoTemporal({ registros, visao }) {
       tension: 0.35,
       fill: false,
       spanGaps: true,
+      ...(s.borderDash ? { borderDash: s.borderDash } : {}),
       ...(isGeral && s.yAxisID ? { yAxisID: s.yAxisID } : {}),
     })),
   };
+
+  const hasPercent = isGeral && series.some(s => s.yAxisID === 'yPercent');
+  const hasRaw     = isGeral && series.some(s => s.yAxisID === 'yRaw');
 
   const axisBase = {
     grid: { color: '#f1f5f9' },
@@ -153,39 +154,43 @@ function GraficoTemporal({ registros, visao }) {
         border: { display: false },
       },
       ...(isGeral ? {
-        yPercent: {
-          ...axisBase,
-          type: 'linear',
-          position: 'left',
-          min: 0,
-          max: 100,
-          ticks: {
-            ...axisBase.ticks,
-            callback: (v) => v + '%',
+        ...(hasPercent ? {
+          yPercent: {
+            ...axisBase,
+            type: 'linear',
+            position: 'left',
+            min: 0,
+            max: 100,
+            ticks: {
+              ...axisBase.ticks,
+              callback: (v) => v + '%',
+            },
+            title: {
+              display: true,
+              text: 'Domínio / Progresso',
+              font: { size: 9, weight: '600' },
+              color: '#94a3b8',
+            },
           },
-          title: {
-            display: true,
-            text: 'Domínio / Progresso',
-            font: { size: 9, weight: '600' },
-            color: '#94a3b8',
+        } : {}),
+        ...(hasRaw ? {
+          yRaw: {
+            ...axisBase,
+            type: 'linear',
+            position: hasPercent ? 'right' : 'left',
+            grid: hasPercent ? { display: false } : { color: '#f1f5f9' },
+            ticks: {
+              ...axisBase.ticks,
+              color: hasPercent ? '#cbd5e1' : '#94a3b8',
+            },
+            title: {
+              display: true,
+              text: 'Horas / Revisões',
+              font: { size: 9, weight: '600' },
+              color: hasPercent ? '#cbd5e1' : '#94a3b8',
+            },
           },
-        },
-        yRaw: {
-          ...axisBase,
-          type: 'linear',
-          position: 'right',
-          grid: { display: false },
-          ticks: {
-            ...axisBase.ticks,
-            color: '#cbd5e1',
-          },
-          title: {
-            display: true,
-            text: 'Horas / Revisões',
-            font: { size: 9, weight: '600' },
-            color: '#cbd5e1',
-          },
-        },
+        } : {}),
       } : {
         y: {
           ...axisBase,
@@ -229,6 +234,41 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
   const [editIdx, setEditIdx] = useState(null);
   const [formEdit, setFormEdit] = useState({});
   const [salvando, setSalvando] = useState(false);
+
+  // Filtros do gráfico Geral (quais variáveis exibir)
+  const [geralFiltro, setGeralFiltro] = useState(() => new Set(GERAL_CONFIG.map(c => c.key)));
+  // Filtros do gráfico Disciplinas (métricas e disciplinas exibidas)
+  const [discMetricas, setDiscMetricas] = useState(() => new Set(['dominio']));
+  const [discFiltro,   setDiscFiltro]   = useState(() => new Set(DISCIPLINAS_CONFIG.map(d => d.key)));
+
+  const toggleSet = (setter, value, { allowEmpty = false } = {}) => {
+    setter(prev => {
+      const next = new Set(prev);
+      if (next.has(value)) {
+        if (!allowEmpty && next.size === 1) return next;
+        next.delete(value);
+      } else {
+        next.add(value);
+      }
+      return next;
+    });
+  };
+
+  const chartSeries = (() => {
+    if (visao === 'emocional') return EMOCIONAL_CONFIG;
+    if (visao === 'geral') return GERAL_CONFIG.filter(c => geralFiltro.has(c.key));
+    const out = [];
+    DISCIPLINAS_CONFIG.forEach(d => {
+      if (!discFiltro.has(d.key)) return;
+      if (discMetricas.has('dominio')) {
+        out.push({ label: `${d.label} · Dom.`, col: d.dCol, color: d.color });
+      }
+      if (discMetricas.has('progresso')) {
+        out.push({ label: `${d.label} · Prog.`, col: d.pCol, color: d.color, borderDash: [6, 4] });
+      }
+    });
+    return out;
+  })();
 
   const cols = VISOES.find(v => v.id === visao)?.cols || VISOES[0].cols;
 
@@ -285,7 +325,73 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
             ))}
           </div>
         </div>
-        <GraficoTemporal registros={registros} visao={visao} />
+
+        {visao === 'geral' && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-4">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Variáveis:</span>
+            {GERAL_CONFIG.map(c => {
+              const active = geralFiltro.has(c.key);
+              return (
+                <button
+                  key={c.key}
+                  onClick={() => toggleSet(setGeralFiltro, c.key)}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${active ? 'text-white shadow-sm' : 'text-slate-400 bg-white border-slate-200 hover:border-slate-300'}`}
+                  style={active ? { backgroundColor: c.color, borderColor: c.color } : {}}
+                  title={active ? 'Ocultar' : 'Mostrar'}
+                >
+                  <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: active ? '#fff' : c.color }}></span>
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {visao === 'disciplinas' && (
+          <div className="flex flex-col sm:flex-row sm:items-center flex-wrap gap-3 mb-4">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Métrica:</span>
+              <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
+                {[{ key: 'dominio', label: 'Domínio' }, { key: 'progresso', label: 'Progresso' }].map(m => {
+                  const active = discMetricas.has(m.key);
+                  return (
+                    <button
+                      key={m.key}
+                      onClick={() => toggleSet(setDiscMetricas, m.key)}
+                      className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${active ? 'bg-white text-intento-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Disciplinas:</span>
+              {DISCIPLINAS_CONFIG.map(d => {
+                const active = discFiltro.has(d.key);
+                return (
+                  <button
+                    key={d.key}
+                    onClick={() => toggleSet(setDiscFiltro, d.key)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${active ? 'text-white shadow-sm' : 'text-slate-400 bg-white border-slate-200 hover:border-slate-300'}`}
+                    style={active ? { backgroundColor: d.color, borderColor: d.color } : {}}
+                  >
+                    <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: active ? '#fff' : d.color }}></span>
+                    {d.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {chartSeries.length === 0 ? (
+          <div className="text-center py-12 text-slate-400 text-xs font-medium">
+            Selecione ao menos uma variável para visualizar o gráfico.
+          </div>
+        ) : (
+          <GraficoTemporal registros={registros} series={chartSeries} isGeral={visao === 'geral'} />
+        )}
       </div>
 
       {/* ── Tabela de dados brutos ── */}

@@ -107,7 +107,8 @@ const COL_ENC = {
   DATA: 0, AUTOAVALIACAO: 1, VITORIAS: 2, DESAFIOS: 3, CATEGORIA: 4,
   META: 5, EXPLORACAO: 6,
   ACAO_1: 7, ACAO_2: 8, ACAO_3: 9, ACAO_4: 10, ACAO_5: 11,
-  RESULTADO_1: 12, RESULTADO_2: 13, RESULTADO_3: 14, RESULTADO_4: 15, RESULTADO_5: 16
+  RESULTADO_1: 12, RESULTADO_2: 13, RESULTADO_3: 14, RESULTADO_4: 15, RESULTADO_5: 16,
+  NOTAS_PRIVADAS: 17  // ⚠️ Campo privado do mentor — NÃO incluir em obterDadosDoPainel
 };
 
 const COL_SIM = {
@@ -247,6 +248,8 @@ function doPost(e) {
     if (acao === "dashboardCrm")            return handleDashboardCrm(dados);
     if (acao === "converterLeadEmAluno")    return handleConverterLeadEmAluno(dados);
     if (acao === "buscarLead")              return handleBuscarLead(dados);
+    if (acao === "buscarLeadPorEmail")      return handleBuscarLeadPorEmail(dados);
+    if (acao === "buscarLeadPorGcalEventId") return handleBuscarLeadPorGcalEventId(dados);
     if (acao === "listarVendedoresAtendimento") return handleListarVendedoresAtendimento(dados);
 
     throw new Error("Ação não reconhecida: " + acao);
@@ -795,7 +798,7 @@ function handleEditarEncontro(dados) {
     if (!linha || linha < 2) throw new Error("Linha inválida.");
     const acoes      = Array.isArray(dados.acoes) ? dados.acoes : [];
     const resultados = Array.isArray(dados.resultados) ? dados.resultados : [];
-    abaDiario.getRange(linha, 1, 1, 17).setValues([[
+    abaDiario.getRange(linha, 1, 1, 18).setValues([[
       txt(dados.data),
       txt(dados.autoavaliacao),
       txt(dados.vitorias),
@@ -804,7 +807,8 @@ function handleEditarEncontro(dados) {
       txt(dados.meta),
       txt(dados.exploracao),
       txt(acoes[0]), txt(acoes[1]), txt(acoes[2]), txt(acoes[3]), txt(acoes[4]),
-      txt(resultados[0]), txt(resultados[1]), txt(resultados[2]), txt(resultados[3]), txt(resultados[4])
+      txt(resultados[0]), txt(resultados[1]), txt(resultados[2]), txt(resultados[3]), txt(resultados[4]),
+      txt(dados.notasPrivadas)
     ]]);
     return responderJSON({ status: "sucesso" });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
@@ -823,7 +827,9 @@ function handleSalvarNovoEncontro(dados) {
     abaDiario.appendRow([
       dataHoje, txt(dados.autoavaliacao), txt(dados.vitorias), txt(dados.desafios),
       txt(dados.categoria), txt(dados.meta), txt(dados.exploracao),
-      txt(acoes[0]), txt(acoes[1]), txt(acoes[2]), txt(acoes[3]), txt(acoes[4])
+      txt(acoes[0]), txt(acoes[1]), txt(acoes[2]), txt(acoes[3]), txt(acoes[4]),
+      '', '', '', '', '',  // resultados (preenchidos depois via avaliarEncontroPassado)
+      txt(dados.notasPrivadas)
     ]);
     atualizarCacheMestre(idPlanilha, { ULTIMO_ENCONTRO: dataHoje });
     return responderJSON({ status: "sucesso" });
@@ -2221,6 +2227,52 @@ function handleBuscarLead(dados) {
     return responderJSON({ status: 'sucesso', lead: lead });
   } catch (e) {
     Logger.log('buscarLead EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
+}
+
+// === Handler: busca lead por email (usado pelo /api/agenda/sync) ===
+function handleBuscarLeadPorEmail(dados) {
+  try {
+    var emailBusca = emailNorm(dados.email);
+    if (!emailBusca) return responderJSON({ status: 'erro', mensagem: 'email obrigatório' });
+    var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+    var aba = ssMestre.getSheetByName(ABA.LEADS);
+    if (!aba) return responderJSON({ status: 'sucesso', lead: null });
+    var lastRow = aba.getLastRow();
+    if (lastRow < 2) return responderJSON({ status: 'sucesso', lead: null });
+    var matriz = aba.getRange(2, 1, lastRow - 1, 25).getValues();
+    for (var i = 0; i < matriz.length; i++) {
+      if (emailNorm(matriz[i][COL_LEAD.EMAIL]) === emailBusca) {
+        return responderJSON({ status: 'sucesso', lead: _leadToObj(matriz[i]) });
+      }
+    }
+    return responderJSON({ status: 'sucesso', lead: null });
+  } catch (e) {
+    Logger.log('buscarLeadPorEmail EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
+}
+
+// === Handler: busca lead por gcal_event_id (dedup do sync) ===
+function handleBuscarLeadPorGcalEventId(dados) {
+  try {
+    var idEvento = txt(dados.gcalEventId);
+    if (!idEvento) return responderJSON({ status: 'erro', mensagem: 'gcalEventId obrigatório' });
+    var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+    var aba = ssMestre.getSheetByName(ABA.LEADS);
+    if (!aba) return responderJSON({ status: 'sucesso', lead: null });
+    var lastRow = aba.getLastRow();
+    if (lastRow < 2) return responderJSON({ status: 'sucesso', lead: null });
+    var matriz = aba.getRange(2, 1, lastRow - 1, 25).getValues();
+    for (var i = 0; i < matriz.length; i++) {
+      if (txt(matriz[i][COL_LEAD.GCAL_EVENT_ID]) === idEvento) {
+        return responderJSON({ status: 'sucesso', lead: _leadToObj(matriz[i]) });
+      }
+    }
+    return responderJSON({ status: 'sucesso', lead: null });
+  } catch (e) {
+    Logger.log('buscarLeadPorGcalEventId EXCEPTION: ' + e.message);
     return responderJSON({ status: 'erro', mensagem: e.message });
   }
 }
