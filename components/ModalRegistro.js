@@ -53,10 +53,11 @@ export default function ModalRegistro({ alunos, alunoPreSelecionado, onClose, on
     const updated = { ...prev, [campo]: valor };
     const campos = ['dominioBio', 'dominioQui', 'dominioFis', 'dominioMat'];
     const camposProg = ['progressoBio', 'progressoQui', 'progressoFis', 'progressoMat'];
-    const vals = campos.map(c => parseFloat(updated[c])).filter(n => !isNaN(n));
-    const valsProg = camposProg.map(c => parseFloat(updated[c])).filter(n => !isNaN(n));
-    if (vals.length > 0) updated.dominioTotal = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2);
-    if (valsProg.length > 0) updated.progressoTotal = (valsProg.reduce((a, b) => a + b, 0) / valsProg.length).toFixed(2);
+    // 0 = "sem informação", não nota real — exclui do cálculo da média
+    const vals = campos.map(c => parseFloat(updated[c])).filter(n => !isNaN(n) && n > 0);
+    const valsProg = camposProg.map(c => parseFloat(updated[c])).filter(n => !isNaN(n) && n > 0);
+    updated.dominioTotal = vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : '';
+    updated.progressoTotal = valsProg.length > 0 ? (valsProg.reduce((a, b) => a + b, 0) / valsProg.length).toFixed(2) : '';
     return updated;
   };
 
