@@ -2,20 +2,18 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import {
-  listarJanelasDisponibilidade,
-  listarReunioesBooked,
   criarEvento,
-  contarReunioesDoMes,
-  dentroDeJanela,
-  colideComReuniao,
-  slotsDentroJanelas,
+  cabeEmJanelas,
+  colideComBloqueio,
   formatarHorarioBR,
+  gerarSlotsLivres,
+  diaDaSemana,
 } from '@/lib/googleCalendar';
 
 const SUPORTE_EMAIL = 'suporte@metodointento.com.br';
 const DUR_DEFAULT = 30;
 const ANTECEDENCIA_MIN_HORAS = 4;
-const DIAS_FRENTE = 3;
+const DIAS_FRENTE = 7;
 const TTL_IDEMPOTENCY_MS = 60 * 60 * 1000;
 
 const idempotencyCache = new Map();
@@ -23,10 +21,7 @@ const idempotencyCache = new Map();
 function checkIdempotency(key) {
   const v = idempotencyCache.get(key);
   if (!v) return null;
-  if (Date.now() - v.ts > TTL_IDEMPOTENCY_MS) {
-    idempotencyCache.delete(key);
-    return null;
-  }
+  if (Date.now() - v.ts > TTL_IDEMPOTENCY_MS) { idempotencyCache.delete(key); return null; }
   return v.response;
 }
 function saveIdempotency(key, response) {
@@ -90,65 +85,47 @@ export async function POST(request) {
     if (vendResp.status !== 'sucesso') {
       return NextResponse.json({ status: 'erro', mensagem: vendResp.mensagem || 'falha ao listar vendedores' }, { status: 500 });
     }
-    const vendedores = vendResp.vendedores || [];
-
+    const vendedores = (vendResp.vendedores || []).filter((v) => v.horariosPadrao);
     if (vendedores.length === 0) {
-      return NextResponse.json({ status: 'sem_vaga', motivo: 'Nenhum vendedor ativo cadastrado', sugestoes: [] });
+      return NextResponse.json({ status: 'sem_vaga', motivo: 'Nenhum vendedor com horarios_padrao definido', sugestoes: [] });
     }
 
-    // Pra cada vendedor: lê janelas declaradas + reuniões booked no entorno do slot
-    // (com folga pra capturar janelas que abrangem o slot)
-    const folgaMs = 24 * 60 * 60 * 1000;
-    const timeMin = new Date(inicio.getTime() - folgaMs).toISOString();
-    const timeMax = new Date(fim.getTime() + folgaMs).toISOString();
-
-    const checks = await Promise.all(
-      vendedores.map(async (v) => {
-        try {
-          const [janelas, booked] = await Promise.all([
-            listarJanelasDisponibilidade(v.email, timeMin, timeMax),
-            listarReunioesBooked(v.email, timeMin, timeMax),
-          ]);
-          return { v, janelas, booked };
-        } catch (e) {
-          console.warn(`[agendar] falha ao ler calendar de ${v.email}:`, e.message);
-          return { v, janelas: [], booked: [], erro: e.message };
-        }
-      })
-    );
-
-    // Filtra os que têm janela cobrindo o slot E sem conflito com reuniões booked
-    const livres = checks.filter(({ janelas, booked }) =>
-      dentroDeJanela(inicio, fim, janelas) && !colideComReuniao(inicio, fim, booked)
-    );
-
-    if (livres.length === 0) {
-      const sugestoes = await gerarSugestoes(vendedores, dur);
+    const dia = diaDaSemana(inicio);
+    const candidatosPorJanela = vendedores.filter((v) => cabeEmJanelas(inicio, fim, v.horariosPadrao[dia] || []));
+    if (candidatosPorJanela.length === 0) {
+      const sugestoes = await gerarSugestoesProximas(vendedores, dur);
       const response = {
         status: 'sem_vaga',
-        motivo: 'Nenhum vendedor com janela declarada disponível nesse horário',
+        motivo: 'Nenhum vendedor tem janela padrão cobrindo esse horário',
         sugestoes,
       };
       saveIdempotency(idempotencyKey, response);
       return NextResponse.json(response);
     }
 
-    // Round-robin: menor carga no mês
-    let escolhido = livres[0].v;
-    if (livres.length > 1) {
-      const cargas = await Promise.all(
-        livres.map(async ({ v }) => {
-          try {
-            const n = await contarReunioesDoMes(v.email);
-            return { v, n };
-          } catch {
-            return { v, n: Infinity };
-          }
-        })
-      );
-      cargas.sort((a, b) => a.n - b.n);
-      escolhido = cargas[0].v;
+    // Filtra os que NÃO têm exceção de bloqueio neste horário
+    const dtIni = inicio.toISOString();
+    const dtFim = fim.toISOString();
+    const excPorVendedor = {};
+    for (const v of candidatosPorJanela) {
+      const r = await gas({ acao: 'listarExcecoesDisponibilidade', email: v.email, dtInicio: dtIni, dtFim });
+      excPorVendedor[v.email] = (r.status === 'sucesso' ? r.excecoes : []) || [];
     }
+    const livres = candidatosPorJanela.filter((v) => !colideComBloqueio(inicio, fim, excPorVendedor[v.email] || []));
+
+    if (livres.length === 0) {
+      const sugestoes = await gerarSugestoesProximas(vendedores, dur);
+      const response = {
+        status: 'sem_vaga',
+        motivo: 'Vendedores com janela padrão estão bloqueados nesse horário',
+        sugestoes,
+      };
+      saveIdempotency(idempotencyKey, response);
+      return NextResponse.json(response);
+    }
+
+    // Round-robin: pega o primeiro (sem mais carga calculada por enquanto — pode evoluir)
+    const escolhido = livres[0];
 
     const evento = await criarEvento({
       vendedorEmail: escolhido.email,
@@ -198,44 +175,20 @@ export async function POST(request) {
   }
 }
 
-// Gera até 3 sugestões dos próximos slots livres (qualquer vendedor com janela declarada).
-async function gerarSugestoes(vendedores, durMin) {
-  const sugestoes = [];
-  const agora = new Date();
-  const timeMin = new Date(agora.getTime() + ANTECEDENCIA_MIN_HORAS * 60 * 60 * 1000).toISOString();
-  const timeMax = new Date(agora.getTime() + DIAS_FRENTE * 24 * 60 * 60 * 1000).toISOString();
-
-  // Pra cada vendedor, pega janelas + reuniões booked
-  const dados = await Promise.all(
-    vendedores.map(async (v) => {
-      try {
-        const [janelas, booked] = await Promise.all([
-          listarJanelasDisponibilidade(v.email, timeMin, timeMax),
-          listarReunioesBooked(v.email, timeMin, timeMax),
-        ]);
-        return { v, janelas, booked };
-      } catch {
-        return { v, janelas: [], booked: [] };
-      }
-    })
-  );
-
-  // Une todos os slots possíveis
-  const slotsSet = new Set();
-  for (const { janelas } of dados) {
-    const ss = slotsDentroJanelas(janelas, durMin, ANTECEDENCIA_MIN_HORAS);
-    for (const s of ss) slotsSet.add(s);
+async function gerarSugestoesProximas(vendedores, dur) {
+  const dtIni = new Date().toISOString();
+  const dtFim = new Date(Date.now() + DIAS_FRENTE * 24 * 60 * 60 * 1000).toISOString();
+  const r = await gas({ acao: 'listarExcecoesDisponibilidade', dtInicio: dtIni, dtFim });
+  const excecoesAll = (r.status === 'sucesso' ? r.excecoes : []) || [];
+  const excPorVendedor = {};
+  for (const e of excecoesAll) {
+    if (!excPorVendedor[e.vendedorEmail]) excPorVendedor[e.vendedorEmail] = [];
+    excPorVendedor[e.vendedorEmail].push(e);
   }
-  const ordenados = [...slotsSet].sort();
-
-  for (const iso of ordenados) {
-    if (sugestoes.length >= 3) break;
-    const inicio = new Date(iso);
-    const fim = new Date(inicio.getTime() + durMin * 60 * 1000);
-    const algumLivre = dados.some(({ janelas, booked }) =>
-      dentroDeJanela(inicio, fim, janelas) && !colideComReuniao(inicio, fim, booked)
-    );
-    if (algumLivre) sugestoes.push({ horarioISO: iso, horarioBR: formatarHorarioBR(iso) });
+  const conjunto = new Set();
+  for (const v of vendedores) {
+    const slots = gerarSlotsLivres(v.horariosPadrao, excPorVendedor[v.email] || [], DIAS_FRENTE, dur, ANTECEDENCIA_MIN_HORAS);
+    for (const s of slots) conjunto.add(s);
   }
-  return sugestoes;
+  return [...conjunto].sort().slice(0, 3).map((iso) => ({ horarioISO: iso, horarioBR: formatarHorarioBR(iso) }));
 }

@@ -1,19 +1,12 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import {
-  listarJanelasDisponibilidade,
-  listarReunioesBooked,
-  dentroDeJanela,
-  colideComReuniao,
-  slotsDentroJanelas,
-  formatarHorarioBR,
-} from '@/lib/googleCalendar';
+import { gerarSlotsLivres, formatarHorarioBR } from '@/lib/googleCalendar';
 
 const DUR_DEFAULT = 30;
 const ANTECEDENCIA_MIN_HORAS = 4;
-const DIAS_DEFAULT = 3;
-const MAX_SUGESTOES = 20;
+const DIAS_DEFAULT = 7;
+const MAX_SUGESTOES = 30;
 
 async function gas(payload) {
   const res = await fetch(process.env.GOOGLE_APPSCRIPT_URL, {
@@ -39,61 +32,38 @@ export async function GET(request) {
     if (vendResp.status !== 'sucesso') {
       return NextResponse.json({ status: 'erro', mensagem: vendResp.mensagem || 'falha ao listar vendedores' }, { status: 500 });
     }
-    const vendedores = vendResp.vendedores || [];
+    const vendedores = (vendResp.vendedores || []).filter((v) => v.horariosPadrao);
     if (vendedores.length === 0) {
-      return NextResponse.json({ status: 'sucesso', sugestoes: [], total: 0 });
+      return NextResponse.json({ status: 'sucesso', sugestoes: [], total: 0, motivo: 'nenhum vendedor com horarios_padrao definido' });
     }
 
     const agora = new Date();
-    const timeMin = new Date(agora.getTime() + ANTECEDENCIA_MIN_HORAS * 60 * 60 * 1000).toISOString();
-    const timeMax = new Date(agora.getTime() + dias * 24 * 60 * 60 * 1000).toISOString();
-
-    // Pra cada vendedor, lê janelas + reuniões booked em paralelo
-    const dados = await Promise.all(
-      vendedores.map(async (v) => {
-        try {
-          const [janelas, booked] = await Promise.all([
-            listarJanelasDisponibilidade(v.email, timeMin, timeMax),
-            listarReunioesBooked(v.email, timeMin, timeMax),
-          ]);
-          return { v, janelas, booked };
-        } catch (e) {
-          console.warn(`[sugestoes] erro lendo calendar de ${v.email}:`, e.message);
-          return { v, janelas: [], booked: [] };
-        }
-      })
-    );
-
-    // Une todos os slots candidatos a partir das janelas declaradas
-    const slotsSet = new Set();
-    for (const { janelas } of dados) {
-      const ss = slotsDentroJanelas(janelas, dur, ANTECEDENCIA_MIN_HORAS);
-      for (const s of ss) slotsSet.add(s);
-    }
-    const ordenados = [...slotsSet].sort();
-    if (ordenados.length === 0) {
-      return NextResponse.json({ status: 'sucesso', sugestoes: [], total: 0, dias, durMin: dur });
+    const dtInicio = agora.toISOString();
+    const dtFim = new Date(agora.getTime() + dias * 24 * 60 * 60 * 1000).toISOString();
+    const excResp = await gas({ acao: 'listarExcecoesDisponibilidade', dtInicio, dtFim });
+    const excecoes = (excResp.status === 'sucesso' ? excResp.excecoes : []) || [];
+    const excecoesPorVendedor = {};
+    for (const e of excecoes) {
+      if (!excecoesPorVendedor[e.vendedorEmail]) excecoesPorVendedor[e.vendedorEmail] = [];
+      excecoesPorVendedor[e.vendedorEmail].push(e);
     }
 
-    const sugestoes = [];
-    for (const iso of ordenados) {
-      if (sugestoes.length >= MAX_SUGESTOES) break;
-      const inicio = new Date(iso);
-      const fim = new Date(inicio.getTime() + dur * 60 * 1000);
-      const livresCount = dados.filter(({ janelas, booked }) =>
-        dentroDeJanela(inicio, fim, janelas) && !colideComReuniao(inicio, fim, booked)
-      ).length;
-      if (livresCount > 0) {
-        sugestoes.push({
-          horarioISO: iso,
-          horarioBR: formatarHorarioBR(iso),
-          vendedoresLivres: livresCount,
-        });
+    const slotsPorIso = {};
+    for (const v of vendedores) {
+      const minhasExc = excecoesPorVendedor[v.email] || [];
+      const slots = gerarSlotsLivres(v.horariosPadrao, minhasExc, dias, dur, ANTECEDENCIA_MIN_HORAS);
+      for (const s of slots) {
+        slotsPorIso[s] = (slotsPorIso[s] || 0) + 1;
       }
     }
+    const ordenados = Object.keys(slotsPorIso).sort();
+    const sugestoes = ordenados.slice(0, MAX_SUGESTOES).map((iso) => ({
+      horarioISO: iso,
+      horarioBR: formatarHorarioBR(iso),
+      vendedoresLivres: slotsPorIso[iso],
+    }));
 
     return NextResponse.json({ status: 'sucesso', sugestoes, total: sugestoes.length, dias, durMin: dur });
-
   } catch (e) {
     console.error('[/api/agenda/sugestoes]', e);
     return NextResponse.json({ status: 'erro', mensagem: e.message }, { status: 500 });
