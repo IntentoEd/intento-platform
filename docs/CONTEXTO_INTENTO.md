@@ -1,13 +1,14 @@
 # Intento — Contexto do Sistema
 
-> Documento self-contained pra qualquer Claude (web, code, etc.) entender a estrutura do sistema da Intento. Atualizado em 2026-04-26.
+> Documento self-contained pra qualquer Claude (web, code, etc.) entender a estrutura do sistema da Intento. Atualizado em 2026-04-30.
 
 ## 1. Visão Geral
 
 A Intento é uma empresa de mentoria pra vestibulares (ENEM, FUVEST, UNICAMP, FAMERP, FGV, Insper, etc.) e cursos de Medicina. O sistema é uma plataforma web (Next.js + PWA) que conecta alunos, mentores e líderes operacionais.
 
 **URL produção:** mentoria.metodointento.com.br
-**Founder/líder de mentoria:** Filippe Ximenes (filippe@metodointento.com.br)
+**Founder/líder de mentoria:** Filippe Ximenes (filippe@metodointento.com.br) — owner da operação no código
+**Sócio (CRM/vendas):** Rafael — em onboarding no repo, vai assumir o módulo de pipeline de vendas
 
 ## 2. Atores do sistema
 
@@ -16,7 +17,7 @@ A Intento é uma empresa de mentoria pra vestibulares (ENEM, FUVEST, UNICAMP, FA
 | **Aluno** | qualquer | Acompanha próprio painel (registros, simulados, plano de ação, caderno de erros) |
 | **Mentor** | `*@metodointento.com.br` | Atende alunos designados; faz registros semanais e diários de bordo |
 | **Líder de mentoria** | `filippe@metodointento.com.br` (hard-coded) | Visão macro da operação, designa mentores, métricas agregadas |
-| **Vendedor** (futuro) | a definir | Gerencia pipeline de leads (CRM) |
+| **Vendedor** (em construção) | Rafael (sócio) e equipe comercial | Gerencia pipeline de leads (CRM) |
 
 Líder também atende mentorias diretamente — por isso ele tem 2 modos (Painel do Mentor ou Painel do Líder), escolhidos numa tela intermediária `/selecionar-modo`.
 
@@ -195,8 +196,8 @@ Todos via `POST /api/mentor` com `{ acao: 'X', ...dados }`:
 - **Fase 3:** cache de leituras client-side (localStorage) em `/lider` e `/painel` — exibe último estado conhecido imediatamente
 - **Fase 4:** polish — banner "Nova versão disponível", install prompt customizado, splash screens iOS
 - **Fase 5A (atual):** infraestrutura de push notifications (web-push + VAPID + service worker handler)
-- **Fase 5B (próxima):** 4 cron jobs com casos de uso reais
-- **Aguardando:** brief Rafael (sócio) sobre CRM/Pipeline de vendas
+- **Fase 5B (parcialmente bloqueada):** plano original era 4 cron jobs cobrindo casos de uso reais. O Vercel Hobby aceita no máximo 2 crons em frequência diária — não roda `*/5 min`. Implementação completa fica condicionada ao upgrade pro Vercel Pro. Workaround atual: `/api/agenda/sync` é disparado externamente.
+- **Aguardando:** kickoff do Rafael no módulo de CRM/Pipeline de vendas
 
 ## 8. Integrações Externas
 
@@ -204,6 +205,7 @@ Todos via `POST /api/mentor` com `{ acao: 'X', ...dados }`:
 - **Firebase Auth** — autenticação (Google login + email)
 - **Vercel** — hospedagem do Next.js
 - **Google Sheets / Apps Script** — backend e storage
+- **Google Calendar (Appointment Schedule)** — fonte de verdade dos agendamentos de mentoria; sincronizado via `/api/agenda/sync` (chamado externamente pelo bloqueio do Vercel Hobby)
 - **Web Push API** — notificações nativas (Chrome, Edge, Android, iOS 16.4+ instalado)
 - **GmailApp** — envio de emails transacionais (designação de mentor)
 
@@ -239,15 +241,19 @@ Todos via `POST /api/mentor` com `{ acao: 'X', ...dados }`:
 - ✅ Painel do Líder com dashboard, filtros, designação
 - ✅ Caderno de erros com revisão espaçada
 - ✅ Diário de bordo (criar, editar, exportar)
+- ✅ Anotações privadas do mentor no Diário de Bordo
 - ✅ Simulados com autópsia Kolb e classificação de erros (Lacuna/Recordação/Interpretação/Atenção)
 - ✅ PWA instalável (Fases 1-4)
 - ✅ Push notifications (Fase 5A — infraestrutura)
+- ✅ Sync de agenda com Google Calendar Appointment Schedule (`/api/agenda/sync`) — disparado externamente
 
-**Em desenvolvimento:**
-- 🔄 Fase 5B — cron jobs com 3 casos de uso
+**Em desenvolvimento / aberto:**
+- 🔄 Fase 5B — cron jobs com casos de uso reais (bloqueado pelo limite do Vercel Hobby; aguarda upgrade pra Pro)
+- 🔄 Onboarding do sócio Rafael no repo `IntentoEd/app` (acesso, divisão de pastas via CODEOWNERS)
 
 **Aguardando:**
-- ⏳ Brief do sócio Rafael sobre CRM/Pipeline (8 fases de funil definidas, 23 cols esboçadas)
+- ⏳ Brief do Rafael sobre CRM/Pipeline (8 fases de funil definidas, 23 cols esboçadas)
+- ⏳ Decisão sobre upgrade Vercel Pro ($20/seat) — destrava crons, segundo seat e regulariza uso comercial
 
 **Pós-CRM:**
 - Campo `plano` no aluno (semanal/quinzenal/mensal/etc.)
@@ -268,6 +274,30 @@ Todos via `POST /api/mentor` com `{ acao: 'X', ...dados }`:
 - **Autópsia (Kolb)** — análise pós-simulado em 4 etapas (Experiência, Reflexão, Conceituação, Ação)
 - **Caderno de Erros** — coleção de questões erradas com revisão espaçada
 - **Encontro Bússola** — reunião quinzenal coletiva com Filippe (todos os alunos)
+
+## 13. Repositório, time e plataforma
+
+**GitHub**
+- Repo principal: `IntentoEd/app` (Private)
+- Org: `IntentoEd` (plano Free) — migrado de `metodointento-art/app` em 2026-04-30
+- Members: `filippeximenes` (operação) — `Rafael` em onboarding (CRM)
+- Outros repos auxiliares ainda sob `metodointento-art` (não foram migrados): `metodo-intento-onboarding`, `painel-intento-fgv-insper`, etc.
+- Convenção de divisão futura: Filippe foca em operação (mentor/líder/aluno, agenda, push, simulados); Rafael, no módulo CRM/Pipeline. Formalizar via `CODEOWNERS` quando o módulo de CRM existir como pasta no repo.
+
+**Vercel**
+- Team: `linus' projects` (plano **Hobby**)
+- GitHub App da Vercel instalado na Org `IntentoEd` com acesso ao repo `app`
+- Branch de produção: `main`
+- Limites relevantes do Hobby:
+  - Crons: máx 2, frequência mínima diária — não roda `*/5 min`. Por isso `/api/agenda/sync` precisa ser disparado externamente.
+  - Team members: 1 (Rafael não consegue acesso direto enquanto for Hobby)
+  - Banda: 100GB/mês
+  - Uso comercial: tecnicamente fora dos ToS no Hobby
+- Upgrade Pro ($20/seat/mês) destrava crons, segundo seat e regulariza uso comercial — decisão pendente.
+
+**Identidade dos commits**
+- Filippe commita como `Filippe Ximenes <filippex@gmail.com>` (conta GitHub: `filippeximenes`)
+- Conta legada `metodointento-art` permanece dona dos repos auxiliares; não usar pra novos commits.
 
 ---
 
