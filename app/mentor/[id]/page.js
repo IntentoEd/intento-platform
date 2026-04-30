@@ -563,7 +563,7 @@ export default function GestaoIndividualAluno() {
 
   const [formDiario, setFormDiario] = useState({
     autoavaliacao: 0, vitorias: "", desafios: "", categoriaDesafio: "Codificação",
-    meta: "", exploracao: "", planosAcao: ["", "", "", "", ""]
+    meta: "", exploracao: "", planosAcao: ["", "", "", "", ""], notasPrivadas: ""
   });
 
   const [grade, setGrade] = useState({});
@@ -725,6 +725,7 @@ export default function GestaoIndividualAluno() {
       exploracao: enc.exploracao || '',
       acoes: [0,1,2,3,4].map(i => enc.acoes?.[i] || ''),
       resultados: [0,1,2,3,4].map(i => enc.resultados?.[i] || ''),
+      notasPrivadas: enc.notasPrivadas || '',
     });
   };
 
@@ -750,6 +751,7 @@ export default function GestaoIndividualAluno() {
           exploracao: encontroEdit.exploracao,
           acoes: [...encontroEdit.acoes],
           resultados: [...encontroEdit.resultados],
+          notasPrivadas: encontroEdit.notasPrivadas,
         } : e));
         setEncontroEdit(null);
       } else {
@@ -1074,6 +1076,19 @@ export default function GestaoIndividualAluno() {
                             </ul>
                           </div>
 
+                          {/* Anotação Privada — só aparece se tiver conteúdo */}
+                          {enc.notasPrivadas && String(enc.notasPrivadas).trim() !== '' && (
+                            <div className="bg-amber-50 border-2 border-dashed border-amber-300 p-5 rounded-xl">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className={labelClass + " text-amber-800"}>Anotação Privada</h4>
+                                <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded uppercase tracking-wider">Só você vê</span>
+                              </div>
+                              <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap leading-relaxed">
+                                {enc.notasPrivadas}
+                              </p>
+                            </div>
+                          )}
+
                         </div>
                       )}
                     </div>
@@ -1117,6 +1132,20 @@ export default function GestaoIndividualAluno() {
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                       <label className={labelClass}>Exploração</label>
                       <textarea className={inputClass} rows="8" placeholder="Espaço livre para notas, resumos, descobertas durante o encontro..." value={formDiario.exploracao} onChange={e => setFormDiario({...formDiario, exploracao: e.target.value})} />
+                    </div>
+
+                    <div className="bg-amber-50 p-6 rounded-xl border-2 border-dashed border-amber-300 shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className={labelClass + " text-amber-800"}>Anotação Privada</label>
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded uppercase tracking-wider">Só você vê</span>
+                      </div>
+                      <textarea
+                        className={inputClass + " bg-white border-amber-200 focus:ring-amber-400"}
+                        rows="5"
+                        placeholder="Observações pessoais sobre o aluno — não aparecem no painel dele."
+                        value={formDiario.notasPrivadas}
+                        onChange={e => setFormDiario({...formDiario, notasPrivadas: e.target.value})}
+                      />
                     </div>
                   </div>
 
@@ -1204,6 +1233,20 @@ export default function GestaoIndividualAluno() {
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                       <label className={labelClass}>Exploração</label>
                       <textarea className={inputClass} rows="6" value={encontroEdit.exploracao} onChange={e => setEncontroEdit({...encontroEdit, exploracao: e.target.value})} />
+                    </div>
+
+                    <div className="bg-amber-50 p-6 rounded-xl border-2 border-dashed border-amber-300 shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className={labelClass + " text-amber-800"}>Anotação Privada</label>
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded uppercase tracking-wider">Só você vê</span>
+                      </div>
+                      <textarea
+                        className={inputClass + " bg-white border-amber-200 focus:ring-amber-400"}
+                        rows="5"
+                        placeholder="Observações pessoais sobre o aluno — não aparecem no painel dele."
+                        value={encontroEdit.notasPrivadas}
+                        onChange={e => setEncontroEdit({...encontroEdit, notasPrivadas: e.target.value})}
+                      />
                     </div>
                   </div>
 

@@ -637,6 +637,9 @@ function obterDadosDoPainel(ss, emailAluno) {
     }
 
     // ---- Plano + Último Encontro do Diário (snapshot completo) ----
+    // ⚠️ ESTE CAMINHO É CONSUMIDO PELO ALUNO (rota /painel). NÃO incluir
+    // COL_ENC.NOTAS_PRIVADAS aqui — esse campo é privado do mentor e só
+    // vai pelo handleBuscarDadosAluno (rota /mentor/[id]).
     const plano = { data: "--", meta: "Nenhuma meta definida", acao: [] };
     let ultimoEncontro = null;
     if (shEncontros) {
@@ -1173,7 +1176,8 @@ function handleBuscarDadosAluno(dados) {
             desafios: matriz[i][COL_ENC.DESAFIOS], categoria: matriz[i][COL_ENC.CATEGORIA],
             meta: matriz[i][COL_ENC.META], exploracao: matriz[i][COL_ENC.EXPLORACAO],
             acoes: [matriz[i][COL_ENC.ACAO_1], matriz[i][COL_ENC.ACAO_2], matriz[i][COL_ENC.ACAO_3], matriz[i][COL_ENC.ACAO_4], matriz[i][COL_ENC.ACAO_5]],
-            resultados: [matriz[i][COL_ENC.RESULTADO_1], matriz[i][COL_ENC.RESULTADO_2], matriz[i][COL_ENC.RESULTADO_3], matriz[i][COL_ENC.RESULTADO_4], matriz[i][COL_ENC.RESULTADO_5]]
+            resultados: [matriz[i][COL_ENC.RESULTADO_1], matriz[i][COL_ENC.RESULTADO_2], matriz[i][COL_ENC.RESULTADO_3], matriz[i][COL_ENC.RESULTADO_4], matriz[i][COL_ENC.RESULTADO_5]],
+            notasPrivadas: txt(matriz[i][COL_ENC.NOTAS_PRIVADAS])
           });
         }
       }
@@ -2757,4 +2761,40 @@ function recalcularTotaisDeRegistros(dryRun) {
   Logger.log('Registros varridos: ' + totalRegistros);
   Logger.log('Registros com mudança: ' + totalAlterados);
   Logger.log(dryRun ? '*** DRY RUN — nenhuma escrita feita ***' : '*** ESCRITAS APLICADAS ***');
+}
+
+
+// =====================================================================
+// SCRIPT ONE-SHOT — adiciona o cabeçalho "Notas Privadas" na coluna 18
+// (R) de BD_Diario em todas as planilhas dos alunos. Não é obrigatório
+// pro funcionamento (sistema lê por índice), mas deixa a planilha legível.
+// Idempotente — rodar 2x não duplica.
+// =====================================================================
+function adicionarCabecalhoNotasPrivadas() {
+  const ssMestre    = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetMestre = ssMestre.getSheetByName(ABA.MESTRE);
+  if (!sheetMestre) { Logger.log('BD_Mestre não encontrada'); return; }
+
+  const dataMatriz = sheetMestre.getDataRange().getValues();
+  let total = 0, alterados = 0, jaTinha = 0, erro = 0;
+
+  for (let i = 1; i < dataMatriz.length; i++) {
+    const idPlanilha = dataMatriz[i][COL_MESTRE.ID_PLANILHA];
+    const nome       = dataMatriz[i][COL_MESTRE.NOME];
+    if (!idPlanilha) continue;
+    total++;
+    try {
+      const aba = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.ENCONTROS);
+      if (!aba) { Logger.log('  [' + nome + '] sem aba BD_Diario'); continue; }
+      const cabecalhoAtual = txt(aba.getRange(1, COL_ENC.NOTAS_PRIVADAS + 1).getValue());
+      if (cabecalhoAtual === 'Notas Privadas') { jaTinha++; continue; }
+      aba.getRange(1, COL_ENC.NOTAS_PRIVADAS + 1).setValue('Notas Privadas');
+      alterados++;
+      Logger.log('  [' + nome + '] cabeçalho adicionado');
+    } catch (e) { erro++; Logger.log('  [' + nome + '] ERRO: ' + e.message); }
+  }
+  Logger.log('---- RESUMO ----');
+  Logger.log('Planilhas varridas: ' + total + ' (' + erro + ' com erro)');
+  Logger.log('Cabeçalho adicionado: ' + alterados);
+  Logger.log('Já tinha: ' + jaTinha);
 }
