@@ -13,7 +13,6 @@ const CORES_FUNNEL = {
   'Contactado WPP': '#60a5fa',
   'Ativo WPP': '#3b82f6',
   'Reuniao agendada': '#6366f1',
-  'No-show': '#f97316',
   'Reuniao realizada': '#8b5cf6',
   Convertido: '#10b981',
   'Taxa matricula paga': '#059669',

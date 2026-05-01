@@ -48,6 +48,14 @@ function corTimer(iso) {
   return 'text-slate-400';
 }
 
+// Badges visuais pros outcomes de reunião (campo separado da fase, padrão HubSpot).
+const OUTCOME_BADGES = {
+  realizada: { label: '✓ Realizada', cor: 'bg-emerald-100 text-emerald-700' },
+  'no-show': { label: '⚠ No-show', cor: 'bg-orange-100 text-orange-700' },
+  reagendada: { label: '↻ Reagendada', cor: 'bg-blue-100 text-blue-700' },
+  cancelada: { label: '✕ Cancelada', cor: 'bg-slate-200 text-slate-600' },
+};
+
 function LeadCard({ lead, ehLider, vendedoresLista = [], onClick, onAtribuir }) {
   const wppUrl = whatsappLink(lead.telefone);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -83,6 +91,13 @@ function LeadCard({ lead, ehLider, vendedoresLista = [], onClick, onAtribuir }) 
           </span>
         )}
       </div>
+      {lead.outcomeReuniao && OUTCOME_BADGES[lead.outcomeReuniao] && (
+        <div className="mb-1">
+          <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${OUTCOME_BADGES[lead.outcomeReuniao].cor}`}>
+            {OUTCOME_BADGES[lead.outcomeReuniao].label}
+          </span>
+        </div>
+      )}
       <div className="text-xs text-slate-500 mb-1 flex items-center gap-1.5">
         <span>{lead.telefone}</span>
         {wppUrl && (
@@ -166,7 +181,6 @@ const CORES_FASE = {
   'Contactado WPP': 'bg-blue-100 text-blue-700',
   'Ativo WPP': 'bg-blue-200 text-blue-800',
   'Reuniao agendada': 'bg-indigo-100 text-indigo-700',
-  'No-show': 'bg-orange-100 text-orange-700',
   'Reuniao realizada': 'bg-indigo-200 text-indigo-800',
   Convertido: 'bg-emerald-100 text-emerald-700',
   'Taxa matricula paga': 'bg-emerald-200 text-emerald-800',
@@ -190,6 +204,7 @@ export default function Vendas() {
   const [busca, setBusca] = useState('');
   const [modalNovo, setModalNovo] = useState(false);
   const [leadAberto, setLeadAberto] = useState(null);
+  const [dialogOutcome, setDialogOutcome] = useState(null); // { lead } quando arrastou pra "Reuniao realizada"
 
   // Drag and drop sensors: 8px de movimento antes de virar drag (não quebra o click);
   // touch precisa de 200ms de delay (long-press) pra evitar arrastar acidentalmente em scroll.
@@ -222,6 +237,55 @@ export default function Vendas() {
     }
   }, []);
 
+  const aplicarMudancaFase = useCallback(async (lead, novaFase, outcome) => {
+    const faseAnterior = lead.fase;
+    const outcomeAnterior = lead.outcomeReuniao;
+    setLeads((prev) => prev.map((l) => (l.idLead === lead.idLead
+      ? { ...l, fase: novaFase, outcomeReuniao: outcome !== undefined ? outcome : l.outcomeReuniao }
+      : l)));
+    try {
+      const body = { acao: 'moverLeadFase', idLead: lead.idLead, novaFase };
+      if (outcome !== undefined) body.outcomeReuniao = outcome;
+      const r = await apiFetch('/api/mentor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json();
+      if (data.status !== 'sucesso') {
+        setLeads((prev) => prev.map((l) => (l.idLead === lead.idLead
+          ? { ...l, fase: faseAnterior, outcomeReuniao: outcomeAnterior }
+          : l)));
+        alert('Erro ao mover: ' + (data.mensagem || 'falha desconhecida'));
+      }
+    } catch {
+      setLeads((prev) => prev.map((l) => (l.idLead === lead.idLead
+        ? { ...l, fase: faseAnterior, outcomeReuniao: outcomeAnterior }
+        : l)));
+      alert('Erro de conexão ao mover o lead');
+    }
+  }, []);
+
+  const aplicarOutcomeApenas = useCallback(async (lead, outcome) => {
+    const outcomeAnterior = lead.outcomeReuniao;
+    setLeads((prev) => prev.map((l) => (l.idLead === lead.idLead ? { ...l, outcomeReuniao: outcome } : l)));
+    try {
+      const r = await apiFetch('/api/mentor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'editarLead', idLead: lead.idLead, outcomeReuniao: outcome }),
+      });
+      const data = await r.json();
+      if (data.status !== 'sucesso') {
+        setLeads((prev) => prev.map((l) => (l.idLead === lead.idLead ? { ...l, outcomeReuniao: outcomeAnterior } : l)));
+        alert('Erro ao salvar outcome');
+      }
+    } catch {
+      setLeads((prev) => prev.map((l) => (l.idLead === lead.idLead ? { ...l, outcomeReuniao: outcomeAnterior } : l)));
+      alert('Erro de conexão');
+    }
+  }, []);
+
   const handleDragEnd = useCallback(async (event) => {
     const { active, over } = event;
     if (!over) return;
@@ -229,26 +293,25 @@ export default function Vendas() {
     const novaFase = over.data?.current?.fase;
     if (!lead || !novaFase || lead.fase === novaFase) return;
 
-    const faseAnterior = lead.fase;
-    // Atualiza UI otimisticamente
-    setLeads((prev) => prev.map((l) => (l.idLead === lead.idLead ? { ...l, fase: novaFase } : l)));
-
-    try {
-      const r = await apiFetch('/api/mentor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acao: 'moverLeadFase', idLead: lead.idLead, novaFase }),
-      });
-      const data = await r.json();
-      if (data.status !== 'sucesso') {
-        setLeads((prev) => prev.map((l) => (l.idLead === lead.idLead ? { ...l, fase: faseAnterior } : l)));
-        alert('Erro ao mover: ' + (data.mensagem || 'falha desconhecida'));
-      }
-    } catch (e) {
-      setLeads((prev) => prev.map((l) => (l.idLead === lead.idLead ? { ...l, fase: faseAnterior } : l)));
-      alert('Erro de conexão ao mover o lead');
+    // Mover pra "Reuniao realizada" abre dialog pra capturar o outcome.
+    // Outcomes diferentes de "realizada" mantém o lead na fase atual + setam o outcome.
+    if (novaFase === 'Reuniao realizada') {
+      setDialogOutcome({ lead });
+      return;
     }
-  }, []);
+    await aplicarMudancaFase(lead, novaFase);
+  }, [aplicarMudancaFase]);
+
+  const escolherOutcome = useCallback(async (outcome) => {
+    if (!dialogOutcome) return;
+    const { lead } = dialogOutcome;
+    setDialogOutcome(null);
+    if (outcome === 'realizada') {
+      await aplicarMudancaFase(lead, 'Reuniao realizada', 'realizada');
+    } else {
+      await aplicarOutcomeApenas(lead, outcome);
+    }
+  }, [dialogOutcome, aplicarMudancaFase, aplicarOutcomeApenas]);
 
   const carregar = useCallback(async (emailUsar) => {
     setCarregando(true);
@@ -481,6 +544,57 @@ export default function Vendas() {
             carregar(email);
           }}
         />
+      )}
+
+      {dialogOutcome && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setDialogOutcome(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-intento-blue mb-1">Como foi a reunião?</h2>
+            <p className="text-xs text-slate-500 mb-1">{dialogOutcome.lead.nome}</p>
+            <p className="text-[11px] text-slate-400 mb-4">
+              Apenas <b>Realizada</b> move o lead pra coluna &quot;Reuniao realizada&quot;.
+              Os outros marcam o resultado e mantém na fase atual.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => escolherOutcome('realizada')}
+                className="text-sm font-semibold rounded-lg px-3 py-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-700"
+              >
+                ✓ Realizada
+              </button>
+              <button
+                onClick={() => escolherOutcome('no-show')}
+                className="text-sm font-semibold rounded-lg px-3 py-3 bg-orange-100 hover:bg-orange-200 text-orange-700"
+              >
+                ⚠ No-show
+              </button>
+              <button
+                onClick={() => escolherOutcome('reagendada')}
+                className="text-sm font-semibold rounded-lg px-3 py-3 bg-blue-100 hover:bg-blue-200 text-blue-700"
+              >
+                ↻ Reagendada
+              </button>
+              <button
+                onClick={() => escolherOutcome('cancelada')}
+                className="text-sm font-semibold rounded-lg px-3 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700"
+              >
+                ✕ Cancelada
+              </button>
+            </div>
+            <button
+              onClick={() => setDialogOutcome(null)}
+              className="mt-4 text-xs font-semibold text-slate-400 hover:text-slate-600 w-full"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
