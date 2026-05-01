@@ -181,6 +181,60 @@ export default function PainelLider() {
     return (dados?.alunos || []).filter(a => !a.mentor || !a.mentorAtivo);
   }, [dados]);
 
+  const haFiltroAtivo = mentoresSelecionados.length > 0 || busca.trim().length > 0;
+
+  // Quando há filtro, recalcula o agregado da Visão Analítica a partir das
+  // métricas brutas que cada aluno traz em `a.metricas`. Sem filtro, usa o
+  // agregado já calculado pelo backend (mais barato).
+  const agregadoVisivel = useMemo(() => {
+    if (!haFiltroAtivo) return dados?.agregado || {};
+
+    const FAIXAS_LABELS = ['0-5h', '5-10h', '10-15h', '15-20h', '20h+'];
+    const distribuicao = FAIXAS_LABELS.map(faixa => ({ faixa, count: 0 }));
+    const histPorSemana = {};
+    const somas = { domBio:0, cDomBio:0, domQui:0, cDomQui:0, domFis:0, cDomFis:0, domMat:0, cDomMat:0,
+                    progBio:0, cProgBio:0, progQui:0, cProgQui:0, progFis:0, cProgFis:0, progMat:0, cProgMat:0 };
+    const bem = { est:0, cEst:0, ans:0, cAns:0, mot:0, cMot:0, son:0, cSon:0 };
+    let simulados4w = 0;
+
+    alunosFiltrados.forEach(a => {
+      const mx = a.metricas;
+      if (!mx) return;
+      if (mx.faixaHoras >= 0 && mx.faixaHoras < distribuicao.length) distribuicao[mx.faixaHoras].count++;
+      ['est','cEst','ans','cAns','mot','cMot','son','cSon'].forEach(k => { bem[k] += mx.bem?.[k] || 0; });
+      Object.keys(somas).forEach(k => { somas[k] += mx.materias?.[k] || 0; });
+      Object.entries(mx.historico || {}).forEach(([lbl, h]) => {
+        if (!histPorSemana[lbl]) histPorSemana[lbl] = { horas: 0, meta: 0, count: 0 };
+        histPorSemana[lbl].horas += h.horas || 0;
+        histPorSemana[lbl].meta  += h.meta  || 0;
+        histPorSemana[lbl].count += h.count || 0;
+      });
+      simulados4w += mx.simulados4w || 0;
+    });
+
+    const avg = (s, c) => c > 0 ? +(s / c).toFixed(1) : 0;
+
+    const labels = Object.keys(histPorSemana).sort((x, y) => {
+      const pl = (l) => { const p = l.split(' a ')[0].split('/'); return new Date(+p[2], +p[1]-1, +p[0]).getTime(); };
+      return pl(x) - pl(y);
+    }).slice(-8);
+
+    return {
+      horasEstudadas: {
+        distribuicao,
+        historico8Semanas: labels.map(l => ({
+          semana: l,
+          mediaHoras: avg(histPorSemana[l].horas, histPorSemana[l].count),
+          mediaMeta:  avg(histPorSemana[l].meta,  histPorSemana[l].count),
+        })),
+      },
+      dominioPorMateria:   { bio: avg(somas.domBio,  somas.cDomBio),  qui: avg(somas.domQui,  somas.cDomQui),  fis: avg(somas.domFis,  somas.cDomFis),  mat: avg(somas.domMat,  somas.cDomMat) },
+      progressoPorMateria: { bio: avg(somas.progBio, somas.cProgBio), qui: avg(somas.progQui, somas.cProgQui), fis: avg(somas.progFis, somas.cProgFis), mat: avg(somas.progMat, somas.cProgMat) },
+      bemEstar:            { estresse: avg(bem.est, bem.cEst), ansiedade: avg(bem.ans, bem.cAns), motivacao: avg(bem.mot, bem.cMot), sono: avg(bem.son, bem.cSon) },
+      simuladosUltimas4Semanas: simulados4w,
+    };
+  }, [haFiltroAtivo, alunosFiltrados, dados]);
+
   // Resumo dos encontros (alimenta o header da sanfona)
   const resumoEncontros = useMemo(() => {
     const comPlano = alunosFiltrados.filter(a => a.encontrosEsperados !== null && a.encontrosEsperados > 0);
@@ -253,7 +307,7 @@ export default function PainelLider() {
     );
   }
 
-  const ag = dados?.agregado || {};
+  const ag = agregadoVisivel || {};
   const distribuicao = ag.horasEstudadas?.distribuicao || [];
   const historico = ag.horasEstudadas?.historico8Semanas || [];
   const dominio = ag.dominioPorMateria || {};
@@ -564,15 +618,15 @@ export default function PainelLider() {
           })()}
         </SeccaoColapsavel>
 
-        {/* Visão analítica — sempre visão geral, não respeita filtros */}
+        {/* Visão analítica — recalculada a partir das métricas brutas quando há filtro */}
         <SeccaoColapsavel
           titulo="Visão analítica"
-          subtitulo="visão geral da base · não respeita os filtros"
+          subtitulo={haFiltroAtivo ? 'recalculado com base nos filtros ativos' : 'visão geral da base'}
           aberto={seccoesAbertas.analitica}
           onToggle={() => toggleSeccao('analitica')}
           resumo={
             <>
-              <span><b className="text-intento-blue">{(dados?.alunos || []).length}</b> aluno{(dados?.alunos || []).length !== 1 ? 's' : ''} na base</span>
+              <span><b className="text-intento-blue">{haFiltroAtivo ? alunosFiltrados.length : (dados?.alunos || []).length}</b> aluno{(haFiltroAtivo ? alunosFiltrados.length : (dados?.alunos || []).length) !== 1 ? 's' : ''} {haFiltroAtivo ? 'no filtro' : 'na base'}</span>
               <span>distribuição de horas · domínio · progresso · bem-estar</span>
             </>
           }

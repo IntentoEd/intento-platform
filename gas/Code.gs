@@ -1659,10 +1659,6 @@ function agregarMetricasBase_(alunos) {
   var totalSim4W = 0;
   var quatroSemanasAtras = new Date(new Date().getTime() - 28 * 24 * 60 * 60 * 1000);
 
-  function acc(valor, campoSoma, campoCount, alvo) {
-    var n = parseFloat(valor);
-    if (!isNaN(n) && n > 0) { alvo[campoSoma] += n; alvo[campoCount]++; }
-  }
   // Domínio e progresso são gravados em formato misto (decimal 0–1 ou
   // percentual 0–100). Normaliza pra percentual antes de agregar.
   function normPct(valor) {
@@ -1671,7 +1667,24 @@ function agregarMetricasBase_(alunos) {
     return n <= 1 ? n * 100 : n;
   }
 
+  // Acumula em dois alvos ao mesmo tempo (global e por-aluno) pra que o front
+  // possa recalcular agregado filtrado sem round-trip ao backend.
+  function accDual(valor, campoSoma, campoCount, alvoGlobal, alvoAluno) {
+    var n = parseFloat(valor);
+    if (!isNaN(n) && n > 0) {
+      alvoGlobal[campoSoma] += n; alvoGlobal[campoCount]++;
+      alvoAluno[campoSoma]  += n; alvoAluno[campoCount]++;
+    }
+  }
+
   for (var a = 0; a < alunos.length; a++) {
+    var alunoBem      = { est:0, cEst:0, ans:0, cAns:0, mot:0, cMot:0, son:0, cSon:0 };
+    var alunoMaterias = { domBio:0, cDomBio:0, domQui:0, cDomQui:0, domFis:0, cDomFis:0, domMat:0, cDomMat:0,
+                          progBio:0, cProgBio:0, progQui:0, cProgQui:0, progFis:0, cProgFis:0, progMat:0, cProgMat:0 };
+    var alunoHist     = {}; // { 'sem-label': { horas, meta, count } }
+    var alunoFaixa    = -1;
+    var alunoSim4W    = 0;
+
     try {
       var ss = SpreadsheetApp.openById(alunos[a].idAluno);
       var abaReg = ss.getSheetByName(ABA.REGISTROS);
@@ -1685,32 +1698,42 @@ function agregarMetricasBase_(alunos) {
         if (ultimo) {
           var horas = parseFloat(ultimo[COL_REG.HORAS]) || 0;
           for (var f = 0; f < distribuicao.length; f++) {
-            if (horas >= distribuicao[f].min && horas < distribuicao[f].max) { distribuicao[f].count++; break; }
+            if (horas >= distribuicao[f].min && horas < distribuicao[f].max) {
+              distribuicao[f].count++;
+              alunoFaixa = f;
+              break;
+            }
           }
-          acc(ultimo[COL_REG.ESTRESSE],  'est', 'cEst', bem);
-          acc(ultimo[COL_REG.ANSIEDADE], 'ans', 'cAns', bem);
-          acc(ultimo[COL_REG.MOTIVACAO], 'mot', 'cMot', bem);
-          acc(ultimo[COL_REG.SONO],      'son', 'cSon', bem);
+          accDual(ultimo[COL_REG.ESTRESSE],  'est', 'cEst', bem, alunoBem);
+          accDual(ultimo[COL_REG.ANSIEDADE], 'ans', 'cAns', bem, alunoBem);
+          accDual(ultimo[COL_REG.MOTIVACAO], 'mot', 'cMot', bem, alunoBem);
+          accDual(ultimo[COL_REG.SONO],      'son', 'cSon', bem, alunoBem);
         }
 
         for (var u = 0; u < ultimos.length; u++) {
           var lbl = String(ultimos[u][COL_REG.SEMANA]);
+          var horasReg = parseFloat(ultimos[u][COL_REG.HORAS]) || 0;
+          var metaReg  = parseFloat(ultimos[u][COL_REG.META])  || 0;
           if (!historicoPorSemana[lbl]) historicoPorSemana[lbl] = { horas: 0, meta: 0, count: 0 };
-          historicoPorSemana[lbl].horas += parseFloat(ultimos[u][COL_REG.HORAS]) || 0;
-          historicoPorSemana[lbl].meta  += parseFloat(ultimos[u][COL_REG.META])  || 0;
+          historicoPorSemana[lbl].horas += horasReg;
+          historicoPorSemana[lbl].meta  += metaReg;
           historicoPorSemana[lbl].count++;
+          if (!alunoHist[lbl]) alunoHist[lbl] = { horas: 0, meta: 0, count: 0 };
+          alunoHist[lbl].horas += horasReg;
+          alunoHist[lbl].meta  += metaReg;
+          alunoHist[lbl].count++;
         }
 
         for (var w = 0; w < ultimas4.length; w++) {
           var r = ultimas4[w];
-          acc(normPct(r[COL_REG.DOM_BIO]),  'domBio',  'cDomBio',  somas);
-          acc(normPct(r[COL_REG.DOM_QUI]),  'domQui',  'cDomQui',  somas);
-          acc(normPct(r[COL_REG.DOM_FIS]),  'domFis',  'cDomFis',  somas);
-          acc(normPct(r[COL_REG.DOM_MAT]),  'domMat',  'cDomMat',  somas);
-          acc(normPct(r[COL_REG.PROG_BIO]), 'progBio', 'cProgBio', somas);
-          acc(normPct(r[COL_REG.PROG_QUI]), 'progQui', 'cProgQui', somas);
-          acc(normPct(r[COL_REG.PROG_FIS]), 'progFis', 'cProgFis', somas);
-          acc(normPct(r[COL_REG.PROG_MAT]), 'progMat', 'cProgMat', somas);
+          accDual(normPct(r[COL_REG.DOM_BIO]),  'domBio',  'cDomBio',  somas, alunoMaterias);
+          accDual(normPct(r[COL_REG.DOM_QUI]),  'domQui',  'cDomQui',  somas, alunoMaterias);
+          accDual(normPct(r[COL_REG.DOM_FIS]),  'domFis',  'cDomFis',  somas, alunoMaterias);
+          accDual(normPct(r[COL_REG.DOM_MAT]),  'domMat',  'cDomMat',  somas, alunoMaterias);
+          accDual(normPct(r[COL_REG.PROG_BIO]), 'progBio', 'cProgBio', somas, alunoMaterias);
+          accDual(normPct(r[COL_REG.PROG_QUI]), 'progQui', 'cProgQui', somas, alunoMaterias);
+          accDual(normPct(r[COL_REG.PROG_FIS]), 'progFis', 'cProgFis', somas, alunoMaterias);
+          accDual(normPct(r[COL_REG.PROG_MAT]), 'progMat', 'cProgMat', somas, alunoMaterias);
         }
       }
 
@@ -1727,7 +1750,7 @@ function agregarMetricasBase_(alunos) {
             if (s.indexOf('/') > 0) { var p = s.split('/'); d = new Date(+p[2], +p[1]-1, +p[0]); }
             else d = new Date(s);
           }
-          if (d && !isNaN(d.getTime()) && d >= quatroSemanasAtras) totalSim4W++;
+          if (d && !isNaN(d.getTime()) && d >= quatroSemanasAtras) { totalSim4W++; alunoSim4W++; }
         }
       }
 
@@ -1756,6 +1779,14 @@ function agregarMetricasBase_(alunos) {
         alunos[a].encontrosMesCorrente = contMes;
       }
     } catch (e) { Logger.log('agregar: erro em ' + alunos[a].idAluno + ' — ' + e.message); }
+
+    alunos[a].metricas = {
+      faixaHoras: alunoFaixa,
+      bem: alunoBem,
+      materias: alunoMaterias,
+      historico: alunoHist,
+      simulados4w: alunoSim4W
+    };
   }
 
   var labels = Object.keys(historicoPorSemana).sort(function(a, b) {
