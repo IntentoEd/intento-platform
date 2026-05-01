@@ -254,6 +254,7 @@ function doPost(e) {
     if (acao === "listarLeads")             return handleListarLeads(dados);
     if (acao === "dashboardCrm")            return handleDashboardCrm(dados);
     if (acao === "converterLeadEmAluno")    return handleConverterLeadEmAluno(dados);
+    if (acao === "deletarLead")             return handleDeletarLead(dados);
     if (acao === "buscarLead")              return handleBuscarLead(dados);
     if (acao === "buscarLeadPorEmail")      return handleBuscarLeadPorEmail(dados);
     if (acao === "buscarLeadPorGcalEventId") return handleBuscarLeadPorGcalEventId(dados);
@@ -2243,6 +2244,39 @@ function lerVendedoresAtivos() {
     };
   }
   return map;
+}
+
+// === Handler: deleta um lead (hard delete) + log de auditoria ===
+// Antes de apagar, registra um evento em Eventos_Pipeline com acao='apagado'
+// e snapshot mínimo do lead pra rastreabilidade.
+function handleDeletarLead(dados) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    var idLead = txt(dados.idLead);
+    if (!idLead) return responderJSON({ status: 'erro', mensagem: 'idLead obrigatório' });
+    var loc = _acharLinhaLead(idLead);
+    if (loc.linha === -1) return responderJSON({ status: 'erro', mensagem: 'lead não encontrado' });
+    var matriz = loc.aba.getRange(loc.linha, 1, 1, 25).getValues()[0];
+    var lead = _leadToObj(matriz);
+    var snapshot = lead.nome + ' / ' + lead.email + ' / ' + lead.telefone + ' (fase: ' + lead.fase + ')';
+    registrarEventoPipeline(idLead, 'apagado', lead.fase || '', '', emailNorm(dados.porEmail) || '');
+    // Adiciona o snapshot no campo paraFase pro contexto do log (já que o evento "apagado"
+    // não tem destino — usamos esse campo pra preservar info útil).
+    try {
+      var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+      var abaEv = ssMestre.getSheetByName(ABA.EVENTOS_PIPELINE);
+      if (abaEv) {
+        var lastEv = abaEv.getLastRow();
+        if (lastEv >= 2) abaEv.getRange(lastEv, COL_EVENTO.PARA_FASE + 1).setValue(snapshot);
+      }
+    } catch (e) { Logger.log('snapshot evento apagado: ' + e.message); }
+    loc.aba.deleteRow(loc.linha);
+    return responderJSON({ status: 'sucesso', idLead: idLead });
+  } catch (e) {
+    Logger.log('deletarLead EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  } finally { lock.releaseLock(); }
 }
 
 // === Handler: busca um lead pelo idLead (usado pela /api/agenda) ===

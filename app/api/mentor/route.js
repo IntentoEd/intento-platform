@@ -12,7 +12,7 @@ const cache = new Map();
 const ACOES_AUTENTICADAS = new Set([
   // CRM
   'listarLeads', 'criarLead', 'editarLead', 'moverLeadFase',
-  'dashboardCrm', 'converterLeadEmAluno',
+  'dashboardCrm', 'converterLeadEmAluno', 'deletarLead',
   'buscarLead', 'buscarLeadPorEmail', 'buscarLeadPorGcalEventId',
   'listarVendedoresAtendimento', 'cargaPorVendedorNoMes',
   // Disponibilidade
@@ -62,6 +62,7 @@ function chavesParaInvalidar(acaoEscrita, dados) {
     case 'criarLead':
     case 'editarLead':
     case 'moverLeadFase':
+    case 'deletarLead':
       return ['listarLeads|*', 'dashboardCrm|*'];
     case 'converterLeadEmAluno':
       return ['listarLeads|*', 'dashboardCrm|*', 'listaAlunosMentor|*', 'dashboardLider|*'];

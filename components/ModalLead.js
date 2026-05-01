@@ -96,6 +96,33 @@ export default function ModalLead({
     }
   }
 
+  async function apagar() {
+    const conf1 = confirm(`Apagar o lead "${lead.nome}"? Essa ação NÃO pode ser desfeita.`);
+    if (!conf1) return;
+    const conf2 = confirm('Confirma novamente: apagar definitivamente?');
+    if (!conf2) return;
+    setSalvando(true);
+    setErro('');
+    try {
+      const r = await apiFetch('/api/mentor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          acao: 'deletarLead',
+          idLead: lead.idLead,
+          porEmail: email,
+        }),
+      });
+      const data = await r.json();
+      if (data.status === 'sucesso') onAtualizado();
+      else setErro(data.mensagem || 'Erro ao apagar');
+    } catch (e) {
+      setErro(e.message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   const podeConverter = FASES_FINAIS.includes(lead.fase) && !lead.idAlunoGerado;
 
   return (
@@ -338,14 +365,26 @@ export default function ModalLead({
               </>
             )}
           </div>
-          {podeConverter && modo === 'ver' && !confirmConverter && (
-            <button
-              onClick={() => setConfirmConverter(true)}
-              className="px-4 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-            >
-              Converter em aluno
-            </button>
-          )}
+          <div className="flex gap-2">
+            {modo === 'ver' && (
+              <button
+                onClick={apagar}
+                disabled={salvando}
+                className="px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-md transition disabled:opacity-50"
+                title="Apagar lead permanentemente"
+              >
+                Apagar
+              </button>
+            )}
+            {podeConverter && modo === 'ver' && !confirmConverter && (
+              <button
+                onClick={() => setConfirmConverter(true)}
+                className="px-4 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+              >
+                Converter em aluno
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
