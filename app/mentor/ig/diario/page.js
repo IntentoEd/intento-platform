@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -49,7 +51,7 @@ function ExportarDiario() {
     if (!emailMentor || !idPlanilha) return;
     if (!linhaParam || linhaParam < 2) { setErro('Encontro inválido.'); setCarregando(false); return; }
     setCarregando(true);
-    fetch('/api/mentor', {
+    apiFetch('/api/mentor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acao: 'buscarDadosAluno', idPlanilhaAluno: idPlanilha }),

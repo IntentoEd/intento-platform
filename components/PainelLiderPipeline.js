@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useEffect, useMemo, useState } from 'react';
 import { Bar } from '@/components/Charts';
 
@@ -35,12 +37,12 @@ export default function PainelLiderPipeline({ email }) {
     setErro('');
     try {
       const [dashRes, leadsRes] = await Promise.all([
-        fetch('/api/mentor', {
+        apiFetch('/api/mentor', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ acao: 'dashboardCrm', email }),
         }).then((r) => r.json()),
-        fetch('/api/mentor', {
+        apiFetch('/api/mentor', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ acao: 'listarLeads', email }),
@@ -109,7 +111,7 @@ export default function PainelLiderPipeline({ email }) {
   async function atribuirVendedor(idLead, novoVendedor) {
     setAtribuindo((s) => ({ ...s, [idLead]: true }));
     try {
-      const r = await fetch('/api/mentor', {
+      const r = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

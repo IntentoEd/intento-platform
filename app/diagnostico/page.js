@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import questoesData from '../dados/questoes.json';
@@ -76,7 +78,7 @@ export default function DiagnosticoTeorico() {
   const enviarParaGoogle = async () => {
     setEnviando(true);
     try {
-      await fetch('/api/mentor', {
+      await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

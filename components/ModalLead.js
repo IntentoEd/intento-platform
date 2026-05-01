@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useState } from 'react';
 
 const FASES_FINAIS = ['Convertido', 'Taxa matricula paga', 'Contrato assinado', '1a mensalidade paga'];
@@ -26,7 +28,7 @@ export default function ModalLead({
     setSalvando(true);
     setErro('');
     try {
-      const r = await fetch('/api/mentor', {
+      const r = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -50,7 +52,7 @@ export default function ModalLead({
     setSalvando(true);
     setErro('');
     try {
-      const r = await fetch('/api/mentor', {
+      const r = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,7 +76,7 @@ export default function ModalLead({
     setSalvando(true);
     setErro('');
     try {
-      const r = await fetch('/api/mentor', {
+      const r = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

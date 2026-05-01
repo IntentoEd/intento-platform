@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -75,7 +77,7 @@ export default function ModalRegistro({ alunos, alunoPreSelecionado, onClose, on
     setSalvando(true);
     setStatusMsg('Salvando...');
     try {
-      const res = await fetch('/api/mentor', {
+      const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'salvarRegistroGlobal', ...form }),
@@ -106,7 +108,7 @@ export default function ModalRegistro({ alunos, alunoPreSelecionado, onClose, on
     }
     let cancelado = false;
     setVerificandoRegistro(true);
-    fetch('/api/mentor', {
+    apiFetch('/api/mentor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acao: 'verificarRegistroSemana', idAluno: form.idAluno, semana: form.semana }),
@@ -129,7 +131,7 @@ export default function ModalRegistro({ alunos, alunoPreSelecionado, onClose, on
     setApagandoRegistro(true);
     setStatusMsg('');
     try {
-      const res = await fetch('/api/mentor', {
+      const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'deletarRegistro', idAluno: form.idAluno, semana: form.semana }),
@@ -156,7 +158,7 @@ export default function ModalRegistro({ alunos, alunoPreSelecionado, onClose, on
     setBuscandoMeta(true);
     setStatusMsg('');
     try {
-      const res = await fetch('/api/mentor', {
+      const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'buscarMetaAnterior', idAluno: form.idAluno }),

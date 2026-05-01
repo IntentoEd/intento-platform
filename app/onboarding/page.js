@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -229,7 +231,7 @@ export default function OnboardingWizard() {
     setEnviando(true);
     localStorage.setItem('intento_email_aluno', respostas.dadosPessoais.email.toLowerCase().trim());
     try {
-      await fetch('/api/mentor', {
+      await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

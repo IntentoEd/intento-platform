@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -285,7 +287,7 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
     setSalvando(true);
     const novaRow = registros[editIdx].map((_, ci) => formEdit[ci] !== undefined ? formEdit[ci] : registros[editIdx][ci]);
     try {
-      await fetch('/api/mentor', {
+      await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'editarRegistro', idPlanilha, semana: registros[editIdx][0], dataRegistro: registros[editIdx][2], valores: novaRow }),
@@ -610,7 +612,7 @@ export default function GestaoIndividualAluno() {
     const carregarDados = async () => {
       setCarregando(true);
       try {
-        const res = await fetch('/api/mentor', {
+        const res = await apiFetch('/api/mentor', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ acao: 'buscarDadosAluno', idPlanilhaAluno: params.id })
@@ -672,7 +674,7 @@ export default function GestaoIndividualAluno() {
 
     setStatusMsg("Salvando Avaliação...");
     try {
-      const res = await fetch('/api/mentor', {
+      const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'avaliarEncontroPassado', idPlanilha: params.id, linha: encontroPendente.linha, resultados: formAvaliacao })
@@ -696,7 +698,7 @@ export default function GestaoIndividualAluno() {
     setSalvandoEncontro(true);
     setStatusMsg("Salvando Encontro...");
     try {
-      const res = await fetch('/api/mentor', {
+      const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'salvarNovoEncontro', idPlanilha: params.id, ...formDiario, autoavaliacao: formDiario.autoavaliacao, acoes: formDiario.planosAcao })
@@ -733,7 +735,7 @@ export default function GestaoIndividualAluno() {
     if (salvandoEdicao || !encontroEdit) return;
     setSalvandoEdicao(true);
     try {
-      const res = await fetch('/api/mentor', {
+      const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'editarEncontro', idPlanilha: params.id, ...encontroEdit }),
@@ -769,7 +771,7 @@ export default function GestaoIndividualAluno() {
     setCarregandoOnboarding(true);
     setErroOnboarding('');
     try {
-      const res = await fetch('/api/mentor', {
+      const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'buscarOnboarding', idPlanilhaAluno: params.id })
@@ -844,7 +846,7 @@ export default function GestaoIndividualAluno() {
       return { dia, hora, atividade: item ? item.label : '' };
     });
     try {
-      await fetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'salvarSemanaLote', idPlanilhaAluno: params.id, rotina }) });
+      await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'salvarSemanaLote', idPlanilhaAluno: params.id, rotina }) });
       setStatusMsg("Rotina salva com sucesso!");
       setGradeModificada(false);
       setTimeout(() => setStatusMsg(""), 3000);

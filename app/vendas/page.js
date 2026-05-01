@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
@@ -44,7 +46,7 @@ export default function Vendas() {
     setCarregando(true);
     setErro(null);
     try {
-      const r = await fetch('/api/mentor', {
+      const r = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'listarLeads', email: emailUsar }),

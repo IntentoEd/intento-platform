@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { verificarUsuario } from '@/lib/auth';
 
 async function gas(payload) {
   const res = await fetch(process.env.GOOGLE_APPSCRIPT_URL, {
@@ -11,17 +12,22 @@ async function gas(payload) {
   return res.json();
 }
 
-// Auth fraco: passa o email do vendedor logado no body. Frontend passa o email
-// do user autenticado via Firebase. GAS valida que está em BD_Vendedores ativo.
-// Pra reforçar, validamos que o email do request bate com o do vendedor.
-
 export async function POST(request) {
+  // Auth obrigatória — Firebase ID token verificado.
+  const usuario = await verificarUsuario(request);
+  if (!usuario) {
+    return NextResponse.json(
+      { status: 'erro', mensagem: 'Não autorizado: token inválido ou ausente' },
+      { status: 401 }
+    );
+  }
+  const email = usuario.email;
+
   let corpo;
   try { corpo = await request.json(); }
   catch { return NextResponse.json({ status: 'erro', mensagem: 'JSON inválido' }, { status: 400 }); }
 
-  const { acao, email } = corpo;
-  if (!email) return NextResponse.json({ status: 'erro', mensagem: 'email obrigatório' }, { status: 400 });
+  const { acao } = corpo;
 
   try {
     if (acao === 'ler') {
@@ -66,6 +72,6 @@ export async function POST(request) {
 
   } catch (e) {
     console.error('[/api/vendedor/disponibilidade]', e);
-    return NextResponse.json({ status: 'erro', mensagem: e.message }, { status: 500 });
+    return NextResponse.json({ status: 'erro', mensagem: 'Erro interno' }, { status: 500 });
   }
 }

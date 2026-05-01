@@ -1,9 +1,27 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { verificarUsuario } from '@/lib/auth';
 
 // Cache em memória: chave -> { ts, data }
 const cache = new Map();
+
+// Ações que exigem Firebase ID token verificado.
+// Pra essas, o `email` no body é IGNORADO e substituído pelo email do token.
+// Isso impede que um usuário autenticado finja ser outro.
+const ACOES_AUTENTICADAS = new Set([
+  // CRM
+  'listarLeads', 'criarLead', 'editarLead', 'moverLeadFase',
+  'dashboardCrm', 'converterLeadEmAluno',
+  'buscarLead', 'buscarLeadPorEmail', 'buscarLeadPorGcalEventId',
+  'listarVendedoresAtendimento', 'cargaPorVendedorNoMes',
+  // Disponibilidade
+  'salvarHorariosPadrao', 'lerHorariosPadrao',
+  'criarExcecaoDisponibilidade', 'removerExcecaoDisponibilidade',
+  'listarExcecoesDisponibilidade',
+  // Líder
+  'dashboardLider', 'designarMentor',
+]);
 
 const TTL_MS = {
   buscarTopicosGlobais: 24 * 60 * 60 * 1000, // 24h
@@ -71,6 +89,22 @@ export async function POST(request) {
   try {
     const dados = await request.json();
     const acao = dados.acao || dados.tipo || '';
+
+    // Auth: ações sensíveis exigem Firebase ID token e ignoram o email do body.
+    if (ACOES_AUTENTICADAS.has(acao)) {
+      const usuario = await verificarUsuario(request);
+      if (!usuario) {
+        return NextResponse.json(
+          { status: 'erro', mensagem: 'Não autorizado: token inválido ou ausente' },
+          { status: 401 }
+        );
+      }
+      // Sobrescreve email + porEmail (criadoPor) com o email do token verificado.
+      dados.email = usuario.email;
+      if (Object.prototype.hasOwnProperty.call(dados, 'porEmail')) dados.porEmail = usuario.email;
+      if (Object.prototype.hasOwnProperty.call(dados, 'criadoPor')) dados.criadoPor = usuario.email;
+    }
+
     const ttl = TTL_MS[acao];
 
     // Leitura cacheável

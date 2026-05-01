@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useState } from 'react';
 
 export default function ModalNovoLead({ email, vendedoresDisponiveis = [], ehLider, onClose, onCriado }) {
@@ -35,7 +37,7 @@ export default function ModalNovoLead({ email, vendedoresDisponiveis = [], ehLid
     setSalvando(true);
     setErro('');
     try {
-      const r = await fetch('/api/mentor', {
+      const r = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'criarLead', porEmail: email, ...form }),

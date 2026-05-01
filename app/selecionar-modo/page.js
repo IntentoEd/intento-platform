@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
@@ -21,7 +23,7 @@ export default function SelecionarModo() {
 
       // Consulta papéis no backend (loginGlobal)
       try {
-        const r = await fetch('/api/mentor', {
+        const r = await apiFetch('/api/mentor', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ acao: 'loginGlobal', email }),

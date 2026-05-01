@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -140,7 +142,7 @@ export default function PainelDoAluno() {
     
     const buscarTopicos = async () => {
       try {
-        const res = await fetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'buscarTopicosGlobais' }) });
+        const res = await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'buscarTopicosGlobais' }) });
         const data = await res.json();
         if (data.status === 'sucesso') setTopicosDicionario(data.topicos || {});
       } catch (e) { console.error("Erro ao buscar tópicos"); }
@@ -179,7 +181,7 @@ export default function PainelDoAluno() {
 
       // 2) Fetch real em paralelo
       try {
-        const res = await fetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'login', email: emailDefinitivo }) });
+        const res = await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'login', email: emailDefinitivo }) });
         const resposta = await res.json();
 
         if (resposta.status === 200) {
@@ -208,7 +210,7 @@ export default function PainelDoAluno() {
     const idPlanilha = sessao?.idPlanilha || sessao?.idPlanilhaAluno || sessao?.dadosPainel?.idPlanilha;
     if (!idPlanilha) return;
     setCadernoCarregando(true);
-    fetch('/api/mentor', {
+    apiFetch('/api/mentor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acao: 'listarCaderno', idPlanilha }),
@@ -309,7 +311,7 @@ export default function PainelDoAluno() {
 
     mostrarToast("Registrando Simulado...", "success");
     try {
-      const res = await fetch('/api/mentor', {
+      const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -366,7 +368,7 @@ export default function PainelDoAluno() {
       // Só reenvia os erros se foram modificados nesta sessão, para não sobrescrever dados já salvos
       if (objetivaModificada) payload.erros = formAutopsia.erros;
 
-      const res = await fetch('/api/mentor', {
+      const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -396,7 +398,7 @@ export default function PainelDoAluno() {
     
     mostrarToast("Salvando progresso...", "success");
     try {
-      await fetch('/api/mentor', {
+      await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -527,7 +529,7 @@ export default function PainelDoAluno() {
     setSalvandoCaderno(true);
     const novoCard = { ...formCaderno, id: 'card_' + Date.now(), estagio: 0 };
     try {
-      await fetch('/api/mentor', {
+      await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'salvarCardCaderno', idPlanilha, ...novoCard }),
@@ -558,7 +560,7 @@ export default function PainelDoAluno() {
     setCardVirado(v => ({ ...v, [id]: false }));
     if (idPlanilha) {
       try {
-        const res = await fetch('/api/mentor', {
+        const res = await apiFetch('/api/mentor', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ acao: 'registrarRevisaoCaderno', idPlanilha, id, acertou }),
@@ -576,7 +578,7 @@ export default function PainelDoAluno() {
   const deletarCardCaderno = async (id) => {
     const idPlanilha = getSpreadsheetId();
     setCaderno(prev => prev.filter(c => c.id !== id));
-    if (idPlanilha) fetch('/api/mentor', {
+    if (idPlanilha) apiFetch('/api/mentor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acao: 'deletarCardCaderno', idPlanilha, id }),

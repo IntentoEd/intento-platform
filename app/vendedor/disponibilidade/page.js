@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
@@ -49,7 +51,7 @@ export default function DisponibilidadeVendedor() {
     setCarregando(true);
     setErroBoot('');
     try {
-      const r = await fetch('/api/vendedor/disponibilidade', {
+      const r = await apiFetch('/api/vendedor/disponibilidade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'ler', email }),
@@ -98,7 +100,7 @@ export default function DisponibilidadeVendedor() {
       for (const d of DIAS) {
         if ((horarios[d.key] || []).length > 0) limpos[d.key] = horarios[d.key];
       }
-      const r = await fetch('/api/vendedor/disponibilidade', {
+      const r = await apiFetch('/api/vendedor/disponibilidade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'salvarHorarios', email: emailUser, horarios: limpos }),
@@ -125,7 +127,7 @@ export default function DisponibilidadeVendedor() {
     }
     setSalvandoE(true);
     try {
-      const r = await fetch('/api/vendedor/disponibilidade', {
+      const r = await apiFetch('/api/vendedor/disponibilidade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -156,7 +158,7 @@ export default function DisponibilidadeVendedor() {
   async function removerExcecao(id) {
     if (!confirm('Remover este bloqueio?')) return;
     try {
-      const r = await fetch('/api/vendedor/disponibilidade', {
+      const r = await apiFetch('/api/vendedor/disponibilidade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'removerExcecao', email: emailUser, id }),

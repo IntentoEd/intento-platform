@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
@@ -78,7 +80,7 @@ export default function PainelLider() {
     setErro('');
 
     // 2) Em paralelo dispara fetch real
-    fetch('/api/mentor', {
+    apiFetch('/api/mentor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acao: 'dashboardLider', email: emailLogado }),
@@ -161,7 +163,7 @@ export default function PainelLider() {
     setDesignando(true);
     setMensagemSucesso('');
     try {
-      const res = await fetch('/api/mentor', {
+      const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -184,7 +186,7 @@ export default function PainelLider() {
       setMensagemSucesso(msg);
       setAlunoDesignar(null);
       // Refetch dashboard pra refletir mudança
-      const refetched = await fetch('/api/mentor', {
+      const refetched = await apiFetch('/api/mentor', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'dashboardLider', email: emailLogado }),
       });

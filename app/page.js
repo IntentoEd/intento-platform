@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/api';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -79,7 +81,7 @@ export default function Home() {
 
   const processarAcessoNoSistema = async (emailUsuario, nomeUsuario) => {
     try {
-      const resBase = await fetch('/api/mentor', {
+      const resBase = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'loginGlobal', email: emailUsuario, nome: nomeUsuario }),
