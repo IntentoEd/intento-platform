@@ -2,7 +2,7 @@
 
 import { apiFetch } from '@/lib/api';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  getRedirectResult,
 } from 'firebase/auth';
 
 export default function Home() {
@@ -29,6 +30,23 @@ export default function Home() {
     'w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue transition-all font-medium text-intento-blue text-sm';
   const labelClasse =
     'block text-xs font-semibold text-slate-400 uppercase mb-2 tracking-wider';
+
+  // Consome qualquer redirect pendente do Firebase Auth.
+  // Em browsers com storage particionado (Safari ITP, Brave) o sessionStorage
+  // pode ser limpo durante o redirect, fazendo `getRedirectResult` jogar
+  // "missing initial state". É benigno — só significa que não há estado
+  // pra recuperar. Ignoramos esse erro específico e deixamos o login normal seguir.
+  useEffect(() => {
+    getRedirectResult(auth).catch((err) => {
+      const benign = err?.code === 'auth/missing-initial-state' ||
+                     /missing initial state/i.test(err?.message || '');
+      if (benign) {
+        console.warn('[auth] missing initial state — ignorando');
+        return;
+      }
+      console.error('[auth] getRedirectResult error:', err);
+    });
+  }, []);
 
   const efetuarLoginComGoogle = async () => {
     setCarregando(true);
