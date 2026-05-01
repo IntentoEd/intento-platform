@@ -9,6 +9,7 @@ const cardClass = 'bg-white rounded-xl border border-slate-200 p-5 shadow-sm';
 
 const CORES_FUNNEL = {
   Lead: '#94a3b8',
+  'Numero invalido': '#dc2626',
   'Contactado WPP': '#60a5fa',
   'Ativo WPP': '#3b82f6',
   'Reuniao agendada': '#6366f1',

@@ -37,7 +37,8 @@ const COL_EXCECAO = {
 const FOLDER_BACKUPS_ID = "1UZjX1mZSsjMBRDDTYHKDHJglAj5iMUmp";
 
 const FASES_LEAD = [
-  'Lead', 'Contactado WPP', 'Ativo WPP', 'Reuniao agendada', 'Reuniao realizada',
+  'Lead', 'Numero invalido', 'Contactado WPP', 'Ativo WPP',
+  'Reuniao agendada', 'Reuniao realizada',
   'Aguardando decisao', 'Convertido', 'Taxa matricula paga', 'Contrato assinado',
   '1a mensalidade paga', 'Em mentoria', 'Churn'
 ];

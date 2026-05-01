@@ -111,6 +111,7 @@ function FaseColumn({ fase, count, corClasse, children }) {
 
 const CORES_FASE = {
   Lead: 'bg-slate-200 text-slate-700',
+  'Numero invalido': 'bg-red-100 text-red-700',
   'Contactado WPP': 'bg-blue-100 text-blue-700',
   'Ativo WPP': 'bg-blue-200 text-blue-800',
   'Reuniao agendada': 'bg-indigo-100 text-indigo-700',
