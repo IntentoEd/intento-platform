@@ -188,6 +188,9 @@ export default function PainelLider() {
   // agregado já calculado pelo backend (mais barato).
   const agregadoVisivel = useMemo(() => {
     if (!haFiltroAtivo) return dados?.agregado || {};
+    // Se backend ainda não foi redeployado, alunos vêm sem `metricas`. Fallback
+    // pro agregado da base evita zerar a visão analítica silenciosamente.
+    if (!alunosFiltrados.some(a => a.metricas)) return dados?.agregado || {};
 
     const FAIXAS_LABELS = ['0-5h', '5-10h', '10-15h', '15-20h', '20h+'];
     const distribuicao = FAIXAS_LABELS.map(faixa => ({ faixa, count: 0 }));
