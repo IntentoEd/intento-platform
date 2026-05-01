@@ -85,6 +85,9 @@ function normalizarPayload(corpoOriginal) {
     corpo.finalizou_aplicacao ? `Finalizou typebot: ${corpo.finalizou_aplicacao}` : null,
     corpo.compromisso ? `Compromisso: ${corpo.compromisso}` : null,
     corpo.nome_asr ? '⚠ Aluno SEM responsável financeiro' : null,
+    corpo.utm_campaign ? `UTM Campaign: ${corpo.utm_campaign}` : null,
+    corpo.utm_adset ? `UTM Adset: ${corpo.utm_adset}` : null,
+    corpo.utm_ad ? `UTM Ad: ${corpo.utm_ad}` : null,
     corpo.historico_conversa ? `\nHistórico WPP:\n${corpo.historico_conversa}` : null,
   ].filter(Boolean);
 
