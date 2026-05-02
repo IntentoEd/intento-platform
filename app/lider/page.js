@@ -63,7 +63,17 @@ export default function PainelLider() {
   const [mentoresSelecionados, setMentoresSelecionados] = useState([]);
   const [filtroDesempenho, setFiltroDesempenho] = useState('');
   const [busca, setBusca] = useState('');
+  const [tipoAlunoFiltro, setTipoAlunoFiltro] = useState('');
   const [mentoresExpandidos, setMentoresExpandidos] = useState({});
+
+  // Edição dos campos do fac-símile EM (tipo_aluno/turma/escola/fase)
+  const [alunoEditando, setAlunoEditando] = useState(null);
+  const [editTipo, setEditTipo] = useState('ENEM');
+  const [editTurma, setEditTurma] = useState('');
+  const [editEscola, setEditEscola] = useState('');
+  const [editFase, setEditFase] = useState('');
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  const [mensagemEdicao, setMensagemEdicao] = useState('');
 
   // Sanfonas das seções principais — só "Encontros" aberto por padrão
   const [seccoesAbertas, setSeccoesAbertas] = useState({ encontros: true, analitica: false, mentores: false });
@@ -144,6 +154,7 @@ export default function PainelLider() {
     if (!dados?.alunos) return [];
     return dados.alunos.filter(a => {
       if (mentoresSelecionados.length > 0 && !mentoresSelecionados.includes(a.mentor)) return false;
+      if (tipoAlunoFiltro && (a.tipoAluno || 'ENEM') !== tipoAlunoFiltro) return false;
       if (busca) {
         const q = busca.toLowerCase();
         if (!a.nome?.toLowerCase().includes(q) && !a.email?.toLowerCase().includes(q)) return false;
@@ -152,7 +163,7 @@ export default function PainelLider() {
       // Mantém por compatibilidade futura
       return true;
     });
-  }, [dados, mentoresSelecionados, busca]);
+  }, [dados, mentoresSelecionados, busca, tipoAlunoFiltro]);
 
   // Agrupa filtrados por mentor
   const alunosAgrupados = useMemo(() => {
@@ -181,7 +192,7 @@ export default function PainelLider() {
     return (dados?.alunos || []).filter(a => !a.mentor || !a.mentorAtivo);
   }, [dados]);
 
-  const haFiltroAtivo = mentoresSelecionados.length > 0 || busca.trim().length > 0;
+  const haFiltroAtivo = mentoresSelecionados.length > 0 || busca.trim().length > 0 || !!tipoAlunoFiltro;
 
   // Quando há filtro, recalcula o agregado da Visão Analítica a partir das
   // métricas brutas que cada aluno traz em `a.metricas`. Sem filtro, usa o
@@ -295,6 +306,55 @@ export default function PainelLider() {
       alert('Erro de conexão.');
     } finally {
       setDesignando(false);
+    }
+  };
+
+  const abrirEdicao = (aluno) => {
+    setAlunoEditando(aluno);
+    setEditTipo(aluno.tipoAluno || 'ENEM');
+    setEditTurma(aluno.turma || '');
+    setEditEscola(aluno.escola || '');
+    setEditFase(aluno.fase || '');
+    setMensagemEdicao('');
+  };
+
+  const salvarEdicao = async () => {
+    if (!alunoEditando || salvandoEdicao) return;
+    setSalvandoEdicao(true);
+    setMensagemEdicao('');
+    try {
+      const res = await apiFetch('/api/mentor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          acao: 'atualizarDadosAluno',
+          email: emailLogado,
+          idAluno: alunoEditando.idAluno,
+          tipoAluno: editTipo,
+          turma: editTurma,
+          escola: editEscola,
+          fase: editFase,
+        }),
+      });
+      const data = await res.json();
+      if (data.status !== 'sucesso') {
+        alert('Erro: ' + (data.mensagem || 'falha ao salvar'));
+        return;
+      }
+      // Atualiza estado local sem refetch (otimista)
+      setDados(prev => prev ? {
+        ...prev,
+        alunos: prev.alunos.map(a => a.idAluno === alunoEditando.idAluno
+          ? { ...a, tipoAluno: editTipo, turma: editTurma, escola: editEscola, fase: editFase }
+          : a),
+      } : prev);
+      setMensagemEdicao(`${alunoEditando.nome} atualizado.`);
+      setAlunoEditando(null);
+      setTimeout(() => setMensagemEdicao(''), 5000);
+    } catch (e) {
+      alert('Erro de conexão.');
+    } finally {
+      setSalvandoEdicao(false);
     }
   };
 
@@ -432,6 +492,17 @@ export default function PainelLider() {
               </div>
             </details>
 
+            {/* Filtro tipo_aluno */}
+            <select
+              value={tipoAlunoFiltro}
+              onChange={e => setTipoAlunoFiltro(e.target.value)}
+              className="text-xs font-semibold text-intento-blue bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-2 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue cursor-pointer"
+            >
+              <option value="">Todos os tipos</option>
+              <option value="ENEM">ENEM</option>
+              <option value="EM">Ensino Médio</option>
+            </select>
+
             {/* Filtro busca */}
             <div className="relative flex-1 min-w-[200px]">
               <input
@@ -444,9 +515,9 @@ export default function PainelLider() {
             </div>
 
             {/* Limpar todos */}
-            {(mentoresSelecionados.length > 0 || busca) && (
+            {(mentoresSelecionados.length > 0 || busca || tipoAlunoFiltro) && (
               <button
-                onClick={() => { setMentoresSelecionados([]); setBusca(''); }}
+                onClick={() => { setMentoresSelecionados([]); setBusca(''); setTipoAlunoFiltro(''); }}
                 className="text-xs font-semibold text-slate-400 hover:text-red-500 px-3 py-2 transition"
               >
                 Limpar tudo
@@ -493,6 +564,14 @@ export default function PainelLider() {
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-3">
             <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
             <span className="text-xs font-semibold text-emerald-800">Designado: {mensagemSucesso}</span>
+          </div>
+        )}
+
+        {/* Toast de sucesso da edição */}
+        {mensagemEdicao && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-3">
+            <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+            <span className="text-xs font-semibold text-emerald-800">{mensagemEdicao}</span>
           </div>
         )}
 
@@ -545,6 +624,86 @@ export default function PainelLider() {
                   className="text-sm font-semibold bg-intento-blue hover:bg-blue-900 text-white px-5 py-2 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {designando ? 'Enviando...' : 'Designar e notificar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de edição de dados do aluno (tipo_aluno/turma/escola/fase) */}
+        {alunoEditando && (
+          <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in"
+               onClick={(e) => { if (e.target === e.currentTarget) setAlunoEditando(null); }}>
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-100">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Editar dados do aluno</p>
+                <h2 className="text-base font-semibold text-intento-blue mt-0.5">{alunoEditando.nome}</h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">{alunoEditando.email}</p>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Tipo de aluno</label>
+                  <select
+                    value={editTipo}
+                    onChange={(e) => setEditTipo(e.target.value)}
+                    className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue"
+                  >
+                    <option value="ENEM">ENEM</option>
+                    <option value="EM">Ensino Médio</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Fase</label>
+                  <select
+                    value={editFase}
+                    onChange={(e) => setEditFase(e.target.value)}
+                    className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue"
+                  >
+                    <option value="">— sem fase —</option>
+                    <option value="F1">F1 — Estruturação</option>
+                    <option value="F2">F2 — Internalização</option>
+                    <option value="F3">F3 — Operação assistida</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Escola</label>
+                  <input
+                    type="text"
+                    value={editEscola}
+                    onChange={(e) => setEditEscola(e.target.value)}
+                    placeholder="Nome da escola"
+                    className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue placeholder:text-slate-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Turma</label>
+                  <input
+                    type="text"
+                    value={editTurma}
+                    onChange={(e) => setEditTurma(e.target.value)}
+                    placeholder="Ex: 1º A, 3º B"
+                    className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-100">
+                <button
+                  onClick={() => setAlunoEditando(null)}
+                  className="text-sm font-semibold text-slate-500 hover:text-intento-blue px-4 py-2 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={salvarEdicao}
+                  disabled={salvandoEdicao}
+                  className="text-sm font-semibold bg-intento-blue hover:bg-blue-900 text-white px-5 py-2 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {salvandoEdicao ? 'Salvando...' : 'Salvar'}
                 </button>
               </div>
             </div>
@@ -782,18 +941,36 @@ export default function PainelLider() {
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div className={`w-2 h-2 rounded-full shrink-0 ${a.registrouSemanaAtual ? 'bg-emerald-500' : 'bg-red-400'}`} title={a.registrouSemanaAtual ? 'Registrado' : 'Pendente'}/>
                           <div className="min-w-0">
-                            <p className="text-xs font-semibold text-slate-700 truncate">{a.nome}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-xs font-semibold text-slate-700 truncate">{a.nome}</p>
+                              {a.tipoAluno === 'EM' && (
+                                <span className="text-[9px] font-bold bg-intento-yellow/15 text-intento-yellow border border-intento-yellow/30 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">EM</span>
+                              )}
+                              {a.fase && (
+                                <span className="text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">{a.fase}</span>
+                              )}
+                            </div>
                             <p className="text-[10px] text-slate-400 font-medium truncate">
                               {a.ultimoEncontro ? `Último encontro: ${a.ultimoEncontro}` : 'Sem encontros registrados'}
+                              {a.escola && <span className="ml-2">· {a.escola}{a.turma ? ` (${a.turma})` : ''}</span>}
                             </p>
                           </div>
                         </div>
-                        <button
-                          onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')}
-                          className="text-[11px] font-semibold text-intento-blue hover:underline shrink-0"
-                        >
-                          Ver detalhes ↗
-                        </button>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <button
+                            onClick={() => abrirEdicao(a)}
+                            className="text-[11px] font-semibold text-slate-400 hover:text-intento-blue transition"
+                            title="Editar tipo, fase, escola, turma"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')}
+                            className="text-[11px] font-semibold text-intento-blue hover:underline"
+                          >
+                            Ver detalhes ↗
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

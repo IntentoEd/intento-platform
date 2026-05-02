@@ -20,7 +20,7 @@ const ACOES_AUTENTICADAS = new Set([
   'criarExcecaoDisponibilidade', 'removerExcecaoDisponibilidade',
   'listarExcecoesDisponibilidade',
   // Líder
-  'dashboardLider', 'designarMentor',
+  'dashboardLider', 'designarMentor', 'atualizarDadosAluno',
 ]);
 
 const TTL_MS = {
@@ -58,6 +58,7 @@ function chavesParaInvalidar(acaoEscrita, dados) {
     case 'onboarding':
     case 'diagnostico':
     case 'designarMentor':
+    case 'atualizarDadosAluno':
       return ['listaAlunosMentor|*', 'dashboardLider|*'];
     case 'criarLead':
     case 'editarLead':

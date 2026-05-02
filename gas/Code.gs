@@ -48,7 +48,9 @@ const FASES_LEAD = [
 // move pra "Reuniao realizada" (o vendedor escolhe via dialog se foi realizada/no-show/etc).
 const OUTCOMES_REUNIAO = ['', 'realizada', 'no-show', 'reagendada', 'cancelada'];
 
-// Layout slim de BD_Alunos (23 cols A–W, snake_case headers)
+// Layout BD_Alunos (28 cols A–AB, snake_case headers)
+// Cols 24–27 adicionadas pra fac-símile Acompanhamento Escolar (EM):
+// tipo_aluno (EM|ENEM, default ENEM), turma, escola, fase (F1|F2|F3 ou vazio)
 const COL_MESTRE = {
   TIMESTAMP: 0, NOME: 1, DATA_NASCIMENTO: 2, TELEFONE: 3,
   RESPONSAVEL_FINANCEIRO: 4, EMAIL: 5, CIDADE: 6, ESTADO: 7,
@@ -56,8 +58,12 @@ const COL_MESTRE = {
   PROVAS_INTERESSE: 12, CURSO_INTERESSE: 13, PLATAFORMA_ONLINE: 14,
   NOTA_LINGUAGENS: 15, NOTA_HUMANAS: 16, NOTA_NATUREZA: 17, NOTA_MATEMATICA: 18,
   NOTA_REDACAO: 19, ID_PLANILHA: 20, MENTOR_RESPONSAVEL: 21, STATUS_ONBOARDING: 22,
-  PLANO: 23
+  PLANO: 23,
+  TIPO_ALUNO: 24, TURMA: 25, ESCOLA: 26, FASE: 27
 };
+
+const TIPOS_ALUNO = ['ENEM', 'EM'];
+const FASES_EM = ['', 'F1', 'F2', 'F3'];
 
 // Cache_Alunos: cache em aba separada — escrita em writes, leitura em dashboardLider
 const COL_CACHE = {
@@ -253,6 +259,7 @@ function doPost(e) {
     if (acao === "editarEncontro")          return handleEditarEncontro(dados);
     if (acao === "dashboardLider")          return handleDashboardLider(dados);
     if (acao === "designarMentor")          return handleDesignarMentor(dados);
+    if (acao === "atualizarDadosAluno")     return handleAtualizarDadosAluno(dados);
     if (acao === "subscribePush")           return handleSubscribePush(dados);
     if (acao === "unsubscribePush")         return handleUnsubscribePush(dados);
     if (acao === "listarPushSubscriptions") return handleListarPushSubscriptions(dados);
@@ -408,13 +415,14 @@ function handleOnboarding(dados) {
     const emailMentorado  = emailNorm(dp.email);
     const idNovaPlanilha  = provisionarPlanilhaAluno(nomeMentorado, emailMentorado, arrayOnboarding);
 
-    const linhaMestre = new Array(24).fill("");
+    const linhaMestre = new Array(28).fill("");
     linhaMestre[COL_MESTRE.TIMESTAMP]         = agora;
     linhaMestre[COL_MESTRE.NOME]              = nomeMentorado;
     linhaMestre[COL_MESTRE.EMAIL]             = emailMentorado;
     linhaMestre[COL_MESTRE.TELEFONE]          = txt(dp.telefone);
     linhaMestre[COL_MESTRE.ID_PLANILHA]       = idNovaPlanilha;
     linhaMestre[COL_MESTRE.STATUS_ONBOARDING] = "Aguardando Diagnóstico";
+    linhaMestre[COL_MESTRE.TIPO_ALUNO]        = "ENEM";
 
     sheetMestre.appendRow(linhaMestre);
 
@@ -782,7 +790,8 @@ function handleListaAlunosMentor(dados) {
         id:     matriz[i][COL_MESTRE.ID_PLANILHA],
         nome:   matriz[i][COL_MESTRE.NOME],
         email:  matriz[i][COL_MESTRE.EMAIL],
-        status: txt(matriz[i][COL_MESTRE.STATUS_ONBOARDING]) || "Desconhecido"
+        status: txt(matriz[i][COL_MESTRE.STATUS_ONBOARDING]) || "Desconhecido",
+        tipoAluno: txt(matriz[i][COL_MESTRE.TIPO_ALUNO]) || "ENEM"
       });
     }
   }
@@ -1868,7 +1877,11 @@ function handleDashboardLider(dados) {
         ultimoEncontro: c.ultimoEncontro || '',
         plano: plano,
         encontrosEsperados: calcularEncontrosEsperados_(plano, dataMatricula),
-        encontrosMesCorrente: 0
+        encontrosMesCorrente: 0,
+        tipoAluno: txt(row[COL_MESTRE.TIPO_ALUNO]) || 'ENEM',
+        turma: txt(row[COL_MESTRE.TURMA]),
+        escola: txt(row[COL_MESTRE.ESCOLA]),
+        fase: txt(row[COL_MESTRE.FASE])
       });
     }
 
@@ -2012,6 +2025,80 @@ function handleDesignarMentor(dados) {
     });
   } catch (e) {
     Logger.log('handleDesignarMentor EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
+}
+
+
+// =====================================================================
+// ATUALIZAR DADOS DO ALUNO (líder ou mentor responsável)
+// — atualiza campos do fac-símile EM: tipo_aluno, turma, escola, fase
+// =====================================================================
+function handleAtualizarDadosAluno(dados) {
+  try {
+    var emailRequester = emailNorm(dados.email);
+    var idAluno = txt(dados.idAluno);
+    if (!idAluno) {
+      return responderJSON({ status: 'erro', mensagem: 'idAluno obrigatório' });
+    }
+
+    var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+    var abaMestre = ssMestre.getSheetByName(ABA.MESTRE);
+    if (!abaMestre) throw new Error('BD_Alunos não encontrada');
+    var matriz = abaMestre.getDataRange().getValues();
+    var linhaAluno = -1;
+    var mentorResponsavel = '';
+    for (var i = 1; i < matriz.length; i++) {
+      if (txt(matriz[i][COL_MESTRE.ID_PLANILHA]) === idAluno) {
+        linhaAluno = i + 1;
+        mentorResponsavel = emailNorm(matriz[i][COL_MESTRE.MENTOR_RESPONSAVEL]);
+        break;
+      }
+    }
+    if (linhaAluno === -1) {
+      return responderJSON({ status: 'erro', mensagem: 'Aluno não encontrado' });
+    }
+
+    var ehLider = emailRequester === 'filippe@metodointento.com.br';
+    var ehMentorResponsavel = emailRequester === mentorResponsavel;
+    if (!ehLider && !ehMentorResponsavel) {
+      return responderJSON({ status: 'erro', codigo: 403, mensagem: 'Não autorizado: precisa ser líder ou mentor responsável' });
+    }
+
+    var atualizacoes = [];
+    if (Object.prototype.hasOwnProperty.call(dados, 'tipoAluno')) {
+      var tipo = txt(dados.tipoAluno);
+      if (TIPOS_ALUNO.indexOf(tipo) === -1) {
+        return responderJSON({ status: 'erro', mensagem: 'tipoAluno inválido (deve ser EM ou ENEM)' });
+      }
+      atualizacoes.push({ col: COL_MESTRE.TIPO_ALUNO + 1, valor: tipo });
+    }
+    if (Object.prototype.hasOwnProperty.call(dados, 'turma')) {
+      atualizacoes.push({ col: COL_MESTRE.TURMA + 1, valor: txt(dados.turma) });
+    }
+    if (Object.prototype.hasOwnProperty.call(dados, 'escola')) {
+      atualizacoes.push({ col: COL_MESTRE.ESCOLA + 1, valor: txt(dados.escola) });
+    }
+    if (Object.prototype.hasOwnProperty.call(dados, 'fase')) {
+      var fase = txt(dados.fase);
+      if (FASES_EM.indexOf(fase) === -1) {
+        return responderJSON({ status: 'erro', mensagem: 'fase inválida (vazio, F1, F2 ou F3)' });
+      }
+      atualizacoes.push({ col: COL_MESTRE.FASE + 1, valor: fase });
+    }
+
+    if (atualizacoes.length === 0) {
+      return responderJSON({ status: 'erro', mensagem: 'nenhum campo pra atualizar' });
+    }
+
+    for (var k = 0; k < atualizacoes.length; k++) {
+      abaMestre.getRange(linhaAluno, atualizacoes[k].col).setValue(atualizacoes[k].valor);
+    }
+
+    return responderJSON({ status: 'sucesso', idAluno: idAluno, atualizados: atualizacoes.length });
+
+  } catch (e) {
+    Logger.log('handleAtualizarDadosAluno EXCEPTION: ' + e.message);
     return responderJSON({ status: 'erro', mensagem: e.message });
   }
 }
@@ -2885,8 +2972,8 @@ function handleConverterLeadEmAluno(dados) {
     var novaPlanilha = SpreadsheetApp.create(nomePlanilha);
     var idNovaPlanilha = novaPlanilha.getId();
 
-    // Linha na mestre (slim layout 25 cols)
-    var linhaMestre = new Array(27).fill('');
+    // Linha na mestre (28 cols)
+    var linhaMestre = new Array(28).fill('');
     linhaMestre[COL_MESTRE.TIMESTAMP]         = new Date();
     linhaMestre[COL_MESTRE.NOME]              = lead.nome;
     linhaMestre[COL_MESTRE.EMAIL]             = lead.email;
@@ -2898,6 +2985,7 @@ function handleConverterLeadEmAluno(dados) {
     linhaMestre[COL_MESTRE.ID_PLANILHA]       = idNovaPlanilha;
     linhaMestre[COL_MESTRE.STATUS_ONBOARDING] = 'Aguardando Diagnóstico';
     linhaMestre[COL_MESTRE.PLANO]             = lead.plano || '';
+    linhaMestre[COL_MESTRE.TIPO_ALUNO]        = 'ENEM';
     abaAlunos.appendRow(linhaMestre);
 
     // Marca o lead como convertido
@@ -2968,6 +3056,50 @@ function migrarAguardandoDecisaoParaReuniaoRealizada() {
   }
   if (contador > 0) range.setValues(valores);
   Logger.log('Migrados ' + contador + ' leads de Aguardando decisao → Reuniao realizada');
+}
+
+// One-shot idempotente: adiciona colunas tipo_aluno/turma/escola/fase em BD_Alunos
+// e backfilla tipo_aluno='ENEM' em linhas existentes onde estiver vazio.
+// Rodar manualmente no editor do Apps Script após deploy do fac-símile EM.
+function migrarBDAlunosFacSimile() {
+  var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ssMestre.getSheetByName(ABA.MESTRE);
+  if (!aba) { Logger.log('BD_Alunos não encontrada'); return; }
+
+  var headersEsperados = ['tipo_aluno', 'turma', 'escola', 'fase'];
+  var lastCol = aba.getLastColumn();
+  var headerRange = aba.getRange(1, 1, 1, lastCol);
+  var headers = headerRange.getValues()[0].map(function(h) { return String(h || '').trim().toLowerCase(); });
+
+  // 1. Adiciona colunas faltantes
+  var headersAdicionados = 0;
+  for (var k = 0; k < headersEsperados.length; k++) {
+    var nome = headersEsperados[k];
+    if (headers.indexOf(nome) === -1) {
+      lastCol++;
+      aba.getRange(1, lastCol).setValue(nome);
+      headers.push(nome);
+      headersAdicionados++;
+    }
+  }
+  Logger.log('Headers adicionados: ' + headersAdicionados);
+
+  // 2. Backfill tipo_aluno='ENEM' onde vazio
+  var lastRow = aba.getLastRow();
+  if (lastRow < 2) { Logger.log('Sem linhas de dados; só headers atualizados.'); return; }
+
+  var colTipo = COL_MESTRE.TIPO_ALUNO + 1; // 1-indexed pra Range
+  var range = aba.getRange(2, colTipo, lastRow - 1, 1);
+  var valores = range.getValues();
+  var backfilled = 0;
+  for (var i = 0; i < valores.length; i++) {
+    if (!txt(valores[i][0])) {
+      valores[i][0] = 'ENEM';
+      backfilled++;
+    }
+  }
+  if (backfilled > 0) range.setValues(valores);
+  Logger.log('Backfill tipo_aluno=ENEM: ' + backfilled + ' linhas atualizadas (de ' + valores.length + ' totais)');
 }
 
 function backupDiarioMestre() {

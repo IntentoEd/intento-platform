@@ -253,7 +253,12 @@ export default function PainelGlobalMentor() {
                         </span>
                       )}
                     </div>
-                    <h3 className="text-sm font-bold text-intento-blue leading-tight">{aluno.nome}</h3>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="text-sm font-bold text-intento-blue leading-tight">{aluno.nome}</h3>
+                      {aluno.tipoAluno === 'EM' && (
+                        <span className="text-[9px] font-bold bg-intento-yellow/15 text-intento-yellow border border-intento-yellow/30 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">EM</span>
+                      )}
+                    </div>
                     <p className="text-xs text-slate-400 mt-0.5 font-medium truncate">{aluno.email}</p>
                   </div>
 
