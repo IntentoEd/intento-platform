@@ -416,13 +416,28 @@ function handleOnboarding(dados) {
     const idNovaPlanilha  = provisionarPlanilhaAluno(nomeMentorado, emailMentorado, arrayOnboarding);
 
     const linhaMestre = new Array(28).fill("");
-    linhaMestre[COL_MESTRE.TIMESTAMP]         = agora;
-    linhaMestre[COL_MESTRE.NOME]              = nomeMentorado;
-    linhaMestre[COL_MESTRE.EMAIL]             = emailMentorado;
-    linhaMestre[COL_MESTRE.TELEFONE]          = txt(dp.telefone);
-    linhaMestre[COL_MESTRE.ID_PLANILHA]       = idNovaPlanilha;
-    linhaMestre[COL_MESTRE.STATUS_ONBOARDING] = "Aguardando Diagnóstico";
-    linhaMestre[COL_MESTRE.TIPO_ALUNO]        = "ENEM";
+    linhaMestre[COL_MESTRE.TIMESTAMP]              = agora;
+    linhaMestre[COL_MESTRE.NOME]                   = nomeMentorado;
+    linhaMestre[COL_MESTRE.DATA_NASCIMENTO]        = normalizarData(dp.dataNascimento);
+    linhaMestre[COL_MESTRE.TELEFONE]               = txt(dp.telefone);
+    linhaMestre[COL_MESTRE.RESPONSAVEL_FINANCEIRO] = txt(dp.responsavelFinanceiro);
+    linhaMestre[COL_MESTRE.EMAIL]                  = emailMentorado;
+    linhaMestre[COL_MESTRE.CIDADE]                 = txt(dp.cidade);
+    linhaMestre[COL_MESTRE.ESTADO]                 = txt(dp.estado);
+    linhaMestre[COL_MESTRE.ESCOLARIDADE]           = txt(pa.escolaridade);
+    linhaMestre[COL_MESTRE.ORIGEM_EM]              = txt(pa.origemEnsinoMedio);
+    linhaMestre[COL_MESTRE.COTA]                   = txt(pa.cota);
+    linhaMestre[COL_MESTRE.PROVAS_INTERESSE]       = txt(pa.provasInteresse);
+    linhaMestre[COL_MESTRE.CURSO_INTERESSE]        = txt(pa.cursoInteresse);
+    linhaMestre[COL_MESTRE.PLATAFORMA_ONLINE]      = txt(pa.plataformaOnline);
+    linhaMestre[COL_MESTRE.NOTA_LINGUAGENS]        = txt(na.linguagens);
+    linhaMestre[COL_MESTRE.NOTA_HUMANAS]           = txt(na.humanas);
+    linhaMestre[COL_MESTRE.NOTA_NATUREZA]          = txt(na.natureza);
+    linhaMestre[COL_MESTRE.NOTA_MATEMATICA]        = txt(na.matematica);
+    linhaMestre[COL_MESTRE.NOTA_REDACAO]           = txt(na.redacao);
+    linhaMestre[COL_MESTRE.ID_PLANILHA]            = idNovaPlanilha;
+    linhaMestre[COL_MESTRE.STATUS_ONBOARDING]      = "Aguardando Diagnóstico";
+    linhaMestre[COL_MESTRE.TIPO_ALUNO]             = "ENEM";
 
     sheetMestre.appendRow(linhaMestre);
 
@@ -3100,6 +3115,97 @@ function migrarBDAlunosFacSimile() {
   }
   if (backfilled > 0) range.setValues(valores);
   Logger.log('Backfill tipo_aluno=ENEM: ' + backfilled + ' linhas atualizadas (de ' + valores.length + ' totais)');
+}
+
+// One-shot: preenche colunas vazias da BD_Alunos a partir do BD_Onboarding de
+// cada aluno. Resolve o bug histórico onde handleOnboarding só persistia 7 dos
+// ~20 campos na mestre. Idempotente: nunca sobrescreve valor existente.
+//
+// dryRun=true (default) só loga o que faria. Passe false pra gravar.
+function backfillBDMestreFromOnboarding(dryRun) {
+  if (dryRun !== false) dryRun = true;
+  Logger.log('===== BACKFILL BD_Alunos ← BD_Onboarding ' + (dryRun ? '(DRY-RUN)' : '(GRAVANDO)') + ' =====');
+
+  var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ssMestre.getSheetByName(ABA.MESTRE);
+  if (!aba) { Logger.log('BD_Alunos não encontrada'); return; }
+
+  var lastRow = aba.getLastRow();
+  if (lastRow < 2) { Logger.log('Sem linhas de dados.'); return; }
+
+  // Mapa COL_MESTRE → COL_BD_ONB. Só campos que existem nos dois lados.
+  var mapa = [
+    { mestre: COL_MESTRE.DATA_NASCIMENTO,        onb: COL_BD_ONB.DATA_NASCIMENTO,        norm: 'data' },
+    { mestre: COL_MESTRE.RESPONSAVEL_FINANCEIRO, onb: COL_BD_ONB.RESPONSAVEL_FINANCEIRO },
+    { mestre: COL_MESTRE.CIDADE,                 onb: COL_BD_ONB.CIDADE },
+    { mestre: COL_MESTRE.ESTADO,                 onb: COL_BD_ONB.ESTADO },
+    { mestre: COL_MESTRE.ESCOLARIDADE,           onb: COL_BD_ONB.ESCOLARIDADE },
+    { mestre: COL_MESTRE.ORIGEM_EM,              onb: COL_BD_ONB.ORIGEM_ENSINO_MEDIO },
+    { mestre: COL_MESTRE.COTA,                   onb: COL_BD_ONB.COTA },
+    { mestre: COL_MESTRE.PROVAS_INTERESSE,       onb: COL_BD_ONB.PROVAS_INTERESSE },
+    { mestre: COL_MESTRE.CURSO_INTERESSE,        onb: COL_BD_ONB.CURSO_INTERESSE },
+    { mestre: COL_MESTRE.PLATAFORMA_ONLINE,      onb: COL_BD_ONB.PLATAFORMA_ONLINE },
+    { mestre: COL_MESTRE.NOTA_LINGUAGENS,        onb: COL_BD_ONB.NOTA_LG },
+    { mestre: COL_MESTRE.NOTA_HUMANAS,           onb: COL_BD_ONB.NOTA_CH },
+    { mestre: COL_MESTRE.NOTA_NATUREZA,          onb: COL_BD_ONB.NOTA_CN },
+    { mestre: COL_MESTRE.NOTA_MATEMATICA,        onb: COL_BD_ONB.NOTA_MAT },
+    { mestre: COL_MESTRE.NOTA_REDACAO,           onb: COL_BD_ONB.NOTA_REDACAO }
+  ];
+
+  var matriz = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues();
+  var totalAlunos = 0, alunosAtualizados = 0, semPlanilha = 0, semOnboarding = 0, erros = 0;
+  var celulasPreenchidas = 0;
+  var contadorPorCampo = {};
+
+  for (var i = 0; i < matriz.length; i++) {
+    var linhaIdx = i + 2; // 1-indexed pro Sheets
+    var idPlanilha = txt(matriz[i][COL_MESTRE.ID_PLANILHA]);
+    if (!idPlanilha) { semPlanilha++; continue; }
+    totalAlunos++;
+
+    // Verifica se essa linha tem ALGUM campo vazio que poderíamos preencher
+    var camposVazios = mapa.filter(function(m) { return !txt(matriz[i][m.mestre]); });
+    if (camposVazios.length === 0) continue;
+
+    try {
+      var ssAluno = SpreadsheetApp.openById(idPlanilha);
+      var abaOnb = ssAluno.getSheetByName(ABA.ONBOARDING);
+      if (!abaOnb || abaOnb.getLastRow() < 2) { semOnboarding++; continue; }
+      var linhaOnb = abaOnb.getRange(2, 1, 1, abaOnb.getLastColumn()).getValues()[0];
+
+      var atualizouAlguma = false;
+      for (var k = 0; k < camposVazios.length; k++) {
+        var m = camposVazios[k];
+        var valorOnb = linhaOnb[m.onb];
+        var valorTxt = (m.norm === 'data') ? normalizarData(valorOnb) : txt(valorOnb);
+        if (!valorTxt) continue;
+
+        if (!dryRun) {
+          aba.getRange(linhaIdx, m.mestre + 1).setValue(valorTxt);
+        }
+        celulasPreenchidas++;
+        contadorPorCampo[m.mestre] = (contadorPorCampo[m.mestre] || 0) + 1;
+        atualizouAlguma = true;
+      }
+      if (atualizouAlguma) alunosAtualizados++;
+    } catch (e) {
+      erros++;
+      Logger.log('  ✗ linha ' + linhaIdx + ' (id=' + idPlanilha + '): ' + e.message);
+    }
+  }
+
+  Logger.log('--- Resumo ---');
+  Logger.log('Total de alunos com ID_PLANILHA: ' + totalAlunos);
+  Logger.log('Alunos atualizados: ' + alunosAtualizados);
+  Logger.log('Células preenchidas: ' + celulasPreenchidas);
+  Logger.log('Sem ID_PLANILHA (skip): ' + semPlanilha);
+  Logger.log('Sem aba BD_Onboarding (skip): ' + semOnboarding);
+  Logger.log('Erros: ' + erros);
+  Logger.log('--- Detalhe por campo ---');
+  Object.keys(contadorPorCampo).forEach(function(col) {
+    Logger.log('  COL_MESTRE[' + col + ']: ' + contadorPorCampo[col]);
+  });
+  if (dryRun) Logger.log('>>> DRY-RUN: nada gravado. Rodar `backfillBDMestreFromOnboarding(false)` pra aplicar.');
 }
 
 function backupDiarioMestre() {
