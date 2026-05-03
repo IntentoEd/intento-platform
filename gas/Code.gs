@@ -49,8 +49,9 @@ const FASES_LEAD = [
 const OUTCOMES_REUNIAO = ['', 'realizada', 'no-show', 'reagendada', 'cancelada'];
 
 // Layout BD_Alunos (28 cols A–AB, snake_case headers)
-// Cols 24–27 adicionadas pra fac-símile Acompanhamento Escolar (EM):
-// tipo_aluno (EM|ENEM, default ENEM), turma, escola, fase (F1|F2|F3 ou vazio)
+// Cols 24–27 adicionadas pra fac-símile Acompanhamento Escolar (EM).
+// Ativos no MVP: tipo_aluno (EM|ENEM, default ENEM), escola.
+// Reservados/deprecated no MVP fac-símile (cols mantidas no schema mas inertes): turma, fase.
 const COL_MESTRE = {
   TIMESTAMP: 0, NOME: 1, DATA_NASCIMENTO: 2, TELEFONE: 3,
   RESPONSAVEL_FINANCEIRO: 4, EMAIL: 5, CIDADE: 6, ESTADO: 7,
@@ -63,7 +64,6 @@ const COL_MESTRE = {
 };
 
 const TIPOS_ALUNO = ['ENEM', 'EM'];
-const FASES_EM = ['', 'F1', 'F2', 'F3'];
 
 // Cache_Alunos: cache em aba separada — escrita em writes, leitura em dashboardLider
 const COL_CACHE = {
@@ -1895,9 +1895,7 @@ function handleDashboardLider(dados) {
         encontrosEsperados: calcularEncontrosEsperados_(plano, dataMatricula),
         encontrosMesCorrente: 0,
         tipoAluno: txt(row[COL_MESTRE.TIPO_ALUNO]) || 'ENEM',
-        turma: txt(row[COL_MESTRE.TURMA]),
-        escola: txt(row[COL_MESTRE.ESCOLA]),
-        fase: txt(row[COL_MESTRE.FASE])
+        escola: txt(row[COL_MESTRE.ESCOLA])
       });
     }
 
@@ -2089,18 +2087,8 @@ function handleAtualizarDadosAluno(dados) {
       }
       atualizacoes.push({ col: COL_MESTRE.TIPO_ALUNO + 1, valor: tipo });
     }
-    if (Object.prototype.hasOwnProperty.call(dados, 'turma')) {
-      atualizacoes.push({ col: COL_MESTRE.TURMA + 1, valor: txt(dados.turma) });
-    }
     if (Object.prototype.hasOwnProperty.call(dados, 'escola')) {
       atualizacoes.push({ col: COL_MESTRE.ESCOLA + 1, valor: txt(dados.escola) });
-    }
-    if (Object.prototype.hasOwnProperty.call(dados, 'fase')) {
-      var fase = txt(dados.fase);
-      if (FASES_EM.indexOf(fase) === -1) {
-        return responderJSON({ status: 'erro', mensagem: 'fase inválida (vazio, F1, F2 ou F3)' });
-      }
-      atualizacoes.push({ col: COL_MESTRE.FASE + 1, valor: fase });
     }
 
     if (atualizacoes.length === 0) {
@@ -3214,7 +3202,13 @@ function backfillBDMestreFromOnboarding(dryRun) {
   Object.keys(contadorPorCampo).forEach(function(col) {
     Logger.log('  COL_MESTRE[' + col + ']: ' + contadorPorCampo[col]);
   });
-  if (dryRun) Logger.log('>>> DRY-RUN: nada gravado. Rodar `backfillBDMestreFromOnboarding(false)` pra aplicar.');
+  if (dryRun) Logger.log('>>> DRY-RUN: nada gravado. Rodar `backfillBDMestreFromOnboardingApply` pra aplicar.');
+}
+
+// Wrapper sem argumento pra rodar via botão "Run" do editor do Apps Script,
+// que não permite passar parâmetros. Aplica de fato (dryRun=false).
+function backfillBDMestreFromOnboardingApply() {
+  backfillBDMestreFromOnboarding(false);
 }
 
 function backupDiarioMestre() {
