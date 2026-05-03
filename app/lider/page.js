@@ -66,12 +66,10 @@ export default function PainelLider() {
   const [tipoAlunoFiltro, setTipoAlunoFiltro] = useState('');
   const [mentoresExpandidos, setMentoresExpandidos] = useState({});
 
-  // Edição dos campos do fac-símile EM (tipo_aluno/turma/escola/fase)
+  // Edição dos campos do fac-símile EM (tipo_aluno/escola — turma/fase deprecated MVP)
   const [alunoEditando, setAlunoEditando] = useState(null);
   const [editTipo, setEditTipo] = useState('ENEM');
-  const [editTurma, setEditTurma] = useState('');
   const [editEscola, setEditEscola] = useState('');
-  const [editFase, setEditFase] = useState('');
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [mensagemEdicao, setMensagemEdicao] = useState('');
 
@@ -82,8 +80,11 @@ export default function PainelLider() {
   // Designação de mentor
   const [alunoDesignar, setAlunoDesignar] = useState(null);
   const [mentorEscolhido, setMentorEscolhido] = useState('');
+  const [planoEscolhido, setPlanoEscolhido] = useState('');
   const [designando, setDesignando] = useState(false);
   const [mensagemSucesso, setMensagemSucesso] = useState('');
+
+  const PLANOS_DISPONIVEIS = ['Mensal', 'Quinzenal', 'Semanal', 'Padrão', 'Custom'];
 
   // Auth
   useEffect(() => {
@@ -264,11 +265,13 @@ export default function PainelLider() {
 
   const abrirDesignacao = (aluno) => {
     setAlunoDesignar(aluno);
-    setMentorEscolhido('');
+    setMentorEscolhido(aluno.mentor || '');
+    const planoAtual = (aluno.plano || '').replace('Padrao', 'Padrão');
+    setPlanoEscolhido(PLANOS_DISPONIVEIS.includes(planoAtual) ? planoAtual : '');
   };
 
   const designarMentor = async () => {
-    if (!alunoDesignar || !mentorEscolhido || designando) return;
+    if (!alunoDesignar || !mentorEscolhido || !planoEscolhido || designando) return;
     setDesignando(true);
     setMensagemSucesso('');
     try {
@@ -280,6 +283,7 @@ export default function PainelLider() {
           email: emailLogado,
           idAluno: alunoDesignar.idAluno,
           emailMentor: mentorEscolhido,
+          plano: planoEscolhido,
         }),
       });
       const data = await res.json();
@@ -312,9 +316,7 @@ export default function PainelLider() {
   const abrirEdicao = (aluno) => {
     setAlunoEditando(aluno);
     setEditTipo(aluno.tipoAluno || 'ENEM');
-    setEditTurma(aluno.turma || '');
     setEditEscola(aluno.escola || '');
-    setEditFase(aluno.fase || '');
     setMensagemEdicao('');
   };
 
@@ -331,9 +333,7 @@ export default function PainelLider() {
           email: emailLogado,
           idAluno: alunoEditando.idAluno,
           tipoAluno: editTipo,
-          turma: editTurma,
           escola: editEscola,
-          fase: editFase,
         }),
       });
       const data = await res.json();
@@ -345,7 +345,7 @@ export default function PainelLider() {
       setDados(prev => prev ? {
         ...prev,
         alunos: prev.alunos.map(a => a.idAluno === alunoEditando.idAluno
-          ? { ...a, tipoAluno: editTipo, turma: editTurma, escola: editEscola, fase: editFase }
+          ? { ...a, tipoAluno: editTipo, escola: editEscola }
           : a),
       } : prev);
       setMensagemEdicao(`${alunoEditando.nome} atualizado.`);
@@ -606,8 +606,28 @@ export default function PainelLider() {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    Plano contratado
+                    {alunoDesignar.plano && (
+                      <span className="ml-2 normal-case text-slate-400 font-medium">
+                        (atual: {alunoDesignar.plano})
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    value={planoEscolhido}
+                    onChange={(e) => setPlanoEscolhido(e.target.value)}
+                    className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue"
+                  >
+                    <option value="">— Escolha o plano —</option>
+                    {PLANOS_DISPONIVEIS.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Ao confirmar, o sistema atualiza o mentor na planilha e <b>envia email automático</b> para o aluno e para o mentor com os dados de contato.
+                  Ao confirmar, o sistema atualiza o mentor e o plano na planilha e <b>envia email automático</b> para o aluno e para o mentor com os dados de contato.
                 </p>
               </div>
 
@@ -620,7 +640,7 @@ export default function PainelLider() {
                 </button>
                 <button
                   onClick={designarMentor}
-                  disabled={!mentorEscolhido || designando}
+                  disabled={!mentorEscolhido || !planoEscolhido || designando}
                   className="text-sm font-semibold bg-intento-blue hover:bg-blue-900 text-white px-5 py-2 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {designando ? 'Enviando...' : 'Designar e notificar'}
@@ -655,37 +675,12 @@ export default function PainelLider() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Fase</label>
-                  <select
-                    value={editFase}
-                    onChange={(e) => setEditFase(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue"
-                  >
-                    <option value="">— sem fase —</option>
-                    <option value="F1">F1 — Estruturação</option>
-                    <option value="F2">F2 — Internalização</option>
-                    <option value="F3">F3 — Operação assistida</option>
-                  </select>
-                </div>
-
-                <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Escola</label>
                   <input
                     type="text"
                     value={editEscola}
                     onChange={(e) => setEditEscola(e.target.value)}
                     placeholder="Nome da escola"
-                    className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue placeholder:text-slate-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Turma</label>
-                  <input
-                    type="text"
-                    value={editTurma}
-                    onChange={(e) => setEditTurma(e.target.value)}
-                    placeholder="Ex: 1º A, 3º B"
                     className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue placeholder:text-slate-400"
                   />
                 </div>
@@ -946,13 +941,10 @@ export default function PainelLider() {
                               {a.tipoAluno === 'EM' && (
                                 <span className="text-[9px] font-bold bg-intento-yellow/15 text-intento-yellow border border-intento-yellow/30 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">EM</span>
                               )}
-                              {a.fase && (
-                                <span className="text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">{a.fase}</span>
-                              )}
                             </div>
                             <p className="text-[10px] text-slate-400 font-medium truncate">
                               {a.ultimoEncontro ? `Último encontro: ${a.ultimoEncontro}` : 'Sem encontros registrados'}
-                              {a.escola && <span className="ml-2">· {a.escola}{a.turma ? ` (${a.turma})` : ''}</span>}
+                              {a.escola && <span className="ml-2">· {a.escola}</span>}
                             </p>
                           </div>
                         </div>
