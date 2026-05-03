@@ -425,8 +425,9 @@ function handleOnboarding(dados) {
     linhaMestre[COL_MESTRE.CIDADE]                 = txt(dp.cidade);
     linhaMestre[COL_MESTRE.ESTADO]                 = txt(dp.estado);
     linhaMestre[COL_MESTRE.ESCOLARIDADE]           = txt(pa.escolaridade);
-    linhaMestre[COL_MESTRE.ORIGEM_EM]              = txt(pa.origemEnsinoMedio);
+    linhaMestre[COL_MESTRE.ORIGEM_ENSINO_MEDIO]    = txt(pa.origemEnsinoMedio);
     linhaMestre[COL_MESTRE.COTA]                   = txt(pa.cota);
+    linhaMestre[COL_MESTRE.FEZ_ENEM_ANTES]         = txt(pa.fezEnemAntes);
     linhaMestre[COL_MESTRE.PROVAS_INTERESSE]       = txt(pa.provasInteresse);
     linhaMestre[COL_MESTRE.CURSO_INTERESSE]        = txt(pa.cursoInteresse);
     linhaMestre[COL_MESTRE.PLATAFORMA_ONLINE]      = txt(pa.plataformaOnline);
@@ -3140,8 +3141,9 @@ function backfillBDMestreFromOnboarding(dryRun) {
     { mestre: COL_MESTRE.CIDADE,                 onb: COL_BD_ONB.CIDADE },
     { mestre: COL_MESTRE.ESTADO,                 onb: COL_BD_ONB.ESTADO },
     { mestre: COL_MESTRE.ESCOLARIDADE,           onb: COL_BD_ONB.ESCOLARIDADE },
-    { mestre: COL_MESTRE.ORIGEM_EM,              onb: COL_BD_ONB.ORIGEM_ENSINO_MEDIO },
+    { mestre: COL_MESTRE.ORIGEM_ENSINO_MEDIO,    onb: COL_BD_ONB.ORIGEM_ENSINO_MEDIO },
     { mestre: COL_MESTRE.COTA,                   onb: COL_BD_ONB.COTA },
+    { mestre: COL_MESTRE.FEZ_ENEM_ANTES,         onb: COL_BD_ONB.FEZ_ENEM_ANTES },
     { mestre: COL_MESTRE.PROVAS_INTERESSE,       onb: COL_BD_ONB.PROVAS_INTERESSE },
     { mestre: COL_MESTRE.CURSO_INTERESSE,        onb: COL_BD_ONB.CURSO_INTERESSE },
     { mestre: COL_MESTRE.PLATAFORMA_ONLINE,      onb: COL_BD_ONB.PLATAFORMA_ONLINE },
@@ -3151,6 +3153,13 @@ function backfillBDMestreFromOnboarding(dryRun) {
     { mestre: COL_MESTRE.NOTA_MATEMATICA,        onb: COL_BD_ONB.NOTA_MAT },
     { mestre: COL_MESTRE.NOTA_REDACAO,           onb: COL_BD_ONB.NOTA_REDACAO }
   ];
+
+  // Defesa: se algum mestre/onb estiver undefined, falha alto antes de gravar lixo.
+  for (var d = 0; d < mapa.length; d++) {
+    if (typeof mapa[d].mestre !== 'number' || typeof mapa[d].onb !== 'number') {
+      throw new Error('Mapa inválido no índice ' + d + ': mestre=' + mapa[d].mestre + ' onb=' + mapa[d].onb);
+    }
+  }
 
   var matriz = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues();
   var totalAlunos = 0, alunosAtualizados = 0, semPlanilha = 0, semOnboarding = 0, erros = 0;
