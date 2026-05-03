@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { apiFetch } from '@/lib/api';
 import { auth } from '@/lib/firebase';
+import Boletim from '@/components/Boletim';
 
 // O gateway sobrescreve `email` com o do token Firebase pra ações autenticadas,
 // então enviar email='' aqui é seguro — o backend usa o usuário real.
@@ -91,12 +92,14 @@ const linhaVazia = () => ({
   materiaTexto: '',
   tipo: '',
   observacao: '',
+  substituiId: '',
 });
 
 export default function AbaProvas({ idAluno, alunoNome, escola }) {
   const [provas, setProvas] = useState(null); // null = carregando, [] = vazio
   const [erro, setErro] = useState('');
   const [historicoAberto, setHistoricoAberto] = useState(false);
+  const [boletimAberto, setBoletimAberto] = useState(false);
 
   // Modal cadastro (multi-prova)
   const [cadastroAberto, setCadastroAberto] = useState(false);
@@ -112,6 +115,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola }) {
   const [editTipo, setEditTipo] = useState('');
   const [editObs, setEditObs] = useState('');
   const [editNota, setEditNota] = useState('');
+  const [editSubstituiId, setEditSubstituiId] = useState('');
   const [salvandoEdit, setSalvandoEdit] = useState(false);
 
   const carregarProvas = async () => {
@@ -150,6 +154,15 @@ export default function AbaProvas({ idAluno, alunoNome, escola }) {
     return { proximas, historico };
   }, [provas]);
 
+  // Pra recuperação: lista provas existentes da mesma matéria (exceto a própria, se editando).
+  // Ordenadas mais recente primeiro pra facilitar identificar qual substituir.
+  const opcoesParaSubstituir = (materia, exceptId) => {
+    if (!materia || !provas) return [];
+    return provas
+      .filter(p => p.materia === materia && p.id !== exceptId)
+      .sort((a, b) => new Date(b.data) - new Date(a.data));
+  };
+
   // ====== Cadastro multi-prova ======
   const abrirCadastro = () => {
     setLinhas([linhaVazia()]);
@@ -187,6 +200,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola }) {
         materia: l.materiaSelect === 'Outra' ? l.materiaTexto.trim() : l.materiaSelect,
         tipo: l.tipo,
         observacao: l.observacao,
+        substituiId: l.tipo === 'recuperacao' ? l.substituiId : '',
       }));
       const res = await apiFetch('/api/mentor', {
         method: 'POST',
@@ -217,6 +231,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola }) {
     setEditTipo(prova.tipo);
     setEditObs(prova.observacao || '');
     setEditNota(prova.nota === null || prova.nota === undefined ? '' : String(prova.nota));
+    setEditSubstituiId(prova.substituiId || '');
   };
 
   const salvarEdit = async () => {
@@ -244,6 +259,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola }) {
           tipo: editTipo,
           observacao: editObs,
           nota: editNota,
+          substituiId: editTipo === 'recuperacao' ? editSubstituiId : '',
         }),
       });
       const data = await res.json();
@@ -387,6 +403,20 @@ export default function AbaProvas({ idAluno, alunoNome, escola }) {
         )}
       </section>
 
+      {/* Boletim */}
+      <section>
+        <button
+          onClick={() => setBoletimAberto(v => !v)}
+          className="w-full flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 hover:text-intento-blue transition"
+        >
+          <span>Boletim</span>
+          <svg className={`w-3.5 h-3.5 transition-transform ${boletimAberto ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        {boletimAberto && <Boletim provas={provas || []} />}
+      </section>
+
       {/* Modal cadastro multi-prova */}
       {cadastroAberto && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4"
@@ -442,6 +472,34 @@ export default function AbaProvas({ idAluno, alunoNome, escola }) {
                         className="w-full text-xs font-medium text-intento-blue px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white"
                       />
                     )}
+                    {l.tipo === 'recuperacao' && (() => {
+                      const materiaAtual = ehOutra ? l.materiaTexto.trim() : l.materiaSelect;
+                      const opcoes = opcoesParaSubstituir(materiaAtual);
+                      return (
+                        <div>
+                          <select
+                            value={l.substituiId}
+                            onChange={e => atualizarLinha(idx, 'substituiId', e.target.value)}
+                            disabled={!materiaAtual || opcoes.length === 0}
+                            className="w-full text-xs font-medium text-intento-blue px-2 py-2 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-amber-50 disabled:opacity-60"
+                          >
+                            <option value="">— Substitui qual prova? (opcional) —</option>
+                            {opcoes.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {formatarData(p.data)} · {TIPOS_AVAL.find(t => t.value === p.tipo)?.label || p.tipo}
+                                {p.nota !== null && p.nota !== undefined ? ` · nota ${p.nota}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                          {!materiaAtual && (
+                            <p className="text-[10px] text-amber-700 font-medium mt-1">Selecione a matéria primeiro pra escolher qual prova substituir.</p>
+                          )}
+                          {materiaAtual && opcoes.length === 0 && (
+                            <p className="text-[10px] text-slate-500 font-medium mt-1">Nenhuma prova de {materiaAtual} cadastrada — pode salvar mesmo assim (vira prova normal).</p>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <input
                       type="text"
                       value={l.observacao}
@@ -518,6 +576,32 @@ export default function AbaProvas({ idAluno, alunoNome, escola }) {
                   {TIPOS_AVAL.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
+              {editTipo === 'recuperacao' && (() => {
+                const materiaAtual = editMateriaSel === 'Outra' ? editMateriaTxt.trim() : editMateriaSel;
+                const opcoes = opcoesParaSubstituir(materiaAtual, provaEditando.id);
+                return (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Substitui qual prova?</label>
+                    <select value={editSubstituiId} onChange={e => setEditSubstituiId(e.target.value)}
+                            disabled={!materiaAtual || opcoes.length === 0}
+                            className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-amber-50 disabled:opacity-60">
+                      <option value="">— Não substitui (vira prova normal na média) —</option>
+                      {opcoes.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {formatarData(p.data)} · {TIPOS_AVAL.find(t => t.value === p.tipo)?.label || p.tipo}
+                          {p.nota !== null && p.nota !== undefined ? ` · nota ${p.nota}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {!materiaAtual && (
+                      <p className="text-[10px] text-amber-700 font-medium mt-1">Selecione a matéria primeiro pra escolher qual prova substituir.</p>
+                    )}
+                    {materiaAtual && opcoes.length === 0 && (
+                      <p className="text-[10px] text-slate-500 font-medium mt-1">Nenhuma prova de {materiaAtual} cadastrada — pode salvar mesmo assim.</p>
+                    )}
+                  </div>
+                );
+              })()}
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Observação / Como foi?</label>
                 <textarea value={editObs} onChange={e => setEditObs(e.target.value)}

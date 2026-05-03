@@ -35,11 +35,14 @@ const COL_EXCECAO = {
   MOTIVO: 5, CRIADO_EM: 6, CRIADO_POR: 7
 };
 
-// BD_Avaliacoes (9 cols) — provas escolares de alunos EM. Cadastrada pelo mentor responsável.
+// BD_Avaliacoes (10 cols) — provas escolares de alunos EM. Cadastrada pelo mentor responsável.
 // nota (0-10) e observacao podem ser editadas após a prova vencer (post-mortem).
+// substitui_id: id de outra avaliação que esta substitui (típico: recuperação substitui bimestral).
+//   Quando preenchido, o Boletim ignora a substituída e usa a nota desta.
 const COL_AV = {
   ID: 0, ID_ALUNO: 1, DATA: 2, MATERIA: 3, TIPO: 4,
-  OBSERVACAO: 5, NOTA: 6, CRIADO_POR: 7, CRIADO_EM: 8
+  OBSERVACAO: 5, NOTA: 6, CRIADO_POR: 7, CRIADO_EM: 8,
+  SUBSTITUI_ID: 9
 };
 const TIPOS_AVAL = ['bimestral', 'mensal', 'semanal', 'recuperacao'];
 
@@ -2259,7 +2262,8 @@ function _validarAvaliacao(av, idx) {
       materia: materia,
       tipo: tipo,
       observacao: txt(av.observacao),
-      nota: nota
+      nota: nota,
+      substituiId: txt(av.substituiId)
     }
   };
 }
@@ -2298,16 +2302,17 @@ function handleCadastrarAvaliacoes(dados) {
     var rows = normalizadas.map(function(n) {
       var id = 'av_' + agora.getTime() + '_' + Math.floor(Math.random() * 100000);
       idsCriados.push(id);
-      var row = new Array(9).fill('');
-      row[COL_AV.ID]         = id;
-      row[COL_AV.ID_ALUNO]   = idAluno;
-      row[COL_AV.DATA]       = n.data;
-      row[COL_AV.MATERIA]    = n.materia;
-      row[COL_AV.TIPO]       = n.tipo;
-      row[COL_AV.OBSERVACAO] = n.observacao;
-      row[COL_AV.NOTA]       = n.nota;
-      row[COL_AV.CRIADO_POR] = emailRequester;
-      row[COL_AV.CRIADO_EM]  = agora;
+      var row = new Array(10).fill('');
+      row[COL_AV.ID]            = id;
+      row[COL_AV.ID_ALUNO]      = idAluno;
+      row[COL_AV.DATA]          = n.data;
+      row[COL_AV.MATERIA]       = n.materia;
+      row[COL_AV.TIPO]          = n.tipo;
+      row[COL_AV.OBSERVACAO]    = n.observacao;
+      row[COL_AV.NOTA]          = n.nota;
+      row[COL_AV.CRIADO_POR]    = emailRequester;
+      row[COL_AV.CRIADO_EM]     = agora;
+      row[COL_AV.SUBSTITUI_ID]  = n.substituiId;
       return row;
     });
 
@@ -2315,7 +2320,7 @@ function handleCadastrarAvaliacoes(dados) {
     lock.waitLock(10000);
     try {
       var startRow = aba.getLastRow() + 1;
-      aba.getRange(startRow, 1, rows.length, 9).setValues(rows);
+      aba.getRange(startRow, 1, rows.length, 10).setValues(rows);
     } finally {
       lock.releaseLock();
     }
@@ -2350,7 +2355,9 @@ function handleListarAvaliacoesAluno(dados) {
     var lastRow = aba.getLastRow();
     if (lastRow < 2) return responderJSON({ status: 'sucesso', avaliacoes: [] });
 
-    var matriz = aba.getRange(2, 1, lastRow - 1, 9).getValues();
+    // lê 10 cols ou menos se a aba ainda não foi migrada com substitui_id
+    var nCols = Math.min(10, aba.getLastColumn());
+    var matriz = aba.getRange(2, 1, lastRow - 1, nCols).getValues();
     var lista = [];
     for (var i = 0; i < matriz.length; i++) {
       var r = matriz[i];
@@ -2363,7 +2370,8 @@ function handleListarAvaliacoesAluno(dados) {
         materia: txt(r[COL_AV.MATERIA]),
         tipo: txt(r[COL_AV.TIPO]),
         observacao: txt(r[COL_AV.OBSERVACAO]),
-        nota: r[COL_AV.NOTA] === '' || r[COL_AV.NOTA] === null ? null : Number(r[COL_AV.NOTA])
+        nota: r[COL_AV.NOTA] === '' || r[COL_AV.NOTA] === null ? null : Number(r[COL_AV.NOTA]),
+        substituiId: nCols > COL_AV.SUBSTITUI_ID ? txt(r[COL_AV.SUBSTITUI_ID]) : ''
       });
     }
     lista.sort(function(a, b) {
@@ -2425,6 +2433,9 @@ function handleAtualizarAvaliacao(dados) {
         if (isNaN(n) || n < 0 || n > 10) return responderJSON({ status: 'erro', mensagem: 'nota deve ser número entre 0 e 10' });
         atualizacoes.push({ col: COL_AV.NOTA + 1, valor: n });
       }
+    }
+    if (Object.prototype.hasOwnProperty.call(dados, 'substituiId')) {
+      atualizacoes.push({ col: COL_AV.SUBSTITUI_ID + 1, valor: txt(dados.substituiId) });
     }
 
     if (atualizacoes.length === 0) return responderJSON({ status: 'erro', mensagem: 'nenhum campo pra atualizar' });
@@ -3576,12 +3587,13 @@ function backfillBDMestreFromOnboardingApply() {
   backfillBDMestreFromOnboarding(false);
 }
 
-// One-shot idempotente: cria aba BD_Avaliacoes com headers se não existir.
-// Rodar manualmente no editor do Apps Script após deploy do Phase 3 do fac-símile EM.
+// One-shot idempotente: cria aba BD_Avaliacoes com headers se não existir;
+// adiciona headers faltantes (ex: substitui_id) em deploys posteriores.
+// Rodar manualmente no editor do Apps Script após cada deploy que mexa no schema.
 function migrarBDAvaliacoesFacSimile() {
   var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
   var aba = ssMestre.getSheetByName(ABA.AVALIACOES);
-  var headers = ['id', 'id_aluno', 'data', 'materia', 'tipo', 'observacao', 'nota', 'criado_por', 'criado_em'];
+  var headers = ['id', 'id_aluno', 'data', 'materia', 'tipo', 'observacao', 'nota', 'criado_por', 'criado_em', 'substitui_id'];
 
   if (!aba) {
     aba = ssMestre.insertSheet(ABA.AVALIACOES);
@@ -3591,7 +3603,7 @@ function migrarBDAvaliacoesFacSimile() {
     return;
   }
 
-  // Aba já existe — verifica se headers estão OK
+  // Aba já existe — verifica e adiciona headers faltantes ao final
   var lastCol = aba.getLastColumn();
   if (lastCol === 0) {
     aba.appendRow(headers);
@@ -3601,9 +3613,17 @@ function migrarBDAvaliacoesFacSimile() {
   }
   var headerAtual = aba.getRange(1, 1, 1, lastCol).getValues()[0]
     .map(function(h) { return String(h || '').trim().toLowerCase(); });
-  var faltando = headers.filter(function(h) { return headerAtual.indexOf(h) === -1; });
-  if (faltando.length > 0) {
-    Logger.log('AVISO: aba ' + ABA.AVALIACOES + ' existe mas headers faltando: ' + faltando.join(', '));
+  var adicionados = 0;
+  for (var k = 0; k < headers.length; k++) {
+    if (headerAtual.indexOf(headers[k]) === -1) {
+      lastCol++;
+      aba.getRange(1, lastCol).setValue(headers[k]);
+      headerAtual.push(headers[k]);
+      adicionados++;
+    }
+  }
+  if (adicionados > 0) {
+    Logger.log('Aba ' + ABA.AVALIACOES + ': ' + adicionados + ' header(s) adicionado(s) ao final');
   } else {
     Logger.log('Aba ' + ABA.AVALIACOES + ' já existe com headers corretos. Nada a fazer.');
   }
