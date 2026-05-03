@@ -21,6 +21,8 @@ const ACOES_AUTENTICADAS = new Set([
   'listarExcecoesDisponibilidade',
   // Líder
   'dashboardLider', 'designarMentor', 'atualizarDadosAluno',
+  // Avaliações escolares (fac-símile EM)
+  'cadastrarAvaliacoes', 'listarAvaliacoesAluno', 'atualizarAvaliacao', 'deletarAvaliacao',
 ]);
 
 const TTL_MS = {
@@ -32,6 +34,10 @@ const TTL_MS = {
   dashboardLider:       2  * 60 * 1000,      // 2min — dashboard do líder, dados mudam a cada write
   listarLeads:          60 * 1000,           // 60s — pipeline de vendas, alta frequência
   dashboardCrm:         2  * 60 * 1000,      // 2min
+  // listarAvaliacoesAluno: NÃO cacheia — chave seria por idAluno (compartilhada entre
+  // usuários) e o gateway só valida identidade, não autorização (que é feita no GAS).
+  // Cachear permitiria leak: usuário A autenticado bateria no cache de B sem passar
+  // pelo check do GAS. GAS é a fonte da verdade de auth nessa rota.
 };
 
 // Quais ações de escrita invalidam quais ações de leitura
@@ -60,6 +66,13 @@ function chavesParaInvalidar(acaoEscrita, dados) {
     case 'designarMentor':
     case 'atualizarDadosAluno':
       return ['listaAlunosMentor|*', 'dashboardLider|*'];
+    case 'cadastrarAvaliacoes':
+    case 'atualizarAvaliacao':
+    case 'deletarAvaliacao':
+      return [
+        ...ids.map(id => `listarAvaliacoesAluno|${id}`),
+        'listaAlunosMentor|*', // proximaProva muda
+      ];
     case 'criarLead':
     case 'editarLead':
     case 'moverLeadFase':

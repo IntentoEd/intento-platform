@@ -260,6 +260,11 @@ export default function PainelGlobalMentor() {
                       )}
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5 font-medium truncate">{aluno.email}</p>
+                    {aluno.proximaProva && aluno.proximaProva.dias <= 10 && (
+                      <p className={`text-[11px] font-bold mt-1.5 ${aluno.proximaProva.dias <= 3 ? 'text-red-600' : aluno.proximaProva.dias <= 7 ? 'text-amber-700' : 'text-slate-500'}`}>
+                        📅 {aluno.proximaProva.materia} {aluno.proximaProva.dias === 0 ? 'hoje' : aluno.proximaProva.dias === 1 ? 'amanhã' : `em ${aluno.proximaProva.dias}d`}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-2">

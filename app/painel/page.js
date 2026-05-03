@@ -12,6 +12,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { Bar, Line } from '@/components/Charts';
 import { getCache, setCache } from '@/lib/cacheClient';
 import PushToggle from '@/components/PushToggle';
+import ProvasAluno from '@/components/ProvasAluno';
 
 const cardClass = "bg-white rounded-xl border border-slate-200 p-6 shadow-sm transition-colors";
 const inputClass = "w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue transition-all font-medium text-intento-blue";
@@ -936,6 +937,11 @@ export default function PainelDoAluno() {
             <>
               {abaAtiva === 1 && (
                 <div className="space-y-6 animate-in fade-in duration-500">
+
+                  {/* Próximas provas (só pra alunos EM, só renderiza se houver) */}
+                  {sessao?.tipoAluno === 'EM' && (sessao?.idPlanilha || sessao?.idPlanilhaAluno) && (
+                    <ProvasAluno idAluno={sessao.idPlanilha || sessao.idPlanilhaAluno} />
+                  )}
 
                   {/* HERO — Lista de Tarefas + Stats */}
                   {(() => {

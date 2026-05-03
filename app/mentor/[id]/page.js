@@ -7,6 +7,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Line } from '@/components/Charts';
 import { LoadingScreen, LoadingInline } from '@/components/Loading';
+import AbaProvas from '@/components/AbaProvas';
 
 // ── Colunas do histórico (índices da array retornada pelo backend) ──────────
 // [0]Semana [1]Mês [2]Data [3]Meta [4]Horas [5]Domínio [6]Progresso [7]Revisões
@@ -549,6 +550,11 @@ export default function GestaoIndividualAluno() {
   const [carregandoOnboarding, setCarregandoOnboarding] = useState(false);
   const [erroOnboarding, setErroOnboarding] = useState('');
 
+  // Fac-símile EM: tipoAluno e escola vêm do BD_Alunos via buscarDadosAluno.
+  // Aba "Provas" só renderiza se tipoAluno === 'EM'.
+  const [tipoAluno, setTipoAluno] = useState('ENEM');
+  const [escolaAluno, setEscolaAluno] = useState('');
+
   // ESTADOS DO DIÁRIO
   const [avaliacaoPendente, setAvaliacaoPendente] = useState(false);
   const [encontroPendente, setEncontroPendente] = useState(null);
@@ -620,6 +626,9 @@ export default function GestaoIndividualAluno() {
         const data = await res.json();
         
         if (data.status === 'sucesso') {
+          setTipoAluno(data.tipoAluno || 'ENEM');
+          setEscolaAluno(data.escola || '');
+
           // GRADE DA SEMANA
           const novaGrade = {};
           if (data.semana && data.semana.length > 0) {
@@ -866,6 +875,9 @@ export default function GestaoIndividualAluno() {
           <div className="flex gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
             <button onClick={() => setAbaInterna('diario')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'diario' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Diário de Bordo</button>
             <button onClick={() => setAbaInterna('semana')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'semana' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Semana Padrão</button>
+            {tipoAluno === 'EM' && (
+              <button onClick={() => setAbaInterna('provas')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'provas' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Provas</button>
+            )}
             <button onClick={() => setAbaInterna('registros')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'registros' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Histórico Analítico</button>
             <button onClick={() => setAbaInterna('simulados')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'simulados' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Simulados</button>
             <button onClick={() => { setAbaInterna('onboarding'); carregarOnboarding(); }} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'onboarding' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Onboarding</button>
@@ -1319,6 +1331,12 @@ export default function GestaoIndividualAluno() {
         )}
 
         {/* ... ABAS SEMANA E REGISTROS AQUI (MANTIDAS INTACTAS) ... */}
+
+        {abaInterna === 'provas' && tipoAluno === 'EM' && (
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm animate-in fade-in duration-500">
+            <AbaProvas idAluno={params.id} alunoNome={nomeAluno} escola={escolaAluno} />
+          </div>
+        )}
 
         {abaInterna === 'semana' && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-in fade-in duration-500">
