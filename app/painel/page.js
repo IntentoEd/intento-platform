@@ -1948,8 +1948,8 @@ export default function PainelDoAluno() {
                 </div>
               </div>
               <div>
-                <label className={labelClass}>Questão errada</label>
-                <textarea rows={3} placeholder="Cole ou descreva a questão que você errou..." className={inputClass + " resize-none"} value={formCaderno.pergunta} onChange={e => setFormCaderno({...formCaderno, pergunta: e.target.value})} />
+                <label className={labelClass}>Questão errada <span className="text-slate-400 font-normal normal-case">(escreva como uma pergunta direta sobre o conceito)</span></label>
+                <textarea rows={3} placeholder='Ex: "Qual a função do RNA mensageiro na síntese proteica?"' className={inputClass + " resize-none"} value={formCaderno.pergunta} onChange={e => setFormCaderno({...formCaderno, pergunta: e.target.value})} />
               </div>
               <div>
                 <label className={labelClass}>Resposta correta <span className="text-slate-400 font-normal normal-case">(fica oculta — recordação ativa)</span></label>
