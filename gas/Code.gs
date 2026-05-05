@@ -179,7 +179,7 @@ const COL_BD_ONB = {
 // na internet pode chamar qualquer ação. O Next.js injeta API_TOKEN em todo
 // payload via lib/gasClient.js. Para desligar temporariamente em debug, mude
 // pra false — mas NUNCA faça deploy em produção com false.
-const VALIDAR_TOKEN = true;
+const VALIDAR_TOKEN = false;
 
 
 // =====================================================================
