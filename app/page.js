@@ -54,8 +54,28 @@ export default function Home() {
     try {
       const resultado = await signInWithPopup(auth, googleProvider);
       await processarAcessoNoSistema(resultado.user.email, resultado.user.displayName || 'Novo Aluno');
-    } catch {
-      setErro('Falha ao abrir o login do Google.');
+    } catch (e) {
+      console.error('[loginGoogle] code=' + (e?.code || '?') + ' msg=' + (e?.message || '?'));
+      const code = e?.code || '';
+      let msg;
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        // Usuário fechou — não vale exibir erro.
+        setCarregando(false);
+        return;
+      } else if (code === 'auth/popup-blocked') {
+        msg = 'Pop-up bloqueado. Libere pop-ups deste site no seu navegador e tente de novo.';
+      } else if (code === 'auth/web-storage-unsupported' || code === 'auth/operation-not-supported-in-this-environment') {
+        msg = 'Seu navegador está bloqueando cookies/storage. No Safari, desative "Impedir rastreamento entre sites" (Ajustes → Safari) ou abra esta página no Chrome.';
+      } else if (code === 'auth/network-request-failed') {
+        msg = 'Sem conexão. Verifique sua internet e tente novamente.';
+      } else if (code === 'auth/account-exists-with-different-credential') {
+        msg = 'Este e-mail já tem cadastro com outro método. Tente entrar com e-mail e senha.';
+      } else if (typeof navigator !== 'undefined' && /(FBAN|FBAV|Instagram|Line\/|WhatsApp|Twitter|MicroMessenger)/i.test(navigator.userAgent)) {
+        msg = 'O login com Google não funciona dentro do app. Toque no menu (⋯) e escolha "Abrir no Chrome/Safari", ou use e-mail + senha.';
+      } else {
+        msg = 'Falha ao abrir o login do Google (' + (code || 'desconhecido') + '). Tente e-mail + senha ou outro navegador.';
+      }
+      setErro(msg);
       setCarregando(false);
     }
   };
