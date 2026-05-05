@@ -2,20 +2,23 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { verificarUsuario } from '@/lib/auth';
+import { chamarGAS } from '@/lib/gasClient';
 
 // Cache em memória: chave -> { ts, data }
 const cache = new Map();
 
 // Ações que exigem Firebase ID token verificado.
 // Pra essas, o `email` no body é IGNORADO e substituído pelo email do token.
-// Isso impede que um usuário autenticado finja ser outro.
+// Isso impede que um usuário autenticado finja ser outro (anti-spoofing).
+// Públicas (intencionalmente fora dessa lista): onboarding, diagnostico, login,
+// loginGlobal, buscarTopicosGlobais — fluxos abertos ou catálogo sem identidade.
 const ACOES_AUTENTICADAS = new Set([
-  // CRM
+  // CRM (líder/vendedor)
   'listarLeads', 'criarLead', 'editarLead', 'moverLeadFase',
   'dashboardCrm', 'converterLeadEmAluno', 'deletarLead',
   'buscarLead', 'buscarLeadPorEmail', 'buscarLeadPorGcalEventId',
   'listarVendedoresAtendimento', 'cargaPorVendedorNoMes',
-  // Disponibilidade
+  // Disponibilidade (vendedor)
   'salvarHorariosPadrao', 'lerHorariosPadrao',
   'criarExcecaoDisponibilidade', 'removerExcecaoDisponibilidade',
   'listarExcecoesDisponibilidade',
@@ -23,6 +26,20 @@ const ACOES_AUTENTICADAS = new Set([
   'dashboardLider', 'designarMentor', 'atualizarDadosAluno',
   // Avaliações escolares (fac-símile EM)
   'cadastrarAvaliacoes', 'listarAvaliacoesAluno', 'atualizarAvaliacao', 'deletarAvaliacao',
+  // Mentor — listagem e leitura de alunos
+  'listaAlunosMentor', 'buscarDadosAluno', 'buscarOnboarding', 'buscarMetaAnterior',
+  // Mentor — escrita de registros/encontros/simulados
+  'salvarDiario', 'salvarSemanaLote', 'salvarRegistroGlobal', 'deletarRegistro',
+  'verificarRegistroSemana', 'editarRegistro',
+  'salvarNovoEncontro', 'avaliarEncontroPassado', 'editarEncontro',
+  'salvarSimulado', 'salvarAutopsia',
+  // Caderno (aluno/mentor)
+  'listarCaderno', 'salvarCardCaderno', 'incrementarRepeticao',
+  'deletarCardCaderno', 'registrarRevisaoCaderno',
+  // Push notifications (email DEVE vir do token, não do body)
+  'subscribePush', 'unsubscribePush',
+  // Admin: listar subscriptions (chamado por /api/push/send — protegido por GAS_API_TOKEN)
+  'listarPushSubscriptions',
 ]);
 
 const TTL_MS = {
@@ -40,7 +57,9 @@ const TTL_MS = {
   // pelo check do GAS. GAS é a fonte da verdade de auth nessa rota.
 };
 
-// Quais ações de escrita invalidam quais ações de leitura
+// Quais ações de escrita invalidam quais ações de leitura.
+// Padrões suportam '|*' como wildcard de qualquer segmento (email ou id).
+// Chave do cache é `${acao}|${email|*}|${id|*}`.
 function chavesParaInvalidar(acaoEscrita, dados) {
   const ids = [dados.idPlanilha, dados.idPlanilhaAluno, dados.idAluno].filter(Boolean);
   switch (acaoEscrita) {
@@ -58,8 +77,8 @@ function chavesParaInvalidar(acaoEscrita, dados) {
     case 'deletarCardCaderno':
     case 'registrarRevisaoCaderno':
       return [
-        ...ids.flatMap(id => [`buscarDadosAluno|${id}`, `buscarOnboarding|${id}`, `buscarMetaAnterior|${id}`]),
-        'dashboardLider|*',  // qualquer mutação invalida o dashboard do líder
+        ...ids.flatMap(id => [`buscarDadosAluno|*|${id}`, `buscarOnboarding|*|${id}`, `buscarMetaAnterior|*|${id}`]),
+        'dashboardLider|*',
       ];
     case 'onboarding':
     case 'diagnostico':
@@ -70,8 +89,8 @@ function chavesParaInvalidar(acaoEscrita, dados) {
     case 'atualizarAvaliacao':
     case 'deletarAvaliacao':
       return [
-        ...ids.map(id => `listarAvaliacoesAluno|${id}`),
-        'listaAlunosMentor|*', // proximaProva muda
+        ...ids.map(id => `listarAvaliacoesAluno|*|${id}`),
+        'listaAlunosMentor|*',
       ];
     case 'criarLead':
     case 'editarLead':
@@ -85,25 +104,32 @@ function chavesParaInvalidar(acaoEscrita, dados) {
   }
 }
 
-function chaveCache(acao, dados) {
-  const id = dados.idPlanilhaAluno || dados.idAluno || dados.idPlanilha || dados.email || '*';
-  return `${acao}|${id}`;
+// Match de chave contra padrão com '*' como wildcard de segmento.
+// Ex: 'buscarDadosAluno|*|abc' bate 'buscarDadosAluno|alice@x|abc' e 'buscarDadosAluno|bob@x|abc'.
+function chaveCasaPadrao(chave, padrao) {
+  const ck = chave.split('|');
+  const pk = padrao.split('|');
+  if (pk.length > ck.length) return false;
+  for (let i = 0; i < pk.length; i++) {
+    if (pk[i] === '*') continue;
+    if (pk[i] !== ck[i]) return false;
+  }
+  return true;
 }
 
-async function chamarGAS(dados) {
-  const GAS_URL = process.env.GOOGLE_APPSCRIPT_URL;
-  const res = await fetch(GAS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(dados),
-  });
-  return res.json();
+// Inclui o email do caller na chave pra que o cache seja por-usuário (evita
+// que mentor A leia cache do mentor B). Pra ações sem identidade (token-only),
+// emailCaller é '*' e o cache é compartilhado intencionalmente.
+function chaveCache(acao, dados, emailCaller) {
+  const id = dados.idPlanilhaAluno || dados.idAluno || dados.idPlanilha || '*';
+  return `${acao}|${emailCaller || '*'}|${id}`;
 }
 
 export async function POST(request) {
   try {
     const dados = await request.json();
     const acao = dados.acao || dados.tipo || '';
+    let emailCaller = null;
 
     // Auth: ações sensíveis exigem Firebase ID token e ignoram o email do body.
     if (ACOES_AUTENTICADAS.has(acao)) {
@@ -114,17 +140,20 @@ export async function POST(request) {
           { status: 401 }
         );
       }
+      emailCaller = usuario.email;
       // Sobrescreve email + porEmail (criadoPor) com o email do token verificado.
-      dados.email = usuario.email;
-      if (Object.prototype.hasOwnProperty.call(dados, 'porEmail')) dados.porEmail = usuario.email;
-      if (Object.prototype.hasOwnProperty.call(dados, 'criadoPor')) dados.criadoPor = usuario.email;
+      dados.email = emailCaller;
+      // porEmail e criadoPor são sempre preenchidos com o email verificado quando ação autenticada,
+      // independente do client ter mandado ou não. Confiar no client aqui é IDOR.
+      dados.porEmail = emailCaller;
+      dados.criadoPor = emailCaller;
     }
 
     const ttl = TTL_MS[acao];
 
     // Leitura cacheável
     if (ttl) {
-      const chave = chaveCache(acao, dados);
+      const chave = chaveCache(acao, dados, emailCaller);
       const hit = cache.get(chave);
       if (hit && Date.now() - hit.ts < ttl) {
         return NextResponse.json(hit.data);
@@ -135,13 +164,10 @@ export async function POST(request) {
     }
 
     // Escrita: invalida cache relacionado, depois chama GAS
-    const chavesInvalidar = chavesParaInvalidar(acao, dados);
-    for (const padrao of chavesInvalidar) {
-      if (padrao.endsWith('|*')) {
-        const prefixo = padrao.slice(0, -1);
-        for (const k of cache.keys()) if (k.startsWith(prefixo)) cache.delete(k);
-      } else {
-        cache.delete(padrao);
+    const padroes = chavesParaInvalidar(acao, dados);
+    for (const padrao of padroes) {
+      for (const k of cache.keys()) {
+        if (chaveCasaPadrao(k, padrao)) cache.delete(k);
       }
     }
 
