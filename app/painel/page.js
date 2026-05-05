@@ -1,6 +1,6 @@
 'use client';
 
-import { apiFetch } from '@/lib/api';
+import { apiFetch, callMentor } from '@/lib/api';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -545,16 +545,12 @@ export default function PainelDoAluno() {
     setSalvandoCaderno(true);
     const novoCard = { ...formCaderno, id: 'card_' + Date.now(), estagio: 0 };
     try {
-      await apiFetch('/api/mentor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acao: 'salvarCardCaderno', idPlanilha, ...novoCard }),
-      });
+      await callMentor('salvarCardCaderno', { idPlanilha, ...novoCard });
       setCaderno(prev => [novoCard, ...prev]);
       setModalCadernoAberto(false);
       setFormCaderno({ disciplina: '', topico: '', data: new Date().toISOString().split('T')[0], fonte: '', classificacao: '', pergunta: '', resposta: '' });
       mostrarToast('Erro registrado no caderno!');
-    } catch { mostrarToast('Erro ao salvar.', 'error'); }
+    } catch (e) { mostrarToast('Erro ao salvar: ' + (e.message || 'sem detalhes'), 'error'); }
     finally { setSalvandoCaderno(false); }
   };
 
