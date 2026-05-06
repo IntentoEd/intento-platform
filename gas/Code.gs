@@ -407,6 +407,25 @@ function handleOnboarding(dados) {
     const dt = dados.diagnosticoTecnica  || {};
     const agora = new Date();
 
+    // Política A: bloquear duplicata. Se o email já tem cadastro, não cria
+    // segunda planilha + segunda linha (causava /hub mostrando "fazer
+    // onboarding de novo" pra aluno duplicado, e /lider vendo aluno em estado
+    // inconsistente). Aluno legítimo que precisar refazer deve ser limpo
+    // manualmente da BD_Alunos pelo líder antes de tentar de novo.
+    const emailNovo = emailNorm(dp.email);
+    if (emailNovo) {
+      const matrizExistente = sheetMestre.getDataRange().getValues();
+      for (let i = 1; i < matrizExistente.length; i++) {
+        if (emailNorm(matrizExistente[i][COL_MESTRE.EMAIL]) === emailNovo) {
+          return responderJSON({
+            status: 'erro',
+            codigo: 'duplicado',
+            mensagem: 'Já existe um cadastro com este e-mail. Faça login pra continuar de onde parou.'
+          });
+        }
+      }
+    }
+
     const arrayOnboarding = new Array(53).fill("");
     arrayOnboarding[COL_BD_ONB.DATA_REGISTRO]          = agora;
     arrayOnboarding[COL_BD_ONB.NOME]                   = txt(dp.nome);
@@ -1459,14 +1478,31 @@ function handleLoginGlobal(dados) {
     const ultimaLinha = abaAlunos.getLastRow();
     if (ultimaLinha < 2) return responderJSON({ status: "sucesso", perfil: "aluno", rota: "/hub", novo: true });
 
+    // Pode haver duplicatas (bug histórico em handleOnboarding que permitia
+    // recriar). Em vez de pegar a primeira de baixo pra cima, escolhe a "melhor"
+    // linha por prioridade de status, pra que o aluno caia no estado mais
+    // avançado disponível mesmo na presença de duplicata residual.
     const matriz = abaAlunos.getRange(1, 1, ultimaLinha, 23).getValues();
-    for (let i = matriz.length - 1; i >= 1; i--) {
-      if (emailNorm(matriz[i][COL_MESTRE.EMAIL]) === emailStr) {
-        const statusBH    = txt(matriz[i][COL_MESTRE.STATUS_ONBOARDING]);
-        const idPlanilha  = matriz[i][COL_MESTRE.ID_PLANILHA] || "";
-        const rotaDestino = statusBH === "Onboarding Completo" ? "/painel" : "/hub";
-        return responderJSON({ status: "sucesso", perfil: "aluno", rota: rotaDestino, nome: matriz[i][COL_MESTRE.NOME] || "Estudante", idPlanilha: idPlanilha });
+    const PRIORIDADE_STATUS = { 'Onboarding Completo': 3, 'Aguardando Diagnóstico': 2 };
+    let melhorLinha = null;
+    let melhorPrio = -1;
+    for (let i = 1; i < matriz.length; i++) {
+      if (emailNorm(matriz[i][COL_MESTRE.EMAIL]) !== emailStr) continue;
+      const status = txt(matriz[i][COL_MESTRE.STATUS_ONBOARDING]);
+      const prio = PRIORIDADE_STATUS[status] || 1;
+      if (prio > melhorPrio) {
+        melhorPrio = prio;
+        melhorLinha = matriz[i];
       }
+    }
+    if (melhorLinha) {
+      const statusBH   = txt(melhorLinha[COL_MESTRE.STATUS_ONBOARDING]);
+      const idPlanilha = melhorLinha[COL_MESTRE.ID_PLANILHA] || "";
+      let rotaDestino;
+      if (statusBH === "Onboarding Completo")        rotaDestino = "/painel";
+      else if (statusBH === "Aguardando Diagnóstico") rotaDestino = "/diagnostico";
+      else                                           rotaDestino = "/hub";
+      return responderJSON({ status: "sucesso", perfil: "aluno", rota: rotaDestino, nome: melhorLinha[COL_MESTRE.NOME] || "Estudante", idPlanilha: idPlanilha });
     }
     return responderJSON({ status: "sucesso", perfil: "aluno", rota: "/hub", nome: "Novo Aluno" });
   } catch (erro) { return responderJSON({ status: "erro", mensagem: "Erro no Porteiro: " + erro.message }); }
@@ -2399,6 +2435,81 @@ function _exigirAcessoAluno(emailRequester, idPlanilhaAluno) {
   if (email === aluno.mentor) return { papel: 'mentor', aluno: aluno };
   if (email === aluno.email)  return { papel: 'aluno',  aluno: aluno };
   throw new Error('Acesso negado a este aluno.');
+}
+
+// =====================================================================
+// REPAROS MANUAIS (rodar via editor do Apps Script — Run > função)
+// =====================================================================
+
+// One-shot: identifica duplicatas de um email no BD_Alunos e marca a "pior"
+// (status mais atrasado) como "Duplicada — ver linha N", deixa a "melhor"
+// intacta. Renomeia também a planilha do Drive da duplicata pra deixar
+// claro qual é a ativa.
+//
+// Uso no editor: Run > repararDuplicataPorEmail
+//   const EMAIL = 'joicenatanebarboza@gmail.com';
+//   repararDuplicataPorEmail(EMAIL);
+//
+// Logger.log mostra o que foi feito. Se não tem duplicata, só registra.
+function repararDuplicataPorEmail(emailAlvo) {
+  var email = emailNorm(emailAlvo);
+  if (!email) { Logger.log('FAIL: passe o email como argumento'); return; }
+
+  var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ssMestre.getSheetByName(ABA.MESTRE);
+  if (!aba) { Logger.log('FAIL: BD_Alunos não encontrada'); return; }
+
+  var matriz = aba.getDataRange().getValues();
+  var PRIORIDADE = { 'Onboarding Completo': 3, 'Aguardando Diagnóstico': 2 };
+
+  var ocorrencias = [];
+  for (var i = 1; i < matriz.length; i++) {
+    if (emailNorm(matriz[i][COL_MESTRE.EMAIL]) !== email) continue;
+    var status = txt(matriz[i][COL_MESTRE.STATUS_ONBOARDING]);
+    ocorrencias.push({
+      linha: i + 1,                  // 1-indexed pra setRange
+      status: status,
+      prio: PRIORIDADE[status] || 1,
+      idPlanilha: txt(matriz[i][COL_MESTRE.ID_PLANILHA]),
+      nome: txt(matriz[i][COL_MESTRE.NOME])
+    });
+  }
+
+  if (ocorrencias.length === 0) { Logger.log('Nenhuma linha encontrada com email=' + email); return; }
+  if (ocorrencias.length === 1) { Logger.log('Apenas 1 linha (sem duplicata) — linha ' + ocorrencias[0].linha + ' status=' + ocorrencias[0].status); return; }
+
+  Logger.log('===== DUPLICATAS DE ' + email + ' =====');
+  ocorrencias.forEach(function(o) {
+    Logger.log('  linha ' + o.linha + ' · ' + o.status + ' · ' + o.nome + ' · ' + o.idPlanilha);
+  });
+
+  // Ordena por prioridade desc; em empate, mantém a primeira encontrada.
+  ocorrencias.sort(function(a, b) { return b.prio - a.prio; });
+  var manter = ocorrencias[0];
+  var perdedoras = ocorrencias.slice(1);
+
+  Logger.log('→ MANTENDO linha ' + manter.linha + ' (status=' + manter.status + ')');
+
+  perdedoras.forEach(function(p) {
+    var marca = 'Duplicada — ver linha ' + manter.linha;
+    aba.getRange(p.linha, COL_MESTRE.STATUS_ONBOARDING + 1).setValue(marca);
+    Logger.log('  · linha ' + p.linha + ' marcada como "' + marca + '"');
+
+    if (p.idPlanilha && p.idPlanilha !== manter.idPlanilha) {
+      try {
+        var arquivo = DriveApp.getFileById(p.idPlanilha);
+        var nomeAtual = arquivo.getName();
+        if (nomeAtual.indexOf('[DUPLICADA]') === -1) {
+          arquivo.setName(nomeAtual + ' [DUPLICADA]');
+          Logger.log('  · planilha ' + p.idPlanilha + ' renomeada: "' + arquivo.getName() + '"');
+        }
+      } catch (e) {
+        Logger.log('  · falha ao renomear planilha ' + p.idPlanilha + ': ' + e.message);
+      }
+    }
+  });
+
+  Logger.log('===== FIM =====');
 }
 
 // Valida uma avaliação a cadastrar. Retorna { ok, erro?, normalizada? }
