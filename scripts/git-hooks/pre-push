@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Pre-push hook: garante que `npm run build` passa no estado que vai pra origin.
+#
+# Evita o tipo de incidente onde commit cirúrgico (`git add <um-arquivo>`)
+# quebra build em prod porque deixou um import órfão (arquivo importado
+# ainda untracked, dependência nova não declarada, etc.).
+#
+# Como funciona:
+# 1. Só roda em push pra refs/heads/main (push pra branches locais não bloqueia).
+# 2. Stash de tudo que não está no index (--keep-index --include-untracked) pra
+#    simular o working tree exato que o Vercel verá.
+# 3. Roda `npm run build`. Se falhar, aborta o push.
+# 4. Sempre faz `git stash pop` (mesmo em caso de erro) via trap.
+#
+# Bypass: SKIP_BUILD_CHECK=1 git push ...
+# (use só em emergência — significa que prod pode quebrar.)
+
+set -e
+
+PUSH_TO_MAIN=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    PUSH_TO_MAIN=1
+  fi
+done
+
+if [ "$PUSH_TO_MAIN" != "1" ]; then
+  exit 0
+fi
+
+if [ "${SKIP_BUILD_CHECK:-0}" = "1" ]; then
+  echo "[pre-push] SKIP_BUILD_CHECK=1, pulando build (PERIGOSO)"
+  exit 0
+fi
+
+# Pula se nada novo pra pushar (ex: --force sem mudança)
+COMMITS_TO_PUSH=$(git rev-list @{push}..HEAD 2>/dev/null || true)
+if [ -z "$COMMITS_TO_PUSH" ]; then
+  exit 0
+fi
+
+# Decide se precisa stashar
+HAS_UNSTAGED=0
+if ! git diff --quiet 2>/dev/null; then HAS_UNSTAGED=1; fi
+if [ -n "$(git ls-files --others --exclude-standard)" ]; then HAS_UNSTAGED=1; fi
+
+NEED_POP=0
+if [ "$HAS_UNSTAGED" = "1" ]; then
+  echo "[pre-push] stashando mudanças locais não-staged pra simular prod..."
+  if git stash push --keep-index --include-untracked -m "pre-push-hook-$(date +%s)" >/dev/null 2>&1; then
+    NEED_POP=1
+  else
+    echo "[pre-push] aviso: stash não criou nada (mas estado parecia sujo)"
+  fi
+fi
+
+cleanup() {
+  if [ "$NEED_POP" = "1" ]; then
+    echo "[pre-push] restaurando stash..."
+    if ! git stash pop >/dev/null 2>&1; then
+      echo "[pre-push] ✗ FALHA AO POP STASH — verifique 'git stash list' manualmente"
+    fi
+  fi
+}
+trap cleanup EXIT
+
+echo "[pre-push] rodando npm run build (simula o que vai pra prod)..."
+LOG=$(mktemp -t pre-push-build.XXXXXX)
+if ! npm run build >"$LOG" 2>&1; then
+  echo ""
+  echo "✗ BUILD FALHOU. Push abortado."
+  echo "  Últimas linhas do erro:"
+  tail -25 "$LOG" | sed 's/^/  /'
+  echo ""
+  echo "  Log completo: $LOG"
+  echo "  Pra bypassar (perigoso, prod pode quebrar): SKIP_BUILD_CHECK=1 git push ..."
+  exit 1
+fi
+
+echo "[pre-push] ✓ build ok — push prossegue"
+rm -f "$LOG"
+exit 0
