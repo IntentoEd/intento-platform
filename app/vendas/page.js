@@ -56,7 +56,7 @@ const OUTCOME_BADGES = {
   cancelada: { label: '✕ Cancelada', cor: 'bg-slate-200 text-slate-600' },
 };
 
-function LeadCard({ lead, ehLider, vendedoresLista = [], onClick, onAtribuir }) {
+function LeadCard({ lead, ehLider, emailUsuario, vendedoresLista = [], onClick, onAtribuir }) {
   const wppUrl = whatsappLink(lead.telefone);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.idLead,
@@ -148,10 +148,19 @@ function LeadCard({ lead, ehLider, vendedoresLista = [], onClick, onAtribuir }) 
             <option key={v.email} value={v.email}>{v.nome || v.email.split('@')[0]}</option>
           ))}
         </select>
+      ) : !lead.vendedor ? (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onAtribuir?.(lead.idLead, emailUsuario); }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="mt-2 w-full text-xs font-semibold px-2 py-1 rounded border border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+          title="Pegar este lead pra mim"
+        >
+          + Pegar lead
+        </button>
       ) : (
-        lead.vendedor && (
-          <div className="mt-2 text-xs text-slate-400 truncate">→ {lead.vendedor.split('@')[0]}</div>
-        )
+        <div className="mt-2 text-xs text-slate-400 truncate">→ {lead.vendedor.split('@')[0]}</div>
       )}
     </div>
   );
@@ -356,7 +365,8 @@ export default function Vendas() {
   const leadsFiltrados = useMemo(() => {
     return leads.filter((l) => {
       if (filtroVendedor === 'sem-vendedor' && l.vendedor) return false;
-      if (filtroVendedor && filtroVendedor !== 'sem-vendedor' && l.vendedor !== filtroVendedor)
+      if (filtroVendedor === 'meus' && l.vendedor !== email) return false;
+      if (filtroVendedor && filtroVendedor !== 'sem-vendedor' && filtroVendedor !== 'meus' && l.vendedor !== filtroVendedor)
         return false;
       if (filtroOrigem && l.origem !== filtroOrigem) return false;
       if (busca) {
@@ -368,7 +378,7 @@ export default function Vendas() {
       }
       return true;
     });
-  }, [leads, filtroVendedor, filtroOrigem, busca]);
+  }, [leads, filtroVendedor, filtroOrigem, busca, email]);
 
   const porFase = useMemo(() => {
     const acc = {};
@@ -447,7 +457,7 @@ export default function Vendas() {
             onChange={(e) => setBusca(e.target.value)}
             className="flex-1 min-w-[200px] px-3 py-1.5 text-sm border border-slate-300 rounded-md"
           />
-          {ehLider && (
+          {ehLider ? (
             <select
               value={filtroVendedor}
               onChange={(e) => setFiltroVendedor(e.target.value)}
@@ -460,6 +470,16 @@ export default function Vendas() {
                   {v.nome}
                 </option>
               ))}
+            </select>
+          ) : (
+            <select
+              value={filtroVendedor}
+              onChange={(e) => setFiltroVendedor(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-slate-300 rounded-md bg-white"
+            >
+              <option value="">Meus + sem dono</option>
+              <option value="meus">Meus</option>
+              <option value="sem-vendedor">Sem dono (fila)</option>
             </select>
           )}
           {origensUnicas.length > 0 && (
@@ -504,6 +524,7 @@ export default function Vendas() {
                       key={lead.idLead}
                       lead={lead}
                       ehLider={ehLider}
+                      emailUsuario={email}
                       vendedoresLista={vendedores}
                       onAtribuir={atribuirVendedor}
                       onClick={() => setLeadAberto(lead)}
