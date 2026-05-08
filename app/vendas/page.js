@@ -196,7 +196,7 @@ const CORES_FASE = {
   'Contrato assinado': 'bg-emerald-300 text-emerald-900',
   '1a mensalidade paga': 'bg-emerald-400 text-emerald-900',
   'Em mentoria': 'bg-teal-200 text-teal-800',
-  Churn: 'bg-red-100 text-red-700',
+  'Não convertido': 'bg-red-100 text-red-700',
 };
 
 export default function Vendas() {

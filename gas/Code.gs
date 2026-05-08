@@ -53,7 +53,7 @@ const FASES_LEAD = [
   'Lead', 'Numero invalido', 'Contactado WPP', 'Ativo WPP',
   'Reuniao agendada', 'Reuniao realizada',
   'Convertido', 'Taxa matricula paga', 'Contrato assinado',
-  '1a mensalidade paga', 'Em mentoria', 'Churn'
+  '1a mensalidade paga', 'Em mentoria', 'Não convertido'
 ];
 
 // Outcomes possíveis pra reunião — campo separado da fase (padrão HubSpot/Pipedrive).

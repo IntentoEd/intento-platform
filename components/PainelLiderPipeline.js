@@ -19,7 +19,7 @@ const CORES_FUNNEL = {
   'Contrato assinado': '#047857',
   '1a mensalidade paga': '#065f46',
   'Em mentoria': '#0d9488',
-  Churn: '#ef4444',
+  'Não convertido': '#ef4444',
 };
 
 export default function PainelLiderPipeline({ email }) {
@@ -67,7 +67,7 @@ export default function PainelLiderPipeline({ email }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
 
-  const semVendedor = useMemo(() => leads.filter((l) => !l.vendedor && l.fase !== 'Churn'), [leads]);
+  const semVendedor = useMemo(() => leads.filter((l) => !l.vendedor && l.fase !== 'Não convertido'), [leads]);
 
   const totalLeads = dashboard?.total || 0;
   const porFase = dashboard?.porFase || {};
@@ -75,7 +75,7 @@ export default function PainelLiderPipeline({ email }) {
   const porOrigem = dashboard?.porOrigem || {};
 
   const emMentoria = porFase['Em mentoria'] || 0;
-  const churn = porFase['Churn'] || 0;
+  const naoConvertido = porFase['Não convertido'] || 0;
 
   const funnel = useMemo(() => {
     if (!fases.length) return [];
@@ -196,9 +196,9 @@ export default function PainelLiderPipeline({ email }) {
         </div>
         <div className={cardClass + ' text-center'}>
           <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">
-            Churn
+            Não convertido
           </p>
-          <p className="text-3xl font-bold text-red-500">{churn}</p>
+          <p className="text-3xl font-bold text-red-500">{naoConvertido}</p>
         </div>
       </div>
 
