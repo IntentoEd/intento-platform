@@ -76,7 +76,7 @@ export default function DiagnosticoTeorico() {
   const enviarParaGoogle = async () => {
     setEnviando(true);
     try {
-      await apiFetch('/api/mentor', {
+      const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -88,6 +88,14 @@ export default function DiagnosticoTeorico() {
           acertosMatematica: resultadoFinal.detalhe.Matemática,
         }),
       });
+      // Sem essas checagens, tela de "Diagnóstico Concluído!" rolava mesmo
+      // quando o backend retornava erro (caso Joice 11/05/2026): aluno
+      // celebrava, localStorage limpava, mas BD_Diagnostico nunca foi criado.
+      if (!res.ok) throw new Error('http_' + res.status);
+      const data = await res.json();
+      if (data.status === 'erro' || data.error) {
+        throw new Error(data.mensagem || data.error || 'erro_desconhecido');
+      }
       setEnviadoComSucesso(true);
       localStorage.removeItem('intento_diagnostico_respostas');
       localStorage.removeItem('intento_diagnostico_concluidas');
@@ -95,8 +103,9 @@ export default function DiagnosticoTeorico() {
       const chave = `intento_checklist_${email}`;
       const checklist = JSON.parse(localStorage.getItem(chave) || '{}');
       localStorage.setItem(chave, JSON.stringify({ ...checklist, diagnostico: true }));
-    } catch {
-      alert('Erro na comunicação.');
+    } catch (e) {
+      console.error('[diagnostico] enviar falhou:', e?.message);
+      alert('Erro ao enviar: ' + (e?.message || 'falha desconhecida') + '\n\nSuas respostas foram mantidas. Tente de novo. Se persistir, fale com o Filippe.');
     } finally {
       setEnviando(false);
     }
