@@ -598,10 +598,7 @@ export default function GestaoIndividualAluno() {
   const [escolaAluno, setEscolaAluno] = useState('');
 
   // ESTADOS DO DIÁRIO
-  const [avaliacaoPendente, setAvaliacaoPendente] = useState(false);
-  const [encontroPendente, setEncontroPendente] = useState(null);
-  const [formAvaliacao, setFormAvaliacao] = useState(["", "", "", "", ""]);
-  const [expandidoId, setExpandidoId] = useState(null); 
+  const [expandidoId, setExpandidoId] = useState(null);
   
   // O Estado do Modal
   const [modalAberto, setModalAberto] = useState(false);
@@ -614,8 +611,18 @@ export default function GestaoIndividualAluno() {
   const [formDiario, setFormDiario] = useState({
     autoavaliacao: 0, vitorias: "", desafios: "", categoriaDesafio: "Codificação",
     metas: ["", "", ""], exploracao: "", planosAcao: ["", "", "", "", ""], notasPrivadas: "",
-    statusMetasAnteriores: ["", "", ""]
+    statusMetasAnteriores: ["", "", ""],
+    resultadosAnteriores: ["", "", "", "", ""]
   });
+
+  const abrirNovoDiario = () => {
+    const ultimo = historicoDiarios[0];
+    const resultadosBase = ultimo
+      ? [0,1,2,3,4].map(i => String(ultimo.resultados?.[i] || ''))
+      : ['', '', '', '', ''];
+    setFormDiario(prev => ({ ...prev, resultadosAnteriores: resultadosBase }));
+    setModalAberto(true);
+  };
 
   const [grade, setGrade] = useState({});
   const [gradeHistorico, setGradeHistorico] = useState([]); // stack de undo
@@ -699,17 +706,6 @@ export default function GestaoIndividualAluno() {
           if (diariosCarregados.length > 0) {
             const ultimo = diariosCarregados[0];
             setMetasPassadas(parseMetas(ultimo.meta)); // Puxa as metas antigas para os Placeholders
-            
-            let precisaAvaliar = false;
-            for (let i = 0; i < 5; i++) {
-              if (String(ultimo.acoes[i] || "").trim() !== "" && String(ultimo.resultados[i] || "").trim() === "") {
-                precisaAvaliar = true; break;
-              }
-            }
-            if (precisaAvaliar) {
-              setAvaliacaoPendente(true);
-              setEncontroPendente(ultimo);
-            }
           }
         }
       } catch (e) {
@@ -722,31 +718,6 @@ export default function GestaoIndividualAluno() {
   }, [params.id]);
 
   // =========================================================================
-  // SALVAR AVALIAÇÃO OBRIGATÓRIA
-  // =========================================================================
-  const enviarAvaliacao = async () => {
-    const temFuro = encontroPendente.acoes.some((acao, i) => String(acao || "").trim() !== "" && formAvaliacao[i] === "");
-    if (temFuro) { alert("Preencha o resultado de todas as tarefas."); return; }
-
-    setStatusMsg("Salvando Avaliação...");
-    try {
-      const res = await apiFetch('/api/mentor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acao: 'avaliarEncontroPassado', idPlanilha: params.id, linha: encontroPendente.linha, resultados: formAvaliacao })
-      });
-      if (res.ok) {
-        setStatusMsg("Avaliação Salva!");
-        setAvaliacaoPendente(false);
-        const novoHist = [...historicoDiarios];
-        novoHist[0].resultados = formAvaliacao;
-        setHistoricoDiarios(novoHist);
-        setTimeout(() => setStatusMsg(""), 4000);
-      }
-    } catch (e) { setStatusMsg("Erro ao salvar."); }
-  };
-
-  // =========================================================================
   // SALVAR NOVO DIÁRIO
   // =========================================================================
   const salvarNovoEncontro = async () => {
@@ -754,6 +725,7 @@ export default function GestaoIndividualAluno() {
     setSalvandoEncontro(true);
     setStatusMsg("Salvando Encontro...");
     try {
+      const ultimo = historicoDiarios[0];
       const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -761,7 +733,9 @@ export default function GestaoIndividualAluno() {
           acao: 'salvarNovoEncontro', idPlanilha: params.id, ...formDiario,
           meta: serializeMetas(formDiario.metas),
           statusMetasAnteriores: serializeStatusMetas(formDiario.statusMetasAnteriores),
-          autoavaliacao: formDiario.autoavaliacao, acoes: formDiario.planosAcao
+          autoavaliacao: formDiario.autoavaliacao, acoes: formDiario.planosAcao,
+          linhaAnterior: ultimo ? ultimo.linha : null,
+          resultadosAnteriores: formDiario.resultadosAnteriores,
         })
       });
       if (res.ok) {
@@ -966,65 +940,17 @@ export default function GestaoIndividualAluno() {
         {abaInterna === 'diario' && (
           <div className="space-y-8 animate-in fade-in duration-500">
             
-            {/* AVALIAÇÃO PENDENTE — alerta não bloqueante */}
-            {avaliacaoPendente && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="p-5 flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="w-8 h-8 bg-amber-500 text-white rounded-full flex items-center justify-center shrink-0 mt-0.5 text-sm font-bold">!</div>
-                    <div>
-                      <h2 className="text-sm font-bold text-amber-800">Revisão pendente — encontro de {new Date(encontroPendente.data).toLocaleDateString('pt-BR')}</h2>
-                      <p className="text-xs text-amber-700 font-medium mt-0.5">Avalie as tarefas do encontro anterior antes de registrar um novo.</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setModalAberto(true)}
-                    className="shrink-0 bg-intento-yellow hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition-all text-xs"
-                  >
-                    + Novo Diário
-                  </button>
-                </div>
-
-                <div className="border-t border-amber-200 p-5 space-y-3">
-                  {encontroPendente.acoes.map((acao, idx) => {
-                    if (!acao || String(acao).trim() === '') return null;
-                    return (
-                      <div key={idx} className="bg-white p-4 rounded-xl border border-amber-100 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
-                        <span className="font-semibold text-slate-700 flex-1 text-sm">{idx + 1}. {acao}</span>
-                        <select
-                          className="p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-400 bg-slate-50 font-semibold text-slate-600 text-sm md:min-w-[220px]"
-                          value={formAvaliacao[idx]}
-                          onChange={(e) => { const novo = [...formAvaliacao]; novo[idx] = e.target.value; setFormAvaliacao(novo); }}
-                        >
-                          <option value="">Selecione o resultado...</option>
-                          <option value="Não realizado">Não realizado</option>
-                          <option value="Realizado Parcialmente">Realizado Parcialmente</option>
-                          <option value="Realizado">Realizado</option>
-                        </select>
-                      </div>
-                    );
-                  })}
-                  <button onClick={enviarAvaliacao}
-                    className="w-full mt-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-lg shadow-sm transition-all text-sm">
-                    Salvar Revisão
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* BOTÃO NOVO DIÁRIO — visível sempre */}
-            {!avaliacaoPendente && (
-              <div className="flex justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            {/* BOTÃO NOVO DIÁRIO */}
+            <div className="flex justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <div>
                   <h2 className="text-sm font-bold text-intento-blue">Diário de Bordo</h2>
                   <p className="text-slate-400 text-xs font-medium mt-0.5">Último encontro avaliado.</p>
                 </div>
-                <button onClick={() => setModalAberto(true)}
+                <button onClick={abrirNovoDiario}
                   className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-all text-sm">
                   + Novo Diário
                 </button>
               </div>
-            )}
 
             {/* O ACORDÃO (SANFONA) DO HISTÓRICO - AGORA COM TUDO! */}
             <div className="pt-4">
@@ -1288,6 +1214,63 @@ export default function GestaoIndividualAluno() {
                                       ativo
                                         ? COR_STATUS_META[opt] + ' ring-2 ring-offset-1 ring-intento-blue/40'
                                         : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                    }`}
+                                  >
+                                    {opt}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* RETROSPECTIVA: status do Plano de Ação do último encontro */}
+                {(() => {
+                  const ultimo = historicoDiarios[0];
+                  if (!ultimo) return null;
+                  const acoesPendentes = (ultimo.acoes || [])
+                    .map((a, idx) => ({ idx, acao: a }))
+                    .filter(x => String(x.acao || '').trim() !== '');
+                  if (acoesPendentes.length === 0) return null;
+                  // Só aparece se houver pelo menos uma ação sem resultado
+                  const temPendencia = acoesPendentes.some(x =>
+                    String(formDiario.resultadosAnteriores[x.idx] || '').trim() === ''
+                  );
+                  if (!temPendencia) return null;
+                  return (
+                    <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-6 mb-8">
+                      <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wider mb-1">Retrospectiva — Plano de Ação do último encontro</h3>
+                      <p className="text-xs text-amber-700 mb-4">
+                        {ultimo.data ? new Date(ultimo.data).toLocaleDateString('pt-BR') : ''} · marque o resultado de cada ação
+                      </p>
+                      <div className="space-y-3">
+                        {acoesPendentes.map(({ idx, acao }) => (
+                          <div key={idx} className="bg-white border border-amber-100 rounded-lg p-4 flex flex-col md:flex-row gap-3 md:items-center">
+                            <div className="flex gap-2 items-start flex-1">
+                              <span className="w-6 h-6 shrink-0 bg-amber-100 text-amber-800 rounded-md flex items-center justify-center text-xs font-bold">{idx + 1}</span>
+                              <span className="text-sm font-semibold text-slate-800 leading-relaxed">{acao}</span>
+                            </div>
+                            <div className="flex gap-1 flex-wrap">
+                              {['Realizado', 'Realizado Parcialmente', 'Não realizado'].map(opt => {
+                                const ativo = formDiario.resultadosAnteriores[idx] === opt;
+                                const cor = opt === 'Realizado' ? 'bg-emerald-100 text-emerald-800'
+                                  : opt === 'Realizado Parcialmente' ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800';
+                                return (
+                                  <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => {
+                                      const novo = [...formDiario.resultadosAnteriores];
+                                      novo[idx] = ativo ? '' : opt;
+                                      setFormDiario({ ...formDiario, resultadosAnteriores: novo });
+                                    }}
+                                    className={`text-[10px] font-bold px-3 py-1.5 rounded-md uppercase tracking-wide transition-all ${
+                                      ativo ? cor + ' ring-2 ring-offset-1 ring-amber-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                     }`}
                                   >
                                     {opt}
