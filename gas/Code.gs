@@ -1041,13 +1041,27 @@ function handleSalvarNovoEncontro(dados) {
     const abaDiario  = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.ENCONTROS);
     if (!abaDiario) throw new Error("Aba '" + ABA.ENCONTROS + "' não encontrada.");
     _garantirColunasEnc(abaDiario);
+
+    // Atualização atômica dos resultados do encontro anterior (vem do bloco
+    // de retrospectiva do modal Novo Diário). Se o cliente passar linha+array,
+    // grava antes de criar a nova linha.
+    const linhaAnterior        = parseInt(dados.linhaAnterior);
+    const resultadosAnteriores = Array.isArray(dados.resultadosAnteriores) ? dados.resultadosAnteriores : null;
+    if (linhaAnterior && linhaAnterior >= 2 && resultadosAnteriores) {
+      abaDiario.getRange(linhaAnterior, COL_ENC.RESULTADO_1 + 1, 1, 5).setValues([[
+        txt(resultadosAnteriores[0]), txt(resultadosAnteriores[1]),
+        txt(resultadosAnteriores[2]), txt(resultadosAnteriores[3]),
+        txt(resultadosAnteriores[4])
+      ]]);
+    }
+
     const dataHoje = Utilities.formatDate(new Date(), "GMT-3", "dd/MM/yyyy");
     const acoes    = Array.isArray(dados.acoes) ? dados.acoes : [];
     abaDiario.appendRow([
       dataHoje, txt(dados.autoavaliacao), txt(dados.vitorias), txt(dados.desafios),
       txt(dados.categoria), txt(dados.meta), txt(dados.exploracao),
       txt(acoes[0]), txt(acoes[1]), txt(acoes[2]), txt(acoes[3]), txt(acoes[4]),
-      '', '', '', '', '',  // resultados (preenchidos depois via avaliarEncontroPassado)
+      '', '', '', '', '',  // resultados desta linha — preenchidos no próximo encontro
       txt(dados.notasPrivadas),
       txt(dados.statusMetasAnteriores)
     ]);
