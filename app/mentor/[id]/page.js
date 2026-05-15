@@ -8,14 +8,39 @@ import Link from 'next/link';
 import { Line } from '@/components/Charts';
 import { LoadingScreen, LoadingInline } from '@/components/Loading';
 import AbaProvas from '@/components/AbaProvas';
+import StatusAppSelect from '@/components/StatusAppSelect';
 
 // ── Colunas do histórico (índices da array retornada pelo backend) ──────────
 // [0]Semana [1]Mês [2]Data [3]Meta [4]Horas [5]Domínio [6]Progresso [7]Revisões
 // [8]Estresse [9]Ansiedade [10]Motivação [11]Sono
 // [12]D.BIO [13]P.BIO [14]D.QUI [15]P.QUI [16]D.FIS [17]P.FIS [18]D.MAT [19]P.MAT
+// [20]origem ("auto" | "manual" | "revisado" | "" legado)
+const COL_ORIGEM = 20;
 
 // Colunas que chegam como decimal (0–1) e devem ser exibidas como %
 const COLUNAS_PERCENT = new Set([5, 6, 12, 13, 14, 15, 16, 17, 18, 19]);
+
+// Selo de origem do registro. 'auto' = veio do app, mentor ainda não conferiu;
+// 'revisado' = veio do app e o mentor editou. 'manual'/legado não tem selo.
+function seloOrigem(origem) {
+  if (origem === 'auto') {
+    return (
+      <span title="Gerado automaticamente do app — revise os números"
+        className="text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0">
+        Auto
+      </span>
+    );
+  }
+  if (origem === 'revisado') {
+    return (
+      <span title="Gerado do app e revisado pelo mentor"
+        className="text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0">
+        Revisado
+      </span>
+    );
+  }
+  return null;
+}
 
 const toPercent = (val) => {
   const n = parseFloat(String(val ?? '').replace(',', '.'));
@@ -417,7 +442,12 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
                 <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
                   {cols.map((ci) => (
                     <td key={ci} className={`p-3 whitespace-nowrap ${ci === 0 ? 'sticky left-0 bg-white font-bold text-intento-blue text-xs' : `font-medium ${valorColor(ci, reg[ci]) || 'text-slate-600'}`}`}>
-                      {COLUNAS_PERCENT.has(ci)
+                      {ci === 0 ? (
+                        <div className="flex items-center gap-1.5">
+                          <span>{reg[ci] ?? '—'}</span>
+                          {seloOrigem(reg[COL_ORIGEM])}
+                        </div>
+                      ) : COLUNAS_PERCENT.has(ci)
                         ? (toPercent(reg[ci]) !== null ? `${toPercent(reg[ci])}%` : '—')
                         : (reg[ci] ?? '—')}
                     </td>
@@ -597,6 +627,30 @@ export default function GestaoIndividualAluno() {
   const [tipoAluno, setTipoAluno] = useState('ENEM');
   const [escolaAluno, setEscolaAluno] = useState('');
 
+  // Status do aluno em relação ao app (controla o cron de integração).
+  const [statusApp, setStatusApp] = useState('');
+  const [salvandoStatusApp, setSalvandoStatusApp] = useState(false);
+
+  const handleStatusAppChange = async (novoStatus) => {
+    const anterior = statusApp;
+    setStatusApp(novoStatus); // otimista
+    setSalvandoStatusApp(true);
+    try {
+      const res = await apiFetch('/api/mentor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'salvarStatusApp', idAluno: params.id, statusApp: novoStatus }),
+      });
+      const d = await res.json();
+      if (d.status !== 'sucesso') throw new Error(d.mensagem || 'falha');
+    } catch (e) {
+      setStatusApp(anterior); // reverte
+      setStatusMsg('Erro ao salvar status do app');
+    } finally {
+      setSalvandoStatusApp(false);
+    }
+  };
+
   // ESTADOS DO DIÁRIO
   const [expandidoId, setExpandidoId] = useState(null);
   
@@ -678,6 +732,7 @@ export default function GestaoIndividualAluno() {
         if (data.status === 'sucesso') {
           setTipoAluno(data.tipoAluno || 'ENEM');
           setEscolaAluno(data.escola || '');
+          setStatusApp(data.statusApp || '');
 
           // GRADE DA SEMANA
           const novaGrade = {};
@@ -923,8 +978,15 @@ export default function GestaoIndividualAluno() {
           </div>
         </div>
 
-        <div className="bg-intento-blue text-white p-6 rounded-xl flex justify-between items-center shadow-sm">
+        <div className="bg-intento-blue text-white p-6 rounded-xl flex justify-between items-center gap-4 shadow-sm">
           <h1 className="text-2xl font-semibold">{nomeAluno || "Gestão Individual"}</h1>
+          <div className="shrink-0">
+            <StatusAppSelect
+              valor={statusApp}
+              salvando={salvandoStatusApp}
+              onChange={handleStatusAppChange}
+            />
+          </div>
         </div>
 
         {/* Toast de status global */}

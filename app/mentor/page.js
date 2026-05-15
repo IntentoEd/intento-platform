@@ -8,6 +8,7 @@ import { auth } from '@/lib/firebase';
 import { useMentor } from '@/lib/MentorContext';
 import { LoadingScreen } from '@/components/Loading';
 import PushToggle from '@/components/PushToggle';
+import StatusAppSelect from '@/components/StatusAppSelect';
 
 // Chave da semana de referência (semana anterior, dom→sab) — mesma lógica do modal
 function getSemanaKey() {
@@ -43,11 +44,18 @@ function salvarRegistroSemana(idAluno) {
 
 export default function PainelGlobalMentor() {
   const router = useRouter();
-  const { emailMentor, primeiroNome: mentorLogado, alunos, carregandoAlunos: carregando, prefetchAluno } = useMentor();
+  const { emailMentor, primeiroNome: mentorLogado, alunos, carregandoAlunos: carregando, prefetchAluno, atualizarStatusApp } = useMentor();
   const ehLider = emailMentor === 'filippe@metodointento.com.br';
 
   const [busca, setBusca] = useState('');
   const [registradosSemana, setRegistradosSemana] = useState({});
+  const [salvandoStatus, setSalvandoStatus] = useState({});
+
+  const handleStatusAppChange = useCallback(async (idAluno, novoStatus) => {
+    setSalvandoStatus(prev => ({ ...prev, [idAluno]: true }));
+    await atualizarStatusApp(idAluno, novoStatus);
+    setSalvandoStatus(prev => ({ ...prev, [idAluno]: false }));
+  }, [atualizarStatusApp]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [alunoPreSelecionado, setAlunoPreSelecionado] = useState(null);
@@ -265,6 +273,13 @@ export default function PainelGlobalMentor() {
                         📅 {aluno.proximaProva.materia} {aluno.proximaProva.dias === 0 ? 'hoje' : aluno.proximaProva.dias === 1 ? 'amanhã' : `em ${aluno.proximaProva.dias}d`}
                       </p>
                     )}
+                    <div className="mt-2.5">
+                      <StatusAppSelect
+                        valor={aluno.statusApp}
+                        salvando={!!salvandoStatus[aluno.id]}
+                        onChange={(v) => handleStatusAppChange(aluno.id, v)}
+                      />
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-2">

@@ -74,7 +74,17 @@ const COL_MESTRE = {
   NOTA_REDACAO: 19, ID_PLANILHA: 20, MENTOR_RESPONSAVEL: 21, STATUS_ONBOARDING: 22,
   PLANO: 23,
   TIPO_ALUNO: 24, TURMA: 25, ESCOLA: 26, FASE: 27,
-  DT_SAIDA: 28
+  DT_SAIDA: 28,
+  // Status do aluno em relação ao Aplicativo (acordado em reunião pelo mentor).
+  // Define se o cron de integração tenta puxar registro do app pra esse aluno.
+  STATUS_APP: 29
+};
+
+// Valores possíveis de COL_MESTRE.STATUS_APP. Vazio = não definido (tratado como 'Usa').
+const STATUS_APP = {
+  USA: 'Usa',
+  NAO_ADAPTOU: 'Não se adaptou',
+  NUNCA_USARA: 'Nunca vai usar'
 };
 
 const TIPOS_ALUNO = ['ENEM', 'EM'];
@@ -135,7 +145,18 @@ const COL_REG = {
   DOMINIO_TOTAL: 5, PROGRESSO_TOTAL: 6, REVISOES: 7,
   ESTRESSE: 8, ANSIEDADE: 9, MOTIVACAO: 10, SONO: 11,
   DOM_BIO: 12, PROG_BIO: 13, DOM_QUI: 14, PROG_QUI: 15,
-  DOM_FIS: 16, PROG_FIS: 17, DOM_MAT: 18, PROG_MAT: 19
+  DOM_FIS: 16, PROG_FIS: 17, DOM_MAT: 18, PROG_MAT: 19,
+  // Origem da linha: 'auto' (cron do app), 'manual' (mentor digitou),
+  // 'revisado' (mentor conferiu/editou um registro auto). Vazio = legado manual.
+  ORIGEM: 20
+};
+const COL_REG_TOTAL = 21;
+
+// Valores de COL_REG.ORIGEM
+const ORIGEM_REG = {
+  AUTO: 'auto',
+  MANUAL: 'manual',
+  REVISADO: 'revisado'
 };
 
 const COL_ENC = {
@@ -275,6 +296,7 @@ function doPost(e) {
     if (acao === "salvarDiario")            return handleSalvarDiario(dados);
     if (acao === "salvarSemanaLote")        return handleSalvarSemanaLote(dados);
     if (acao === "salvarRegistroGlobal")    return handleSalvarRegistroGlobal(dados);
+    if (acao === "salvarStatusApp")         return handleSalvarStatusApp(dados);
     if (acao === "deletarRegistro")         return handleDeletarRegistro(dados);
     if (acao === "verificarRegistroSemana") return handleVerificarRegistroSemana(dados);
     if (acao === "buscarDadosAluno")        return handleBuscarDadosAluno(dados);
@@ -963,7 +985,8 @@ function handleListaAlunosMentor(dados) {
         nome:   matriz[i][COL_MESTRE.NOME],
         email:  matriz[i][COL_MESTRE.EMAIL],
         status: txt(matriz[i][COL_MESTRE.STATUS_ONBOARDING]) || "Desconhecido",
-        tipoAluno: txt(matriz[i][COL_MESTRE.TIPO_ALUNO]) || "ENEM"
+        tipoAluno: txt(matriz[i][COL_MESTRE.TIPO_ALUNO]) || "ENEM",
+        statusApp: txt(matriz[i][COL_MESTRE.STATUS_APP]) || ""
       });
     }
   }
@@ -1274,9 +1297,11 @@ function handleSalvarRegistroGlobal(dados) {
       num(dados.dominioFis),
       num(dados.progressoFis),
       num(dados.dominioMat),
-      num(dados.progressoMat)
+      num(dados.progressoMat),
+      ORIGEM_REG.MANUAL
     ];
 
+    _garantirColunaOrigem(abaDB);
     const colA = abaDB.getRange(1, 1, abaDB.getMaxRows(), 1).getValues();
     let ultimaLinhaComDados = 0;
     for (let i = colA.length - 1; i >= 0; i--) {
@@ -1400,6 +1425,7 @@ function handleBuscarDadosAluno(dados) {
           if (txt(matrizMestre[i][COL_MESTRE.ID_PLANILHA]) === idPlanilha) {
             pacoteDeDados.tipoAluno = txt(matrizMestre[i][COL_MESTRE.TIPO_ALUNO]) || 'ENEM';
             pacoteDeDados.escola    = txt(matrizMestre[i][COL_MESTRE.ESCOLA]);
+            pacoteDeDados.statusApp = txt(matrizMestre[i][COL_MESTRE.STATUS_APP]) || '';
             break;
           }
         }
@@ -1798,6 +1824,10 @@ function handleBuscarOnboarding(dados) {
 // EDITAR REGISTRO
 // =====================================================================
 
+// Edita um registro existente. O front (HistoricoAnalitico) manda o registro
+// inteiro como array `valores`. Localiza a linha por semana+data, sobrescreve
+// com `valores` (preservando colunas ausentes) e marca a origem: registro
+// 'auto' editado por humano vira 'revisado'; demais mantêm (vazio → 'manual').
 function handleEditarRegistro(dados) {
   const lock = LockService.getScriptLock();
   try {
@@ -1806,24 +1836,36 @@ function handleEditarRegistro(dados) {
     _exigirAcessoAluno(dados.email, idPlanilha);
     const aba        = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.REGISTROS);
     if (!aba) return responderJSON({ status: "erro", mensagem: "'" + ABA.REGISTROS + "' não encontrada." });
+
+    const valores = dados.valores;
+    if (!Array.isArray(valores)) {
+      return responderJSON({ status: "erro", mensagem: "valores (array) obrigatório" });
+    }
+
     const matrix      = aba.getDataRange().getValues();
     const semanaAlvo  = txt(dados.semana);
     const dataAlvo    = normalizarData(dados.dataRegistro);
     for (let i = 1; i < matrix.length; i++) {
       if (txt(matrix[i][COL_REG.SEMANA]) === semanaAlvo && normalizarData(matrix[i][COL_REG.DATA]) === dataAlvo) {
-        const novaLinha = [
-          txt(dados.semana), txt(dados.mes), txt(dados.dataRegistro),
-          txt(dados.metaSemanal),          // texto
-          num(dados.horasEstudadas), num(dados.dominioTotal), num(dados.progressoTotal),
-          num(dados.revisoesAtrasadas), num(dados.estresse), num(dados.ansiedade),
-          num(dados.motivacao), num(dados.sono),
-          num(dados.dominioBio), num(dados.progressoBio), num(dados.dominioQui),
-          num(dados.progressoQui), num(dados.dominioFis), num(dados.progressoFis),
-          num(dados.dominioMat), num(dados.progressoMat)
-        ];
+        const origemAtual = txt(matrix[i][COL_REG.ORIGEM]);
+        const novaOrigem = origemAtual === ORIGEM_REG.AUTO
+          ? ORIGEM_REG.REVISADO
+          : (origemAtual || ORIGEM_REG.MANUAL);
+
+        // Linha canônica (COL_REG_TOTAL colunas): usa `valores`, cai pro valor
+        // atual da planilha quando o índice não veio, e força a origem.
+        const novaLinha = [];
+        for (let c = 0; c < COL_REG_TOTAL; c++) {
+          const v = valores[c];
+          novaLinha[c] = (v !== undefined && v !== null) ? v
+            : (matrix[i][c] !== undefined ? matrix[i][c] : '');
+        }
+        novaLinha[COL_REG.ORIGEM] = novaOrigem;
+
+        _garantirColunaOrigem(aba);
         aba.getRange(i + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
         _atualizarCacheUltimoRegistro(idPlanilha, aba);
-        return responderJSON({ status: "sucesso" });
+        return responderJSON({ status: "sucesso", origem: novaOrigem });
       }
     }
     return responderJSON({ status: "erro", mensagem: "Registro não encontrado." });
@@ -2171,7 +2213,8 @@ function handleDashboardLider(dados) {
         encontrosEsperados: calcularEncontrosEsperados_(plano, dataMatricula),
         encontrosMesCorrente: 0,
         tipoAluno: txt(row[COL_MESTRE.TIPO_ALUNO]) || 'ENEM',
-        escola: txt(row[COL_MESTRE.ESCOLA])
+        escola: txt(row[COL_MESTRE.ESCOLA]),
+        statusApp: txt(row[COL_MESTRE.STATUS_APP]) || ''
       });
     }
 
