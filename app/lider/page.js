@@ -182,6 +182,15 @@ export default function PainelLider() {
   const registrados = alunosFiltrados.filter(a => a.registrouSemanaAtual).length;
   const taxaRegistro = totalAlunos > 0 ? Math.round((registrados / totalAlunos) * 100) : 0;
 
+  // Distribuição do status do app (acordado em reunião pelo mentor).
+  // 'a definir' = mentor ainda não tagueou — o líder pode cobrar.
+  const appStats = { usa: 0, naoUsa: 0, aDefinir: 0 };
+  alunosFiltrados.forEach(a => {
+    if (a.statusApp === 'Usa') appStats.usa++;
+    else if (a.statusApp === 'Não se adaptou' || a.statusApp === 'Nunca vai usar') appStats.naoUsa++;
+    else appStats.aDefinir++;
+  });
+
   const sair = async () => {
     await auth.signOut();
     sessionStorage.removeItem('emailLogado');
@@ -492,6 +501,25 @@ export default function PainelLider() {
             <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Simulados (últ. 4 sem.)</p>
             <p className="text-3xl font-bold text-intento-yellow">{simulados}</p>
           </div>
+        </div>
+
+        {/* Cobertura do App — distribuição do status_app dos alunos */}
+        <div className={cardClass}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cobertura do App</p>
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <span className="font-semibold text-emerald-600">{appStats.usa} <span className="text-slate-400 font-medium">usam</span></span>
+              <span className="font-semibold text-slate-500">{appStats.naoUsa} <span className="text-slate-400 font-medium">não usam</span></span>
+              <span className={`font-semibold ${appStats.aDefinir > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                {appStats.aDefinir} <span className="text-slate-400 font-medium">a definir</span>
+              </span>
+            </div>
+          </div>
+          {appStats.aDefinir > 0 && (
+            <p className="text-[11px] text-slate-400 font-medium mt-2">
+              {appStats.aDefinir} aluno{appStats.aDefinir !== 1 ? 's' : ''} sem status do app definido — peça aos mentores pra classificar (afeta o registro automático).
+            </p>
+          )}
         </div>
 
         {/* Filtros */}
