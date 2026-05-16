@@ -284,6 +284,35 @@ var _SQL_REGISTRO_APP = [
   '    ROUND(AVG(motivacao), 2) AS motivacao, ROUND(AVG(descanso), 2) AS sono',
   '  FROM `intento-edu.analise.atividadesSemanais`',
   '  WHERE dataExecucao = @semana_inicio GROUP BY usuarioId',
+  '),',
+  // Revisões Atrasadas — replica activity_service.dueReviews do app Flutter.
+  // Pra cada (aluno, tópico): dueRev = MAX(r em topico.reviews) onde r < hoje.
+  // Atrasado = existe dueRev E sem atividade depois dele.
+  'rev_due AS (',
+  '  SELECT',
+  '    REGEXP_EXTRACT(__key__.path, r\'"u",\\s*"([^"]+)"\') AS usuarioId,',
+  '    REGEXP_EXTRACT(__key__.path, r\'"s",\\s*"([^"]+)"\') AS topicoId,',
+  '    MAX(r) AS due_rev',
+  '  FROM `intento-edu.app.topico`, UNNEST(reviews) r',
+  '  WHERE ARRAY_LENGTH(reviews) > 0',
+  '    AND r < UNIX_SECONDS(TIMESTAMP(DATE_ADD(@semana_fim, INTERVAL 1 DAY)))',
+  '  GROUP BY usuarioId, topicoId',
+  '),',
+  'rev_ult_ativ AS (',
+  '  SELECT',
+  '    REGEXP_EXTRACT(__key__.path, r\'"u",\\s*"([^"]+)"\') AS usuarioId,',
+  '    subjectId AS topicoId,',
+  '    MAX(date) AS last_activity_ts',
+  '  FROM `intento-edu.app.atividade`',
+  '  WHERE DATE(TIMESTAMP_SECONDS(date)) <= @semana_fim',
+  '  GROUP BY usuarioId, topicoId',
+  '),',
+  'rev_atrasadas AS (',
+  '  SELECT d.usuarioId, COUNT(*) AS revisoes_atrasadas',
+  '  FROM rev_due d',
+  '  LEFT JOIN rev_ult_ativ a USING (usuarioId, topicoId)',
+  '  WHERE a.last_activity_ts IS NULL OR a.last_activity_ts <= d.due_rev',
+  '  GROUP BY d.usuarioId',
   ')',
   'SELECT',
   '  a.email,',
@@ -297,11 +326,13 @@ var _SQL_REGISTRO_APP = [
   '  ROUND(MAX(IF(dm.Disciplina=\'Física\',     dm.progresso, NULL)), 2) AS prog_FIS,',
   '  ROUND(MAX(IF(dm.Disciplina=\'Matemática\', dm.progresso, NULL)), 2) AS prog_MAT,',
   '  ROUND(AVG(dm.progresso), 2) AS prog_TOTAL,',
-  '  s.horas, s.estresse, s.ansiedade, s.motivacao, s.sono',
+  '  s.horas, s.estresse, s.ansiedade, s.motivacao, s.sono,',
+  '  COALESCE(ra.revisoes_atrasadas, 0) AS revisoes_atrasadas',
   'FROM alunos a',
   'LEFT JOIN disc_metrica dm ON dm.usuarioId = a.uid',
   'LEFT JOIN semana s ON s.usuarioId = a.uid',
-  'GROUP BY a.email, s.horas, s.estresse, s.ansiedade, s.motivacao, s.sono',
+  'LEFT JOIN rev_atrasadas ra ON ra.usuarioId = a.uid',
+  'GROUP BY a.email, s.horas, s.estresse, s.ansiedade, s.motivacao, s.sono, ra.revisoes_atrasadas',
   'ORDER BY a.email',
 ].join('\n');
 
@@ -459,13 +490,14 @@ function cronGerarRegistrosApp(dryRun) {
 
       // META = soma dos slots Cod+Rev+Sim da Semana Padrão (sugerida; mentor
       // pode ajustar editando o registro). 0 se aba não existe.
+      // REVISOES = replica activity_service.dueReviews do app (snapshot).
       var metaHoras = _calcularMetaHorasDaSemanaPadrao(aluno.idPlanilha);
       var novaLinha = [
         semanaStr, mesExt, dataRegistro,
         metaHoras || '',              // META — calculada da Semana Padrão
         num(r.horas),
         num(r.dom_TOTAL), num(r.prog_TOTAL),
-        '',                           // REVISOES — manual (mentor preenche no /mentor/[id])
+        num(r.revisoes_atrasadas),    // REVISOES — snapshot do app (atrasadas pendentes)
         num(r.estresse), num(r.ansiedade), num(r.motivacao), num(r.sono),
         num(r.dom_BIO), num(r.prog_BIO),
         num(r.dom_QUI), num(r.prog_QUI),
