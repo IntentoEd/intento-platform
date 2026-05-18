@@ -113,13 +113,17 @@ semana_horas AS (
   WHERE DATE(TIMESTAMP_SECONDS(date)) BETWEEN semana_inicio AND semana_fim
   GROUP BY usuarioId
 ),
--- CHECK-IN ainda de analise.atividadesSemanais (em validação)
+-- CHECK-IN direto do raw (app.checkin). A tabela tratada replicava o
+-- check-in por linha de disciplina, enviesando a média.
 semana_checkin AS (
-  SELECT usuarioId,
-    ROUND(AVG(estresse), 2) AS estresse, ROUND(AVG(ansiedade), 2) AS ansiedade,
-    ROUND(AVG(motivacao), 2) AS motivacao, ROUND(AVG(descanso), 2) AS sono
-  FROM `intento-edu.analise.atividadesSemanais`
-  WHERE dataExecucao = semana_inicio GROUP BY usuarioId
+  SELECT REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
+    ROUND(AVG(stress.float), 2)     AS estresse,
+    ROUND(AVG(anxiety.float), 2)    AS ansiedade,
+    ROUND(AVG(motivation.float), 2) AS motivacao,
+    ROUND(AVG(rest.float), 2)       AS sono
+  FROM `intento-edu.app.checkin`
+  WHERE DATE(createdAt) BETWEEN semana_inicio AND semana_fim
+  GROUP BY usuarioId
 ),
 
 -- Revisões Atrasadas — replica activity_service.dueReviews do app Flutter.
