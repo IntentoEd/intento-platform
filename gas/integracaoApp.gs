@@ -422,8 +422,12 @@ function _semanaInicioTs(semanaStr) {
   return isNaN(d.getTime()) ? null : d.getTime();
 }
 
+// IMPORTANTE: triggers time-based do Apps Script passam um event object como
+// 1º argumento — qualquer truthy seria interpretado como dry run. Por isso
+// só consideramos dry run quando o chamador passa `true` LITERAL (smoke).
 function cronGerarRegistrosApp(dryRun) {
-  Logger.log('===== cronGerarRegistrosApp ' + (dryRun ? '(DRY RUN)' : '') + ' =====');
+  var ehDryRun = dryRun === true;
+  Logger.log('===== cronGerarRegistrosApp ' + (ehDryRun ? '(DRY RUN)' : '') + ' =====');
 
   var semanaStr = computarSemanaAnterior_();
   var semana = _semanaStrParaISOs(semanaStr); // { inicio (domingo), fim (sábado) }
@@ -506,7 +510,7 @@ function cronGerarRegistrosApp(dryRun) {
         ORIGEM_REG.AUTO,
       ];
 
-      if (dryRun) {
+      if (ehDryRun) {
         Logger.log('  [dry] ' + aluno.email + ' → horas=' + novaLinha[COL_REG.HORAS] +
                    ' domTot=' + novaLinha[COL_REG.DOMINIO_TOTAL] +
                    ' progTot=' + novaLinha[COL_REG.PROGRESSO_TOTAL]);
