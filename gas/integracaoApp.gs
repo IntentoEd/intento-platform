@@ -289,14 +289,19 @@ var _SQL_REGISTRO_APP = [
   '  WHERE DATE(TIMESTAMP_SECONDS(date)) BETWEEN @semana_inicio AND @semana_fim',
   '  GROUP BY usuarioId',
   '),',
-  // CHECK-IN — ainda de analise.atividadesSemanais (em validação;
-  // se também divergir, migra pra app.checkin numa próxima rodada).
+  // CHECK-IN — direto do raw (app.checkin). A tabela analise.atividadesSemanais
+  // replica o check-in por linha de disciplina, gerando médias enviesadas (e
+  // pra alunos com disciplinas faltando na tabela, perde check-ins inteiros).
+  // Validado mai/2026: Gabriel motivação 0.50 (raw) vs 0.76 (analise) — Δ=0.26.
   'semana_checkin AS (',
-  '  SELECT usuarioId,',
-  '    ROUND(AVG(estresse), 2) AS estresse, ROUND(AVG(ansiedade), 2) AS ansiedade,',
-  '    ROUND(AVG(motivacao), 2) AS motivacao, ROUND(AVG(descanso), 2) AS sono',
-  '  FROM `intento-edu.analise.atividadesSemanais`',
-  '  WHERE dataExecucao = @semana_inicio GROUP BY usuarioId',
+  '  SELECT REGEXP_EXTRACT(__key__.path, r\'"u",\\s*"([^"]+)"\') AS usuarioId,',
+  '    ROUND(AVG(stress.float), 2)     AS estresse,',
+  '    ROUND(AVG(anxiety.float), 2)    AS ansiedade,',
+  '    ROUND(AVG(motivation.float), 2) AS motivacao,',
+  '    ROUND(AVG(rest.float), 2)       AS sono',
+  '  FROM `intento-edu.app.checkin`',
+  '  WHERE DATE(createdAt) BETWEEN @semana_inicio AND @semana_fim',
+  '  GROUP BY usuarioId',
   '),',
   // Revisões Atrasadas — replica activity_service.dueReviews do app Flutter.
   // Pra cada (aluno, tópico): dueRev = MAX(r em topico.reviews) onde r < hoje.
