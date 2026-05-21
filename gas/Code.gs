@@ -271,6 +271,16 @@ function pct(valor) {
   return (n > 0 && n <= 1 ? Math.round(n * 100) : Math.round(n)) + '%';
 }
 
+// Normaliza check-in (estresse/ansiedade/motivacao/sono) pra escala 0-100.
+// A escala original depende da origem do registro: auto/revisado vêm em 0-1
+// (cron grava decimal do app); manual/legado em 0-5 (Likert do aluno).
+// Retorna número 0-100 (sem o símbolo %).
+function _checkinPct(valor, origem) {
+  var n = num(valor);
+  var usa01 = (origem === ORIGEM_REG.AUTO || origem === ORIGEM_REG.REVISADO);
+  return Math.round((n / (usa01 ? 1 : 5)) * 100);
+}
+
 
 // =====================================================================
 // PONTO DE ENTRADA
@@ -700,16 +710,17 @@ function obterDadosDoPainel(ss, emailAluno) {
       for (let i = 1; i < dadosReg.length; i++) {
         const row = dadosReg[i];
         if (!row[COL_REG.SEMANA]) continue;
-        historicoRegistros.push(row.slice(0, 20));
+        historicoRegistros.push(row.slice(0, 21)); // inclui ORIGEM (col 21) pros cards
+        const origemReg = row[COL_REG.ORIGEM];
         mensal.labels.push(String(row[COL_REG.SEMANA]));
         mensal.meta.push(num(row[COL_REG.META]));
         mensal.horas.push(num(row[COL_REG.HORAS]));
         mensal.domTot.push(num(row[COL_REG.DOMINIO_TOTAL]));
         mensal.progTot.push(num(row[COL_REG.PROGRESSO_TOTAL]));
-        mensal.estresse.push(num(row[COL_REG.ESTRESSE]));
-        mensal.ansiedade.push(num(row[COL_REG.ANSIEDADE]));
-        mensal.motivacao.push(num(row[COL_REG.MOTIVACAO]));
-        mensal.sono.push(num(row[COL_REG.SONO]));
+        mensal.estresse.push(_checkinPct(row[COL_REG.ESTRESSE], origemReg));
+        mensal.ansiedade.push(_checkinPct(row[COL_REG.ANSIEDADE], origemReg));
+        mensal.motivacao.push(_checkinPct(row[COL_REG.MOTIVACAO], origemReg));
+        mensal.sono.push(_checkinPct(row[COL_REG.SONO], origemReg));
         ultimoReg = row;
       }
       if (ultimoReg) {
@@ -754,10 +765,10 @@ function obterDadosDoPainel(ss, emailAluno) {
         mkCard('Revisões Atrasadas', 'red',     num(regCurr[COL_REG.REVISOES]),       regPrev ? num(regPrev[COL_REG.REVISOES])       : '')
       ];
       semanal.estilo = [
-        mkCard('Estresse',  'red',     num(regCurr[COL_REG.ESTRESSE]),  regPrev ? num(regPrev[COL_REG.ESTRESSE])  : ''),
-        mkCard('Ansiedade', 'red',     num(regCurr[COL_REG.ANSIEDADE]), regPrev ? num(regPrev[COL_REG.ANSIEDADE]) : ''),
-        mkCard('Motivação', 'emerald', num(regCurr[COL_REG.MOTIVACAO]), regPrev ? num(regPrev[COL_REG.MOTIVACAO]) : ''),
-        mkCard('Sono',      'blue',    num(regCurr[COL_REG.SONO]),      regPrev ? num(regPrev[COL_REG.SONO])      : '')
+        mkCard('Estresse',  'red',     _checkinPct(regCurr[COL_REG.ESTRESSE], regCurr[COL_REG.ORIGEM]) + '%',  regPrev ? _checkinPct(regPrev[COL_REG.ESTRESSE], regPrev[COL_REG.ORIGEM]) + '%'  : ''),
+        mkCard('Ansiedade', 'red',     _checkinPct(regCurr[COL_REG.ANSIEDADE], regCurr[COL_REG.ORIGEM]) + '%', regPrev ? _checkinPct(regPrev[COL_REG.ANSIEDADE], regPrev[COL_REG.ORIGEM]) + '%' : ''),
+        mkCard('Motivação', 'emerald', _checkinPct(regCurr[COL_REG.MOTIVACAO], regCurr[COL_REG.ORIGEM]) + '%', regPrev ? _checkinPct(regPrev[COL_REG.MOTIVACAO], regPrev[COL_REG.ORIGEM]) + '%' : ''),
+        mkCard('Sono',      'blue',    _checkinPct(regCurr[COL_REG.SONO], regCurr[COL_REG.ORIGEM]) + '%',      regPrev ? _checkinPct(regPrev[COL_REG.SONO], regPrev[COL_REG.ORIGEM]) + '%'      : '')
       ];
       semanal.desempenho = [
         mkCard('Dom. Biologia',    'emerald', pct(regCurr[COL_REG.DOM_BIO]),  regPrev ? pct(regPrev[COL_REG.DOM_BIO])  : ''),
@@ -2037,10 +2048,11 @@ function agregarMetricasBase_(alunos) {
               break;
             }
           }
-          accDual(ultimo[COL_REG.ESTRESSE],  'est', 'cEst', bem, alunoBem);
-          accDual(ultimo[COL_REG.ANSIEDADE], 'ans', 'cAns', bem, alunoBem);
-          accDual(ultimo[COL_REG.MOTIVACAO], 'mot', 'cMot', bem, alunoBem);
-          accDual(ultimo[COL_REG.SONO],      'son', 'cSon', bem, alunoBem);
+          var origemUlt = ultimo[COL_REG.ORIGEM];
+          accDual(_checkinPct(ultimo[COL_REG.ESTRESSE],  origemUlt), 'est', 'cEst', bem, alunoBem);
+          accDual(_checkinPct(ultimo[COL_REG.ANSIEDADE], origemUlt), 'ans', 'cAns', bem, alunoBem);
+          accDual(_checkinPct(ultimo[COL_REG.MOTIVACAO], origemUlt), 'mot', 'cMot', bem, alunoBem);
+          accDual(_checkinPct(ultimo[COL_REG.SONO],      origemUlt), 'son', 'cSon', bem, alunoBem);
         }
 
         for (var u = 0; u < ultimos.length; u++) {

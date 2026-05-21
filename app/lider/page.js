@@ -963,7 +963,7 @@ export default function PainelLider() {
           {/* Bem-estar */}
           <div className={cardClass}>
             <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Bem-estar — média da base</h3>
-            <p className="text-[10px] font-medium text-slate-400 mb-4">semana de referência · escala 0–5</p>
+            <p className="text-[10px] font-medium text-slate-400 mb-4">semana de referência · escala 0–100%</p>
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Sono',      valor: bemEstar.sono,      cor: '#a855f7' },
@@ -973,7 +973,7 @@ export default function PainelLider() {
               ].map(b => (
                 <div key={b.label} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                   <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{b.label}</p>
-                  <p className="text-2xl font-bold" style={{ color: b.cor }}>{b.valor || 0}<span className="text-xs text-slate-400 font-medium">/6</span></p>
+                  <p className="text-2xl font-bold" style={{ color: b.cor }}>{b.valor || 0}<span className="text-xs text-slate-400 font-medium">%</span></p>
                   <p className="text-[10px] text-slate-400 font-medium mt-1">{b.invertido ? 'menor é melhor' : 'maior é melhor'}</p>
                 </div>
               ))}
