@@ -1,120 +1,138 @@
 -- ============================================================
 -- REGISTRO SEMANAL — query master. Replica a lógica do app Flutter
 -- (intento-fe: subject_performance.dart, topic_metrics.dart, performance.dart).
--- 1 linha por (aluno, semana). Domínio/Progresso = "foto" até semana_fim.
+-- 1 linha por aluno. Domínio/Progresso = "foto" até semana_fim.
+--
+-- ESTA É A VERSÃO ROBUSTA (recursive + nome). Mantida em sincronia com
+-- _SQL_REGISTRO_APP em gas/integracaoApp.gs. A versão antiga (nivel=1 / folha
+-- + ID canônico de disciplina) quebrava em 2 casos reais:
+--   1. árvores de 3 níveis (o app deveria ter 2, mas alguns alunos têm 3);
+--   2. disciplinas renomeadas ou com IDs próprios (ex: Gabriel).
+--
+-- COMO A VERSÃO ROBUSTA RESOLVE:
+-- · hier (WITH RECURSIVE) percorre topicoPrep de profundidade arbitrária,
+--   carregando raizId (disciplina) e n1Id (tópico nível 1) em cada nó.
+-- · raiz_materia mapeia disciplina→BIO/QUI/FIS/MAT pelo NOME normalizado
+--   (LIKE com `_` como wildcard de acento), imune a IDs divergentes.
 --
 -- LÓGICA (validada contra o app, mai/2026):
--- · DOMÍNIO por matéria  = SUM(rightAnswers) / SUM(right+wrong) dos tópicos
---   nível 1. rightAnswers/wrongAnswers de cada folha vêm da ÚLTIMA atividade
---   (por activity.date). Tópico nível 1 com subtópicos = soma dos descendentes.
--- · DOMÍNIO total        = SUM(right)/SUM(total) global das disciplinas ativas.
--- · PROGRESSO por matéria= count(tópicos nível 1 isFinished) / count(tópicos nível 1).
+-- · DOMÍNIO por matéria  = SUM(rightAnswers)/SUM(right+wrong) de todos os nós
+--   da disciplina. right/wrong de cada folha vêm da ÚLTIMA atividade (por
+--   activity.date).
+-- · DOMÍNIO total        = SUM(right)/SUM(total) global das matérias.
+-- · PROGRESSO por matéria= count(tópicos n1 finished) / count(tópicos n1).
 --   isFinished = forced(topicoPrep.finalizada) OR (finished >= total), onde
 --   p/ folha: total=1, finished=nº atividades com finished=true;
---   p/ tópico nível 1 com subtópicos: total=nº subtópicos, finished=SOMA
---   das contagens de finished dos subtópicos (soma, NÃO distinct).
--- · PROGRESSO total      = MÉDIA SIMPLES do progresso das disciplinas ativas.
--- · Disciplinas ativas   = objetivo.subjectIds (exclui as que o aluno removeu).
--- · HORAS / CHECK-IN     = analise.atividadesSemanais (dataExecucao = semana_inicio).
+--   p/ tópico n1 com subtópicos: total=nº folhas, finished=SOMA das contagens.
+-- · PROGRESSO total      = MÉDIA SIMPLES do progresso das matérias.
+-- · HORAS                = SUM(app.atividade.duration)/3600 na semana.
+-- · CHECK-IN             = AVG(app.checkin.*) na semana.
+-- · REVISÕES ATRASADAS   = replica activity_service.dueReviews (app.topico.reviews).
 --
--- Diferença conhecida: Domínio pode divergir 1-2pp do app (detalhe de quais
--- atividades entram). Progresso bate exato.
+-- Validado mai/2026 (semana 10-16/05):
+--   betina  B=0.92 Q=0.88 F=0.85 M=0.89 T=0.89
+--   gabriel B=0.89 Q=0.89 F=0.88 M=0.94 T=0.89
+--   lisa    B=0.75 Q=0.82 F=0.82 M=0.71 T=0.78
+--   claudia B=0.85 Q=0.82 F=0.85 M=0.85 T=0.84
 -- ============================================================
--- Semana Dom-Sáb: inicio = domingo (casa com atividadesSemanais.dataExecucao),
--- fim = sábado (limite da foto de domínio/progresso).
-DECLARE semana_inicio DATE DEFAULT DATE("2026-05-17");
-DECLARE semana_fim    DATE DEFAULT DATE("2026-05-23");
--- Para rodar pra todos os alunos, troque o filtro em `alunos` por toda a tabela usuario.
-DECLARE alvos ARRAY<STRING> DEFAULT ["gabriel.limamoreira@gmail.com","silvaclaudialuisa@gmail.com"];
+-- Semana Dom-Sáb: inicio = domingo, fim = sábado (limite da foto).
+DECLARE semana_inicio DATE DEFAULT DATE("2026-05-10");
+DECLARE semana_fim    DATE DEFAULT DATE("2026-05-16");
+-- Para rodar pra todos os alunos, deixe o array vazio: []
+DECLARE alvos ARRAY<STRING> DEFAULT [
+  "gabriel.limamoreira@gmail.com","silvaclaudialuisa@gmail.com",
+  "lisarevertu@gmail.com","betinavfcarnevale@gmail.com"
+];
 
-WITH
-alunos AS (SELECT uid, email FROM `intento-edu.app.usuario` WHERE email IN UNNEST(alvos)),
-
--- disciplinas ativas (objetivo.subjectIds) — exclui as que o aluno removeu
-disc_ativas AS (
-  SELECT REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId, sid AS disciplinaId
-  FROM `intento-edu.app.objetivo`, UNNEST(subjectIds) sid
-  WHERE REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') IN (SELECT uid FROM alunos)
+WITH RECURSIVE
+alunos AS (
+  SELECT uid, email FROM `intento-edu.app.usuario`
+  WHERE ARRAY_LENGTH(alvos) = 0 OR email IN UNNEST(alvos)
 ),
-
--- nós não-raiz
-nodes AS (
-  SELECT topicoId, paiId, usuarioId, nivel, finalizada AS forced
+-- árvore completa por recursão; cada nó carrega raizId (disciplina) e n1Id
+-- (tópico nível 1 = 1º descendente da raiz).
+hier AS (
+  SELECT topicoId, topicoId AS raizId, CAST(NULL AS STRING) AS n1Id, usuarioId, finalizada
   FROM `intento-edu.app.topicoPrep`
+  WHERE usuarioId IN (SELECT uid FROM alunos) AND paiId IS NULL
+  UNION ALL
+  SELECT t.topicoId, h.raizId, COALESCE(h.n1Id, t.topicoId), t.usuarioId, t.finalizada
+  FROM `intento-edu.app.topicoPrep` t
+  JOIN hier h ON t.paiId = h.topicoId AND t.usuarioId = h.usuarioId
+),
+-- disciplina-raiz → matéria canônica pelo nome (LIKE `_` = wildcard acento).
+raiz_materia AS (
+  SELECT topicoId AS raizId, usuarioId,
+    CASE
+      WHEN LOWER(nome) LIKE '%biolog%'  THEN 'BIO'
+      WHEN LOWER(nome) LIKE '%qu_mic%'  THEN 'QUI'
+      WHEN LOWER(nome) LIKE '%f_sic%'   THEN 'FIS'
+      WHEN LOWER(nome) LIKE '%matem_t%' THEN 'MAT'
+      ELSE NULL
+    END AS materia
+  FROM `intento-edu.app.topicoPrep`
+  WHERE usuarioId IN (SELECT uid FROM alunos) AND paiId IS NULL
+),
+-- nós que são pai de alguém (logo, não são folha).
+tem_filho AS (
+  SELECT DISTINCT paiId AS topicoId, usuarioId FROM `intento-edu.app.topicoPrep`
   WHERE usuarioId IN (SELECT uid FROM alunos) AND paiId IS NOT NULL
 ),
-
--- última atividade por (aluno, nó) até semana_fim + contagem de finished
+-- última atividade por (aluno, nó) até semana_fim + contagem de finished.
 ativ AS (
-  SELECT
-    REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
-    subjectId AS topicoId,
-    ARRAY_AGG(STRUCT(rightAnswers, wrongAnswers) ORDER BY TIMESTAMP_SECONDS(date) DESC LIMIT 1)[OFFSET(0)] AS ultima,
+  SELECT REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId, subjectId AS topicoId,
+    ARRAY_AGG(STRUCT(rightAnswers, wrongAnswers) ORDER BY TIMESTAMP_SECONDS(date) DESC LIMIT 1)[OFFSET(0)] AS u,
     COUNTIF(finished) AS n_finished
   FROM `intento-edu.app.atividade`
   WHERE REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') IN (SELECT uid FROM alunos)
     AND DATE(TIMESTAMP_SECONDS(date)) <= semana_fim
   GROUP BY usuarioId, topicoId
 ),
-
--- FOLHAS: total=1, finished=n_finished, right/wrong da última atividade
-folhas AS (
-  SELECT n.topicoId, n.paiId, n.usuarioId, n.nivel, n.forced,
-         1 AS total,
-         COALESCE(a.n_finished, 0) AS finished,
-         COALESCE(a.ultima.rightAnswers, 0) AS right_a,
-         COALESCE(a.ultima.wrongAnswers, 0) AS wrong_a
-  FROM nodes n
-  LEFT JOIN nodes c ON c.paiId = n.topicoId AND c.usuarioId = n.usuarioId
-  LEFT JOIN ativ a ON a.topicoId = n.topicoId AND a.usuarioId = n.usuarioId
-  WHERE c.topicoId IS NULL
+-- só nós dentro de uma disciplina (n1Id NOT NULL exclui a raiz).
+nos AS (
+  SELECT h.topicoId, h.raizId, h.n1Id, h.usuarioId, h.finalizada,
+    (tf.topicoId IS NULL) AS eh_folha,
+    COALESCE(a.u.rightAnswers, 0) AS right_a,
+    COALESCE(a.u.rightAnswers, 0) + COALESCE(a.u.wrongAnswers, 0) AS total_a,
+    COALESCE(a.n_finished, 0) AS n_finished
+  FROM hier h
+  LEFT JOIN tem_filho tf ON tf.topicoId = h.topicoId AND tf.usuarioId = h.usuarioId
+  LEFT JOIN ativ a ON a.topicoId = h.topicoId AND a.usuarioId = h.usuarioId
+  WHERE h.n1Id IS NOT NULL
 ),
-
--- TÓPICOS NÍVEL 1: métricas (folha direta OU soma dos subtópicos)
-mains AS (
-  -- nível 1 SEM subtópicos (é folha)
-  SELECT topicoId, paiId AS disciplinaId, usuarioId, forced, total, finished, right_a, wrong_a
-  FROM folhas WHERE nivel = 1
-  UNION ALL
-  -- nível 1 COM subtópicos: soma dos filhos folha
-  SELECT p.topicoId, p.paiId AS disciplinaId, p.usuarioId, p.forced,
-         COUNT(f.topicoId) AS total,
-         SUM(f.finished) AS finished,
-         SUM(f.right_a) AS right_a,
-         SUM(f.wrong_a) AS wrong_a
-  FROM nodes p
-  JOIN folhas f ON f.paiId = p.topicoId AND f.usuarioId = p.usuarioId
-  WHERE p.nivel = 1
-  GROUP BY p.topicoId, p.paiId, p.usuarioId, p.forced
+dominio AS (
+  SELECT usuarioId, raizId, SUM(right_a) AS right_d, SUM(total_a) AS total_d
+  FROM nos GROUP BY usuarioId, raizId
 ),
-
--- métricas por disciplina (só disciplinas ativas)
-disc_metrica AS (
-  SELECT
-    m.usuarioId, m.disciplinaId, tp.nome AS Disciplina,
-    -- progresso = tópicos n1 finished / total tópicos n1
-    SAFE_DIVIDE(COUNTIF(m.forced OR m.finished >= m.total), COUNT(*)) AS progresso,
-    -- domínio = SUM(right)/SUM(right+wrong)
-    SAFE_DIVIDE(SUM(m.right_a), SUM(m.right_a + m.wrong_a)) AS dominio,
-    SUM(m.right_a) AS right_total, SUM(m.right_a + m.wrong_a) AS resp_total
-  FROM mains m
-  JOIN disc_ativas da ON da.usuarioId = m.usuarioId AND da.disciplinaId = m.disciplinaId
-  JOIN `intento-edu.app.topicoPrep` tp ON tp.topicoId = m.disciplinaId AND tp.usuarioId = m.usuarioId
-  GROUP BY m.usuarioId, m.disciplinaId, tp.nome
+n1_metrica AS (
+  SELECT usuarioId, raizId, n1Id, MAX(finalizada) AS forced,
+    SUM(CASE WHEN eh_folha THEN 1 ELSE 0 END) AS total, SUM(n_finished) AS finished
+  FROM nos GROUP BY usuarioId, raizId, n1Id
 ),
-
--- HORAS direto do raw (app.atividade.duration). A tabela tratada
+progresso AS (
+  SELECT usuarioId, raizId, SAFE_DIVIDE(COUNTIF(forced OR finished >= total), COUNT(*)) AS prog
+  FROM n1_metrica GROUP BY usuarioId, raizId
+),
+-- agrega disciplinas pela matéria canônica.
+metrica AS (
+  SELECT d.usuarioId, rm.materia,
+    SUM(d.right_d) AS right_d, SUM(d.total_d) AS total_d, AVG(p.prog) AS prog
+  FROM dominio d
+  JOIN raiz_materia rm ON rm.raizId = d.raizId AND rm.usuarioId = d.usuarioId
+  LEFT JOIN progresso p ON p.usuarioId = d.usuarioId AND p.raizId = d.raizId
+  WHERE rm.materia IS NOT NULL
+  GROUP BY d.usuarioId, rm.materia
+),
+-- HORAS direto do raw (app.atividade.duration). A tratada
 -- analise.atividadesSemanais.minutos divergia da realidade do app.
 semana_horas AS (
-  SELECT
-    REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
+  SELECT REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
     ROUND(SUM(duration) / 3600.0, 1) AS horas
   FROM `intento-edu.app.atividade`
   WHERE DATE(TIMESTAMP_SECONDS(date)) BETWEEN semana_inicio AND semana_fim
   GROUP BY usuarioId
 ),
--- CHECK-IN direto do raw (app.checkin). A tabela tratada replicava o
--- check-in por linha de disciplina, enviesando a média.
+-- CHECK-IN direto do raw (app.checkin). A tratada enviesava a média.
 semana_checkin AS (
   SELECT REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
     ROUND(AVG(stress.float), 2)     AS estresse,
@@ -125,56 +143,45 @@ semana_checkin AS (
   WHERE DATE(createdAt) BETWEEN semana_inicio AND semana_fim
   GROUP BY usuarioId
 ),
-
--- Revisões Atrasadas — replica activity_service.dueReviews do app Flutter.
+-- Revisões Atrasadas — replica activity_service.dueReviews do app.
 -- Pra cada (aluno, tópico): dueRev = MAX(r em topico.reviews) onde r < (fim+1d).
 -- Atrasado = existe dueRev E sem atividade depois dele.
 rev_due AS (
-  SELECT
-    REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
-    REGEXP_EXTRACT(__key__.path, r'"s",\s*"([^"]+)"') AS topicoId,
-    MAX(r) AS due_rev
+  SELECT REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
+    REGEXP_EXTRACT(__key__.path, r'"s",\s*"([^"]+)"') AS topicoId, MAX(r) AS due_rev
   FROM `intento-edu.app.topico`, UNNEST(reviews) r
   WHERE ARRAY_LENGTH(reviews) > 0
     AND r < UNIX_SECONDS(TIMESTAMP(DATE_ADD(semana_fim, INTERVAL 1 DAY)))
   GROUP BY usuarioId, topicoId
 ),
 rev_ult_ativ AS (
-  SELECT
-    REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
-    subjectId AS topicoId,
-    MAX(date) AS last_activity_ts
-  FROM `intento-edu.app.atividade`
-  WHERE DATE(TIMESTAMP_SECONDS(date)) <= semana_fim
+  SELECT REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
+    subjectId AS topicoId, MAX(date) AS last_ts
+  FROM `intento-edu.app.atividade` WHERE DATE(TIMESTAMP_SECONDS(date)) <= semana_fim
   GROUP BY usuarioId, topicoId
 ),
 rev_atrasadas AS (
   SELECT d.usuarioId, COUNT(*) AS revisoes_atrasadas
-  FROM rev_due d
-  LEFT JOIN rev_ult_ativ a USING (usuarioId, topicoId)
-  WHERE a.last_activity_ts IS NULL OR a.last_activity_ts <= d.due_rev
+  FROM rev_due d LEFT JOIN rev_ult_ativ a USING (usuarioId, topicoId)
+  WHERE a.last_ts IS NULL OR a.last_ts <= d.due_rev
   GROUP BY d.usuarioId
 )
-
-SELECT
-  a.email,
-  -- Domínio por matéria
-  ROUND(MAX(IF(dm.Disciplina='Biologia',   dm.dominio, NULL)), 2) AS dom_BIO,
-  ROUND(MAX(IF(dm.Disciplina='Química',    dm.dominio, NULL)), 2) AS dom_QUI,
-  ROUND(MAX(IF(dm.Disciplina='Física',     dm.dominio, NULL)), 2) AS dom_FIS,
-  ROUND(MAX(IF(dm.Disciplina='Matemática', dm.dominio, NULL)), 2) AS dom_MAT,
-  ROUND(SAFE_DIVIDE(SUM(dm.right_total), SUM(dm.resp_total)), 2) AS dom_TOTAL,
-  -- Progresso por matéria
-  ROUND(MAX(IF(dm.Disciplina='Biologia',   dm.progresso, NULL)), 2) AS prog_BIO,
-  ROUND(MAX(IF(dm.Disciplina='Química',    dm.progresso, NULL)), 2) AS prog_QUI,
-  ROUND(MAX(IF(dm.Disciplina='Física',     dm.progresso, NULL)), 2) AS prog_FIS,
-  ROUND(MAX(IF(dm.Disciplina='Matemática', dm.progresso, NULL)), 2) AS prog_MAT,
-  ROUND(AVG(dm.progresso), 2) AS prog_TOTAL,
+SELECT a.email,
+  ROUND(MAX(IF(m.materia='BIO', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_BIO,
+  ROUND(MAX(IF(m.materia='QUI', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_QUI,
+  ROUND(MAX(IF(m.materia='FIS', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_FIS,
+  ROUND(MAX(IF(m.materia='MAT', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_MAT,
+  ROUND(SAFE_DIVIDE(SUM(m.right_d), SUM(m.total_d)), 2) AS dom_TOTAL,
+  ROUND(MAX(IF(m.materia='BIO', m.prog, NULL)), 2) AS prog_BIO,
+  ROUND(MAX(IF(m.materia='QUI', m.prog, NULL)), 2) AS prog_QUI,
+  ROUND(MAX(IF(m.materia='FIS', m.prog, NULL)), 2) AS prog_FIS,
+  ROUND(MAX(IF(m.materia='MAT', m.prog, NULL)), 2) AS prog_MAT,
+  ROUND(AVG(m.prog), 2) AS prog_TOTAL,
   COALESCE(sh.horas, 0) AS horas,
   sc.estresse, sc.ansiedade, sc.motivacao, sc.sono,
   COALESCE(ra.revisoes_atrasadas, 0) AS revisoes_atrasadas
 FROM alunos a
-LEFT JOIN disc_metrica dm ON dm.usuarioId = a.uid
+LEFT JOIN metrica m ON m.usuarioId = a.uid
 LEFT JOIN semana_horas sh ON sh.usuarioId = a.uid
 LEFT JOIN semana_checkin sc ON sc.usuarioId = a.uid
 LEFT JOIN rev_atrasadas ra ON ra.usuarioId = a.uid
