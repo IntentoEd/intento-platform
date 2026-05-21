@@ -96,10 +96,10 @@ const GERAL_CONFIG = [
 ];
 
 const EMOCIONAL_CONFIG = [
-  { label: 'Estresse',   col: 8,  color: '#f87171' },
-  { label: 'Ansiedade',  col: 9,  color: '#fb923c' },
-  { label: 'Motivação',  col: 10, color: '#10b981' },
-  { label: 'Sono',       col: 11, color: '#a855f7' },
+  { label: 'Estresse (%)',   col: 8,  color: '#f87171' },
+  { label: 'Ansiedade (%)',  col: 9,  color: '#fb923c' },
+  { label: 'Motivação (%)',  col: 10, color: '#10b981' },
+  { label: 'Sono (%)',       col: 11, color: '#a855f7' },
 ];
 
 const DISCIPLINAS_CONFIG = [
@@ -117,6 +117,7 @@ function GraficoTemporal({ registros, series, isGeral }) {
     datasets: series.map(s => ({
       label: s.label,
       data: registros.map(r => {
+        if (COLUNAS_CHECKIN.has(s.col)) return toPercentCheckin(r[s.col], r[COL_ORIGEM]);
         if (COLUNAS_PERCENT.has(s.col)) return toPercent(r[s.col]);
         const v = parseFloat(String(r[s.col] ?? '').replace(',', '.'));
         return isNaN(v) ? null : v;
@@ -177,7 +178,7 @@ function GraficoTemporal({ registros, series, isGeral }) {
         callbacks: {
           label: (ctx) => {
             const s = series[ctx.datasetIndex];
-            const suffix = COLUNAS_PERCENT.has(s.col) ? '%' : '';
+            const suffix = (COLUNAS_PERCENT.has(s.col) || COLUNAS_CHECKIN.has(s.col)) ? '%' : '';
             return ` ${ctx.dataset.label}: ${ctx.parsed.y ?? '—'}${suffix}`;
           },
         },
