@@ -24,6 +24,15 @@ const ITENS = [
     icone: 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z',
   },
   {
+    key: 'appstore',
+    titulo: 'Baixar o app na App Store',
+    descricao: 'Instale o aplicativo Intento no seu iPhone para registrar suas sessões de estudo.',
+    href: 'https://apps.apple.com/br/app/intento/id6670373645?l=en-GB',
+    externo: true,
+    label: 'Baixar',
+    icone: 'M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3',
+  },
+  {
     key: 'onboarding',
     titulo: 'Questionário de Onboarding',
     descricao: 'Forneça seus dados e hábitos atuais para montarmos sua estratégia inicial.',
@@ -45,9 +54,20 @@ const ITENS = [
   },
 ];
 
+// No Android não há app nativo — a etapa 'appstore' vira "usar como webapp"
+// (abre o app web e adiciona à tela inicial). iOS/desktop seguem a App Store.
+const APPSTORE_ANDROID = {
+  titulo: 'Instalar o app (Android)',
+  descricao: 'Não há app Android nativo: abra o Intento no navegador e adicione à tela inicial para usar como app.',
+  href: 'https://intento.ap1.com.br/',
+  label: 'Abrir',
+  dica: 'No Chrome: toque em ⋮ → "Adicionar à tela inicial".',
+};
+
 export default function HubChecklist() {
-  const [progresso, setProgresso] = useState({ whatsapp: false, plataforma: false, onboarding: false, diagnostico: false });
+  const [progresso, setProgresso] = useState({ whatsapp: false, plataforma: false, appstore: false, onboarding: false, diagnostico: false });
   const [carregado, setCarregado] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   const chaveChecklist = () => {
     const email = sessionStorage.getItem('emailLogado') || 'anonimo';
@@ -57,6 +77,7 @@ export default function HubChecklist() {
   useEffect(() => {
     const salvo = localStorage.getItem(chaveChecklist());
     if (salvo) setProgresso(JSON.parse(salvo));
+    setIsAndroid(/android/i.test(navigator.userAgent || ''));
     setCarregado(true);
   }, []);
 
@@ -69,15 +90,16 @@ export default function HubChecklist() {
 
   // Cada item só é acessível se o anterior estiver completo
   const isDesbloqueado = (key) => {
-    const ordem = ['whatsapp', 'plataforma', 'onboarding', 'diagnostico'];
+    const ordem = ['whatsapp', 'plataforma', 'appstore', 'onboarding', 'diagnostico'];
     const idx = ordem.indexOf(key);
     if (idx === 0) return true;
     return progresso[ordem[idx - 1]];
   };
 
-  const concluidos   = Object.values(progresso).filter(Boolean).length;
-  const porcentagem  = (concluidos / 4) * 100;
-  const tudoConcluido = concluidos === 4;
+  const total        = ITENS.length;
+  const concluidos   = ITENS.filter((it) => progresso[it.key]).length;
+  const porcentagem  = (concluidos / total) * 100;
+  const tudoConcluido = concluidos === total;
 
   if (!carregado) return null;
 
@@ -97,7 +119,7 @@ export default function HubChecklist() {
           <div className="flex items-center gap-3 shrink-0">
             <div className="text-right hidden sm:block">
               <p className="text-intento-yellow font-bold text-lg leading-none">{Math.round(porcentagem)}%</p>
-              <p className="text-slate-500 text-[10px] font-medium uppercase tracking-wider mt-0.5">{concluidos} de 4 etapas</p>
+              <p className="text-slate-500 text-[10px] font-medium uppercase tracking-wider mt-0.5">{concluidos} de {total} etapas</p>
             </div>
             <div className="w-24 bg-white/10 h-1.5 rounded-full overflow-hidden hidden sm:block">
               <div className="bg-intento-yellow h-full transition-all duration-700" style={{ width: `${porcentagem}%` }} />
@@ -107,7 +129,7 @@ export default function HubChecklist() {
         {/* Progress bar mobile */}
         <div className="max-w-3xl mx-auto mt-4 sm:hidden">
           <div className="flex justify-between text-xs mb-1.5">
-            <span className="text-slate-400 font-medium">{concluidos} de 4 concluídas</span>
+            <span className="text-slate-400 font-medium">{concluidos} de {total} concluídas</span>
             <span className="text-intento-yellow font-bold">{Math.round(porcentagem)}%</span>
           </div>
           <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
@@ -136,7 +158,10 @@ export default function HubChecklist() {
         )}
 
         {/* ── Lista de itens ────────────────────────────────────────────── */}
-        {ITENS.map((item, idx) => {
+        {ITENS.map((itemBase, idx) => {
+          const item = (itemBase.key === 'appstore' && isAndroid)
+            ? { ...itemBase, ...APPSTORE_ANDROID }
+            : itemBase;
           const desbloqueado = isDesbloqueado(item.key);
           const concluido    = progresso[item.key];
 
@@ -185,6 +210,9 @@ export default function HubChecklist() {
                     )}
                   </div>
                   <p className={`text-xs leading-relaxed ${desbloqueado ? 'text-slate-400' : 'text-slate-300'}`}>{item.descricao}</p>
+                  {item.dica && desbloqueado && (
+                    <p className="text-xs text-slate-500 font-medium mt-1.5">{item.dica}</p>
+                  )}
                   {!desbloqueado && (
                     <p className="text-xs text-amber-600 font-medium mt-1.5 flex items-center gap-1">
                       <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
