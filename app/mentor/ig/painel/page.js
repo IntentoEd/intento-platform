@@ -171,6 +171,12 @@ function ExportarAcompanhamento() {
   );
   const semanaRef = getSemanaRef();
 
+  // Meta de horas da semana (última registrada) + meta/plano do último diário
+  const ultimoEncontro = dadosPainel?.ultimoEncontro || null;
+  const metaHorasSemana = (mensal.meta && mensal.meta.length) ? mensal.meta[mensal.meta.length - 1] : null;
+  const metasDiario = String(ultimoEncontro?.meta || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const acoesDiario = (ultimoEncontro?.acoes || []).map(a => String(a || '').trim()).filter(Boolean);
+
   const secaoLabel = (texto) => (
     <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: 10 }}>
       {texto}
@@ -256,7 +262,16 @@ function ExportarAcompanhamento() {
 
               {/* Consistência */}
               <div>
-                {secaoLabel('Consistência — Horas vs Meta')}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', margin: 0 }}>
+                    Consistência — Horas vs Meta
+                  </p>
+                  {metaHorasSemana ? (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
+                      Meta: {metaHorasSemana}h/semana
+                    </span>
+                  ) : null}
+                </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {historicoConsistencia.map((bateu, i) => (
                     <div key={i} style={{
@@ -306,6 +321,49 @@ function ExportarAcompanhamento() {
                         ))}
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Metas + Plano de Ação (último diário de bordo) */}
+              {(metasDiario.length > 0 || acoesDiario.length > 0) && (
+                <div>
+                  {secaoLabel('Último Diário de Bordo' + (ultimoEncontro?.data ? ` · ${ultimoEncontro.data}` : ''))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                    {metasDiario.length > 0 && (
+                      <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderLeft: '4px solid #D4B726', borderRadius: 12, padding: 14 }}>
+                        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8', marginBottom: 8 }}>
+                          {metasDiario.length === 1 ? 'Meta' : 'Metas'}
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {metasDiario.map((m, i) => (
+                            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                              {metasDiario.length > 1 && (
+                                <span style={{ fontSize: 10, fontWeight: 700, background: '#fde68a', color: '#78350f', borderRadius: 4, padding: '2px 6px', minWidth: 18, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+                              )}
+                              <p style={{ fontSize: 13, color: '#1e293b', fontWeight: 600, lineHeight: 1.4, margin: 0 }}>{m}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {acoesDiario.length > 0 && (
+                      <div>
+                        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8', marginBottom: 8 }}>
+                          Plano de Ação
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {acoesDiario.map((a, i) => (
+                            <div key={i} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 14px' }}>
+                              <span style={{ fontSize: 12, color: '#1e293b', fontWeight: 600 }}>{i + 1}. {a}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 </div>
               )}
