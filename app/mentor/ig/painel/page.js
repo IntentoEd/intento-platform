@@ -13,58 +13,62 @@ const borderColorMap = {
   emerald: '#10b981', purple: '#a855f7', blue: '#3b82f6',
   red: '#ef4444', slate: '#94a3b8',
 };
-const textColorMap = {
-  emerald: '#065f46', purple: '#581c87', blue: '#1e3a8a',
-  red: '#7f1d1d', slate: '#475569',
-};
+// Converte valor (decimal 0–1, "73%" ou número) para inteiro 0–100.
+function toPct100(val) {
+  const n = parseFloat(String(val ?? '').replace('%', '').replace(',', '.'));
+  if (isNaN(n)) return 0;
+  return Math.round(n <= 1 ? n * 100 : n);
+}
+function toNum(val) {
+  const n = parseFloat(String(val ?? '').replace('%', '').replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+const fmtH = (n) => (n % 1 === 0 ? String(n) : n.toFixed(1));
 
-// Converte decimal (0–1) para % se o campo for de porcentagem
-function formatarValor(nome, val) {
-  const n = parseFloat(String(val ?? '').replace(',', '.'));
-  if (isNaN(n)) return String(val ?? '');
-  const isPercent = /domínio|progresso/i.test(String(nome));
-  if (isPercent && n <= 1) return Math.round(n * 100) + '%';
-  return String(val ?? '');
+// Selo de variação vs. semana anterior.
+function DeltaBadge({ diff, positivo, suffix }) {
+  if (diff == null || diff === 0) return null;
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 9999,
+      background: positivo ? '#d1fae5' : '#fee2e2',
+      color: positivo ? '#065f46' : '#7f1d1d',
+    }}>
+      {diff > 0 ? '+' : ''}{diff % 1 === 0 ? diff.toFixed(0) : diff.toFixed(1)}{suffix || ''}
+    </span>
+  );
 }
 
-// ─── Mini Card estático (sem animações — html2canvas captura bem) ─────────────
-function MiniCardExport({ item, isFirstWeek, fullBorder }) {
-  if (!item) return null;
-  const currFmt = formatarValor(item.name, item.curr);
-  const prevFmt = formatarValor(item.name, item.prev);
-  const currNum = parseFloat(String(currFmt).replace('%', '').replace(',', '.')) || 0;
-  const prevNum = parseFloat(String(prevFmt).replace('%', '').replace(',', '.')) || 0;
-  const diff = currNum - prevNum;
-  const inverted = String(item.name ?? '').toLowerCase().includes('atrasad');
-  const positivo = inverted ? diff < 0 : diff > 0;
-  const theme = item.theme || 'slate';
-  const borderColor = borderColorMap[theme];
-  const textColor = textColorMap[theme];
-
-  const cardStyle = fullBorder
-    ? { borderLeft: `4px solid ${borderColor}`, background: '#fff', borderRadius: 12, border: `1px solid #e2e8f0`, borderLeftColor: borderColor, padding: 16 }
-    : { background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 16 };
-
+// KPI principal (destaque): número grande + sub + delta + barra opcional.
+function KpiCard({ label, valor, sub, delta, suffix, bar, theme }) {
+  const borderColor = borderColorMap[theme] || '#94a3b8';
   return (
-    <div style={cardStyle}>
-      <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: fullBorder ? textColor : '#94a3b8', marginBottom: 6 }}>
-        {item.name}
-      </p>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: 28, fontWeight: 700, color: '#060242' }}>{currFmt}</span>
-        {!isFirstWeek && diff !== 0 && (
-          <span style={{
-            fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 9999,
-            background: positivo ? '#d1fae5' : '#fee2e2',
-            color: positivo ? '#065f46' : '#7f1d1d',
-          }}>
-            {diff > 0 ? '+' : ''}{diff % 1 === 0 ? diff.toFixed(0) : diff.toFixed(1)}
-          </span>
-        )}
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: `4px solid ${borderColor}`, borderRadius: 12, padding: '14px 16px' }}>
+      <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', marginBottom: 8 }}>{label}</p>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 30, fontWeight: 800, color: '#060242', lineHeight: 1 }}>{valor}</span>
+        {sub ? <span style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{sub}</span> : null}
+        <DeltaBadge diff={delta?.diff} positivo={delta?.positivo} suffix={suffix} />
       </div>
-      {!isFirstWeek && (
-        <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>anterior: {prevFmt || '—'}</p>
-      )}
+      {bar != null ? (
+        <div style={{ marginTop: 10, height: 6, background: '#eef2f7', borderRadius: 9999, overflow: 'hidden' }}>
+          <div style={{ width: `${Math.min(100, bar)}%`, height: '100%', background: bar >= 100 ? '#34d399' : borderColor, borderRadius: 9999 }} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Barra horizontal 0–100% (Desempenho / Estilo de Vida — secundários).
+function Barra({ label, valor, cor }) {
+  const v = Math.max(0, Math.min(100, valor));
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: '#475569', width: 66, flexShrink: 0 }}>{label}</span>
+      <div style={{ flex: 1, height: 8, background: '#eef2f7', borderRadius: 9999, overflow: 'hidden' }}>
+        <div style={{ width: `${v}%`, height: '100%', background: cor, borderRadius: 9999 }} />
+      </div>
+      <span style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', width: 34, textAlign: 'right', flexShrink: 0 }}>{valor}%</span>
     </div>
   );
 }
@@ -177,6 +181,35 @@ function ExportarAcompanhamento() {
   const metasDiario = String(ultimoEncontro?.meta || '').split('\n').map(s => s.trim()).filter(Boolean);
   const acoesDiario = (ultimoEncontro?.acoes || []).map(a => String(a || '').trim()).filter(Boolean);
 
+  // KPIs principais (4 do topo)
+  const gFind = (frag) => (semanal.geral || []).find(c => String(c.name).toLowerCase().includes(frag));
+  const gHoras = gFind('horas'), gDom = gFind('domínio'), gProg = gFind('progresso'), gRev = gFind('atrasad');
+  const calcDelta = (card, escala, inverted) => {
+    if (!card || semanal.isFirstWeek || card.prev === '' || card.prev == null) return null;
+    const conv = escala === 'pct' ? toPct100 : toNum;
+    const diff = conv(card.curr) - conv(card.prev);
+    if (diff === 0) return { diff: 0 };
+    return { diff, positivo: inverted ? diff < 0 : diff > 0 };
+  };
+  const metaHNum = (metaHorasSemana != null && metaHorasSemana !== '') ? toNum(metaHorasSemana) : null;
+  const horasNum = gHoras ? toNum(gHoras.curr) : 0;
+  const horasBar = (metaHNum && metaHNum > 0) ? Math.round((horasNum / metaHNum) * 100) : null;
+
+  // Desempenho por matéria (barras) — ordem fixa do backend: Dom/Prog × Bio,Qui,Fis,Mat
+  const desemp = semanal.desempenho || [];
+  const materias = ['Biologia', 'Química', 'Física', 'Matemática'].map((nome, i) => ({
+    nome,
+    dom: toPct100(desemp[i * 2]?.curr),
+    prog: toPct100(desemp[i * 2 + 1]?.curr),
+  }));
+
+  // Estilo de vida (barras) — maior = melhor em todas as dimensões
+  const estiloBars = (semanal.estilo || []).map((c) => ({ nome: c.name, val: toPct100(c.curr) }));
+
+  // Streak de consistência
+  const semBatidas = historicoConsistencia.filter(Boolean).length;
+  const semTotal = historicoConsistencia.length;
+
   const secaoLabel = (texto) => (
     <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: 10 }}>
       {texto}
@@ -260,15 +293,31 @@ function ExportarAcompanhamento() {
             {/* Corpo */}
             <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-              {/* Consistência */}
+              {/* 1. KPIs principais (destaque) */}
+              {semanal.geral?.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                  <KpiCard
+                    label="Horas Estudadas" theme="emerald"
+                    valor={metaHNum ? fmtH(horasNum) : `${fmtH(horasNum)}h`}
+                    sub={metaHNum ? `/ ${fmtH(metaHNum)}h` : null}
+                    delta={calcDelta(gHoras, 'num', false)} suffix="h"
+                    bar={horasBar}
+                  />
+                  <KpiCard label="Domínio Geral" theme="blue" valor={`${toPct100(gDom?.curr)}%`} delta={calcDelta(gDom, 'pct', false)} />
+                  <KpiCard label="Progresso Geral" theme="purple" valor={`${toPct100(gProg?.curr)}%`} delta={calcDelta(gProg, 'pct', false)} />
+                  <KpiCard label="Revisões Atrasadas" theme="red" valor={`${toNum(gRev?.curr)}`} delta={calcDelta(gRev, 'num', true)} />
+                </div>
+              )}
+
+              {/* 2. Consistência (streak) */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
                   <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', margin: 0 }}>
                     Consistência — Horas vs Meta
                   </p>
-                  {metaHorasSemana ? (
+                  {semTotal > 0 ? (
                     <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
-                      Meta: {metaHorasSemana}h/semana
+                      {semBatidas}/{semTotal} semanas na meta
                     </span>
                   ) : null}
                 </div>
@@ -285,50 +334,12 @@ function ExportarAcompanhamento() {
                 </div>
               </div>
 
-              {/* Aspectos Gerais */}
-              {semanal.geral?.length > 0 && (
-                <div>
-                  {secaoLabel('Aspectos Gerais')}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                    {semanal.geral.map((item, i) => (
-                      <MiniCardExport key={i} item={item} isFirstWeek={semanal.isFirstWeek} fullBorder={false} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Estilo de Vida */}
-              {semanal.estilo?.length > 0 && (
-                <div>
-                  {secaoLabel('Estilo de Vida')}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                    {semanal.estilo.map((item, i) => (
-                      <MiniCardExport key={i} item={item} isFirstWeek={semanal.isFirstWeek} fullBorder={false} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Desempenho */}
-              {semanal.desempenho?.length > 0 && (
-                <div>
-                  {secaoLabel('Desempenho')}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                    {[0, 1, 2, 3].map(col => (
-                      <div key={col} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {semanal.desempenho.slice(col * 2, col * 2 + 2).map((item, i) => (
-                          <MiniCardExport key={i} item={item} isFirstWeek={semanal.isFirstWeek} fullBorder={true} />
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Metas + Plano de Ação (último diário de bordo) */}
+              {/* 3. FOCO — Meta + Plano de Ação (último diário) */}
               {(metasDiario.length > 0 || acoesDiario.length > 0) && (
-                <div>
-                  {secaoLabel('Último Diário de Bordo' + (ultimoEncontro?.data ? ` · ${ultimoEncontro.data}` : ''))}
+                <div style={{ background: '#fbfaf5', border: '1px solid #f0e9d2', borderRadius: 14, padding: 16 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9a7b1f', marginBottom: 12 }}>
+                    Foco{ultimoEncontro?.data ? ` · último diário ${ultimoEncontro.data}` : ''}
+                  </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
                     {metasDiario.length > 0 && (
@@ -364,6 +375,37 @@ function ExportarAcompanhamento() {
                       </div>
                     )}
 
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Desempenho por matéria (secundário — barras 0–100%) */}
+              {desemp.length > 0 && (
+                <div>
+                  {secaoLabel('Desempenho por matéria')}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 24px' }}>
+                    {materias.map((m) => (
+                      <div key={m.nome} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#334155' }}>{m.nome}</span>
+                        <Barra label="Domínio" valor={m.dom} cor="#3b82f6" />
+                        <Barra label="Progresso" valor={m.prog} cor="#a855f7" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 5. Estilo de Vida (secundário — barras 0–100%, maior = melhor) */}
+              {estiloBars.length > 0 && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
+                    <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', margin: 0 }}>Estilo de Vida</p>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8' }}>maior = melhor</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
+                    {estiloBars.map((e) => (
+                      <Barra key={e.nome} label={e.nome} valor={e.val} cor="#34d399" />
+                    ))}
                   </div>
                 </div>
               )}
