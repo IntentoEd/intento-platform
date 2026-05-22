@@ -54,9 +54,20 @@ const ITENS = [
   },
 ];
 
+// No Android não há app nativo — a etapa 'appstore' vira "usar como webapp"
+// (abre o app web e adiciona à tela inicial). iOS/desktop seguem a App Store.
+const APPSTORE_ANDROID = {
+  titulo: 'Instalar o app (Android)',
+  descricao: 'Não há app Android nativo: abra o Intento no navegador e adicione à tela inicial para usar como app.',
+  href: 'https://intento.ap1.com.br/',
+  label: 'Abrir',
+  dica: 'No Chrome: toque em ⋮ → "Adicionar à tela inicial".',
+};
+
 export default function HubChecklist() {
   const [progresso, setProgresso] = useState({ whatsapp: false, plataforma: false, appstore: false, onboarding: false, diagnostico: false });
   const [carregado, setCarregado] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   const chaveChecklist = () => {
     const email = sessionStorage.getItem('emailLogado') || 'anonimo';
@@ -66,6 +77,7 @@ export default function HubChecklist() {
   useEffect(() => {
     const salvo = localStorage.getItem(chaveChecklist());
     if (salvo) setProgresso(JSON.parse(salvo));
+    setIsAndroid(/android/i.test(navigator.userAgent || ''));
     setCarregado(true);
   }, []);
 
@@ -146,7 +158,10 @@ export default function HubChecklist() {
         )}
 
         {/* ── Lista de itens ────────────────────────────────────────────── */}
-        {ITENS.map((item, idx) => {
+        {ITENS.map((itemBase, idx) => {
+          const item = (itemBase.key === 'appstore' && isAndroid)
+            ? { ...itemBase, ...APPSTORE_ANDROID }
+            : itemBase;
           const desbloqueado = isDesbloqueado(item.key);
           const concluido    = progresso[item.key];
 
@@ -195,6 +210,9 @@ export default function HubChecklist() {
                     )}
                   </div>
                   <p className={`text-xs leading-relaxed ${desbloqueado ? 'text-slate-400' : 'text-slate-300'}`}>{item.descricao}</p>
+                  {item.dica && desbloqueado && (
+                    <p className="text-xs text-slate-500 font-medium mt-1.5">{item.dica}</p>
+                  )}
                   {!desbloqueado && (
                     <p className="text-xs text-amber-600 font-medium mt-1.5 flex items-center gap-1">
                       <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
