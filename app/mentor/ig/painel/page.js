@@ -41,8 +41,8 @@ const fmtH = (n) => (n % 1 === 0 ? String(n) : n.toFixed(1));
 // slate-400 (#94a3b8) reprovava (~2.5:1).
 const T = {
   label:   { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', margin: 0 },
-  numLg:   { fontSize: 28, fontWeight: 800, color: '#060242', lineHeight: 1 },
-  numMd:   { fontSize: 20, fontWeight: 800, color: '#060242', lineHeight: 1 },
+  numLg:   { fontSize: 28, fontWeight: 800, color: '#060242', lineHeight: 1 }, // KPI agregado (topo)
+  numMd:   { fontSize: 18, fontWeight: 700, color: '#1e293b', lineHeight: 1 }, // domínio por matéria (subordinado ao KPI)
   numSm:   { fontSize: 12, fontWeight: 700, color: '#060242', lineHeight: 1 },
   sub:     { fontSize: 13, fontWeight: 600, color: '#64748b' },
   caption: { fontSize: 9,  fontWeight: 600, color: '#64748b' },
@@ -84,17 +84,23 @@ function KpiCard({ label, valor, delta, suffix, bar, barCaption }) {
 }
 
 // Barra horizontal 0–100% (Desempenho / Estilo). Track translúcido (funciona
-// em fundo branco ou tingido). Delta opcional, alinhado numa coluna à direita.
-function Barra({ label, valor, cor, delta }) {
+// em fundo branco ou tingido). Espaçamento via margin (html2canvas tem suporte
+// irregular a gap). Colunas de % e delta com width fixo → alinham entre cards.
+// reservaDelta mantém a coluna de delta mesmo vazia, fixando a posição do %.
+function Barra({ label, valor, cor, delta, deltaSuffix, reservaDelta }) {
   const v = Math.max(0, Math.min(100, valor));
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ ...T.label, width: 66, flexShrink: 0 }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <span style={{ ...T.label, width: 66, flexShrink: 0, marginRight: 8 }}>{label}</span>
       <div style={{ flex: 1, height: 7, background: 'rgba(6,2,66,0.08)', borderRadius: 9999, overflow: 'hidden' }}>
         <div style={{ width: `${v}%`, height: '100%', background: cor, borderRadius: 9999 }} />
       </div>
-      <span style={{ ...T.numSm, width: 32, textAlign: 'right', flexShrink: 0 }}>{valor}%</span>
-      {delta ? <span style={{ width: 36, textAlign: 'right', flexShrink: 0 }}><Delta info={delta} /></span> : null}
+      <span style={{ ...T.numSm, width: 34, textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>{valor}%</span>
+      {reservaDelta ? (
+        <span style={{ width: 46, textAlign: 'right', flexShrink: 0, marginLeft: 6 }}>
+          {delta ? <Delta info={delta} suffix={deltaSuffix} /> : null}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -333,17 +339,21 @@ function ExportarAcompanhamento() {
 
               {/* 1. KPIs principais (destaque) */}
               {semanal.geral?.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                  <KpiCard
-                    label="Horas Estudadas"
-                    valor={`${fmtH(horasNum)}h`}
-                    delta={calcDelta(gHoras, 'num', false)} suffix="h"
-                    bar={horasBar}
-                    barCaption={metaHNum ? `meta ${fmtH(metaHNum)}h` : null}
-                  />
-                  <KpiCard label="Domínio Geral" valor={`${toPct100(gDom?.curr)}%`} delta={calcDelta(gDom, 'pct', false)} />
-                  <KpiCard label="Progresso Geral" valor={`${toPct100(gProg?.curr)}%`} delta={calcDelta(gProg, 'pct', false)} />
-                  <KpiCard label="Revisões Atrasadas" valor={`${toNum(gRev?.curr)}`} delta={calcDelta(gRev, 'num', true)} />
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                    <KpiCard
+                      label="Horas Estudadas"
+                      valor={`${fmtH(horasNum)}h`}
+                      delta={calcDelta(gHoras, 'num', false)} suffix="h"
+                      bar={horasBar}
+                      barCaption={metaHNum ? `meta ${fmtH(metaHNum)}h` : null}
+                    />
+                    <KpiCard label="Domínio Geral" valor={`${toPct100(gDom?.curr)}%`} delta={calcDelta(gDom, 'pct', false)} suffix="pp" />
+                    <KpiCard label="Progresso Geral" valor={`${toPct100(gProg?.curr)}%`} delta={calcDelta(gProg, 'pct', false)} suffix="pp" />
+                    <KpiCard label="Revisões Atrasadas" valor={`${toNum(gRev?.curr)}`} delta={calcDelta(gRev, 'num', true)} />
+                  </div>
+                  {/* Referência da variação (uma vez, discreta) — vale pra todos os ▲▼ do card */}
+                  <p style={{ ...T.caption, textAlign: 'right', margin: '6px 0 0' }}>▲ ▼ vs. semana anterior</p>
                 </div>
               )}
 
@@ -436,16 +446,18 @@ function ExportarAcompanhamento() {
                     {materias.map((m) => {
                       const c = CORES_MATERIA[m.nome] || { main: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' };
                       return (
-                        <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: 14, display: 'flex', flexDirection: 'column' }}>
                           <span style={{ fontSize: 13, fontWeight: 800, color: c.main }}>{m.nome}</span>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                             <span style={T.label}>Domínio</span>
-                            <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                            <span style={{ display: 'flex', alignItems: 'baseline' }}>
                               <span style={T.numMd}>{m.dom}%</span>
-                              <Delta info={m.domDelta} />
+                              <span style={{ marginLeft: 6 }}><Delta info={m.domDelta} suffix="pp" /></span>
                             </span>
                           </div>
-                          <Barra label="Progresso" valor={m.prog} cor={c.main} delta={m.progDelta} />
+                          <div style={{ marginTop: 10 }}>
+                            <Barra label="Progresso" valor={m.prog} cor={c.main} delta={m.progDelta} deltaSuffix="pp" reservaDelta />
+                          </div>
                         </div>
                       );
                     })}
