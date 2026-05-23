@@ -29,13 +29,15 @@ function toNum(val) {
 const fmtH = (n) => (n % 1 === 0 ? String(n) : n.toFixed(1));
 
 // Tokens de tipografia — uma escala única pra unificar todo o card.
+// Cor dos textos secundários = slate-500 (#64748b ≈ 4.8:1 no branco → WCAG AA).
+// slate-400 (#94a3b8) reprovava (~2.5:1).
 const T = {
-  label:   { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', margin: 0 },
+  label:   { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', margin: 0 },
   numLg:   { fontSize: 30, fontWeight: 800, color: '#060242', lineHeight: 1 },
   numMd:   { fontSize: 20, fontWeight: 800, color: '#060242', lineHeight: 1 },
   numSm:   { fontSize: 12, fontWeight: 700, color: '#060242', lineHeight: 1 },
-  sub:     { fontSize: 13, fontWeight: 600, color: '#94a3b8' },
-  caption: { fontSize: 9,  fontWeight: 600, color: '#94a3b8' },
+  sub:     { fontSize: 13, fontWeight: 600, color: '#64748b' },
+  caption: { fontSize: 9,  fontWeight: 600, color: '#64748b' },
   body:    { fontSize: 13, fontWeight: 600, color: '#1e293b', lineHeight: 1.4 },
 };
 
@@ -45,7 +47,7 @@ function Delta({ info, suffix }) {
   if (!info || info.diff == null || info.diff === 0) return null;
   const abs = Math.abs(info.diff);
   return (
-    <span style={{ fontSize: 11, fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap', color: info.positivo ? '#059669' : '#dc2626' }}>
+    <span style={{ fontSize: 11, fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap', color: info.positivo ? '#047857' : '#b91c1c' }}>
       {info.diff > 0 ? '▲' : '▼'} {abs % 1 === 0 ? abs : abs.toFixed(1)}{suffix || ''}
     </span>
   );
@@ -55,14 +57,14 @@ function Delta({ info, suffix }) {
 // rótulo reserva 2 linhas e a barra fica ancorada no rodapé.
 function KpiCard({ label, valor, sub, delta, suffix, bar }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e8ecf2', borderRadius: 14, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: '14px 16px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ background: '#fff', border: '1px solid #e8ecf2', borderRadius: 14, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: 16, display: 'flex', flexDirection: 'column', height: '100%' }}>
       <p style={{ ...T.label, minHeight: 26, lineHeight: 1.3 }}>{label}</p>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
         <span style={T.numLg}>{valor}</span>
         {sub ? <span style={T.sub}>{sub}</span> : null}
         <Delta info={delta} suffix={suffix} />
       </div>
-      <div style={{ marginTop: 'auto', paddingTop: 10 }}>
+      <div style={{ marginTop: 'auto', paddingTop: 12 }}>
         <div style={{ height: 7, borderRadius: 9999, overflow: 'hidden', background: bar != null ? 'rgba(6,2,66,0.08)' : 'transparent' }}>
           {bar != null ? (
             <div style={{ width: `${Math.min(100, bar)}%`, height: '100%', background: bar >= 100 ? '#10b981' : '#060242', borderRadius: 9999 }} />
@@ -291,7 +293,7 @@ function ExportarAcompanhamento() {
               background: '#ffffff',
               borderRadius: 16,
               overflow: 'hidden',
-              fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+              fontFamily: 'inherit', // herda a Ubuntu do app (antes usava system font)
               boxShadow: '0 4px 24px rgba(6,2,66,0.10)',
             }}
           >
@@ -317,7 +319,7 @@ function ExportarAcompanhamento() {
 
               {/* 1. KPIs principais (destaque) */}
               {semanal.geral?.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
                   <KpiCard
                     label="Horas Estudadas"
                     valor={metaHNum ? fmtH(horasNum) : `${fmtH(horasNum)}h`}
@@ -415,14 +417,14 @@ function ExportarAcompanhamento() {
               {desemp.length > 0 && (
                 <div>
                   {secaoLabel('Desempenho por matéria')}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     {materias.map((m) => {
                       const c = CORES_MATERIA[m.nome] || { main: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' };
                       return (
-                        <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          <span style={{ fontSize: 12, fontWeight: 800, color: c.main }}>{m.nome}</span>
+                        <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: c.main }}>{m.nome}</span>
                           <div>
-                            <p style={{ ...T.label, marginBottom: 3 }}>Domínio</p>
+                            <p style={{ ...T.label, marginBottom: 4 }}>Domínio</p>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                               <span style={T.numMd}>{m.dom}%</span>
                               <Delta info={m.domDelta} />
@@ -443,7 +445,7 @@ function ExportarAcompanhamento() {
                     <p style={T.label}>Estilo de Vida</p>
                     <span style={T.caption}>maior = melhor</span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px' }}>
                     {estiloBars.map((e) => (
                       <Barra key={e.nome} label={e.nome} valor={e.val} cor="#34d399" />
                     ))}
