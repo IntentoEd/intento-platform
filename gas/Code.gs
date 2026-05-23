@@ -181,7 +181,8 @@ function _garantirColunasEnc(abaDiario) {
 const COL_SIM = {
   ID: 0, STATUS: 1, DATA: 2, ESPECIFICACAO: 3,
   LG: 4, CH: 5, CN: 6, MAT: 7, REDACAO: 8, ERROS_JSON: 9,
-  KOLB_EXP: 10, KOLB_REF: 11, KOLB_CON: 12, KOLB_ACAO: 13, KOLB_REDACAO: 14
+  KOLB_EXP: 10, KOLB_REF: 11, KOLB_CON: 12, KOLB_ACAO: 13, KOLB_REDACAO: 14,
+  MODELO: 15, MATERIAS_JSON: 16, AAR_JSON: 17
 };
 
 const COL_CAD = {
@@ -1385,12 +1386,43 @@ function lerSimulados(ss) {
         }
       }
     } catch (e) {}
+
+    // Modelo (legado sem coluna = ENEM), matérias do Custom e AAR
+    const modeloSim = txt(row[COL_SIM.MODELO]) || "ENEM";
+    let materiasArr = [];
+    try {
+      if (row[COL_SIM.MATERIAS_JSON]) {
+        const pm = JSON.parse(String(row[COL_SIM.MATERIAS_JSON]));
+        if (Array.isArray(pm)) materiasArr = pm;
+      }
+    } catch (e) {}
+    let aarObj = null;
+    try {
+      if (row[COL_SIM.AAR_JSON]) {
+        const pa = JSON.parse(String(row[COL_SIM.AAR_JSON]));
+        if (pa && typeof pa === 'object') aarObj = pa;
+      }
+    } catch (e) {}
+
+    // Aproveitamento por simulado (uniforme p/ ENEM e Custom)
+    let aprov = 0;
+    if (modeloSim === "Custom") {
+      let q = 0, ac = 0;
+      materiasArr.forEach(function(m) { q += num(m.questoes); ac += num(m.acertos); });
+      aprov = q > 0 ? Math.round((ac / q) * 100) : 0;
+    } else {
+      const totEnem = num(row[COL_SIM.LG]) + num(row[COL_SIM.CH]) + num(row[COL_SIM.CN]) + num(row[COL_SIM.MAT]);
+      aprov = Math.round((totEnem / 180) * 100);
+    }
+
     const sim = {
       id: String(row[COL_SIM.ID]), status: txt(row[COL_SIM.STATUS]) || "Pendente",
-      data: dataStr, modelo: "ENEM", especificacao: txt(row[COL_SIM.ESPECIFICACAO]),
+      data: dataStr, modelo: modeloSim, especificacao: txt(row[COL_SIM.ESPECIFICACAO]),
       lg: num(row[COL_SIM.LG]), ch: num(row[COL_SIM.CH]), cn: num(row[COL_SIM.CN]),
       mat: num(row[COL_SIM.MAT]), redacao: num(row[COL_SIM.REDACAO]),
+      materias: materiasArr, aproveitamento: aprov,
       erros: errosObj, errosLista: errosLista,
+      aar: aarObj,
       kolb: {
         exp: txt(row[COL_SIM.KOLB_EXP]), ref: txt(row[COL_SIM.KOLB_REF]),
         con: txt(row[COL_SIM.KOLB_CON]), acao: txt(row[COL_SIM.KOLB_ACAO]),
@@ -1401,30 +1433,42 @@ function lerSimulados(ss) {
     if (sim.status === "Concluída") concluidos.push(sim);
   }
 
-  concluidos.forEach(function(s) {
+  // Histórico de área (LG/CH/CN/MAT) só faz sentido p/ ENEM
+  const concluidosENEM = concluidos.filter(function(s) { return s.modelo === "ENEM"; });
+  concluidosENEM.forEach(function(s) {
     hist.labels.push(s.data); hist.lg.push(s.lg); hist.ch.push(s.ch);
     hist.cn.push(s.cn); hist.mat.push(s.mat);
   });
   kpi.realizados = concluidos.length;
+
+  // Erros e redação agregam todos os modelos
   if (concluidos.length > 0) {
     const ultimas3 = concluidos.slice(-3);
     const nn = ultimas3.length;
-    let somaLG = 0, somaCH = 0, somaCN = 0, somaMAT = 0, somaTotal = 0;
     let somaAt = 0, somaIn = 0, somaRec = 0, somaLac = 0;
     ultimas3.forEach(function(s) {
-      somaLG += s.lg; somaCH += s.ch; somaCN += s.cn; somaMAT += s.mat;
-      somaTotal += (s.lg + s.ch + s.cn + s.mat);
       somaAt += (s.erros.atencao || 0); somaIn += (s.erros.inter || 0);
       somaRec += (s.erros.rec || 0); somaLac += (s.erros.lac || 0);
     });
-    kpi.medLG  = Math.round(somaLG / nn);  kpi.medCH  = Math.round(somaCH / nn);
-    kpi.medCN  = Math.round(somaCN / nn);  kpi.medMAT = Math.round(somaMAT / nn);
-    kpi.medAcertos = Math.round(somaTotal / nn);
     kpi.erros = { atencao: Math.round(somaAt / nn), inter: Math.round(somaIn / nn), rec: Math.round(somaRec / nn), lac: Math.round(somaLac / nn) };
     const ultimasComRedacao = concluidos.filter(function(s) { return s.redacao > 0; }).slice(-3);
     if (ultimasComRedacao.length > 0) {
       kpi.medRedacao = Math.round(ultimasComRedacao.reduce(function(acc, s) { return acc + s.redacao; }, 0) / ultimasComRedacao.length);
     }
+  }
+
+  // Médias por área (ENEM)
+  if (concluidosENEM.length > 0) {
+    const ultimas3E = concluidosENEM.slice(-3);
+    const ne = ultimas3E.length;
+    let somaLG = 0, somaCH = 0, somaCN = 0, somaMAT = 0, somaTotal = 0;
+    ultimas3E.forEach(function(s) {
+      somaLG += s.lg; somaCH += s.ch; somaCN += s.cn; somaMAT += s.mat;
+      somaTotal += (s.lg + s.ch + s.cn + s.mat);
+    });
+    kpi.medLG  = Math.round(somaLG / ne);  kpi.medCH  = Math.round(somaCH / ne);
+    kpi.medCN  = Math.round(somaCN / ne);  kpi.medMAT = Math.round(somaMAT / ne);
+    kpi.medAcertos = Math.round(somaTotal / ne);
   }
   return { kpi: kpi, hist: hist, lista: lista };
 }
@@ -1561,6 +1605,19 @@ function handleLoginGlobal(dados) {
 // SIMULADOS
 // =====================================================================
 
+// Migração preguiçosa: cada planilha de aluno tinha 15 colunas (até KOLB_REDACAO).
+// Garante MODELO/MATERIAS_JSON/AAR_JSON antes de qualquer escrita.
+function _garantirColunasSim(aba) {
+  const precisa = COL_SIM.AAR_JSON + 1; // 18
+  const atual   = aba.getMaxColumns();
+  if (atual < precisa) aba.insertColumnsAfter(atual, precisa - atual);
+  const headers = aba.getRange(1, COL_SIM.MODELO + 1, 1, 3).getValues()[0];
+  if (!headers[0] && !headers[1] && !headers[2]) {
+    aba.getRange(1, COL_SIM.MODELO + 1, 1, 3).setValues([["MODELO", "MATERIAS_JSON", "AAR_JSON"]]);
+  }
+  return aba;
+}
+
 function handleSalvarSimulado(dados) {
   const lock = LockService.getScriptLock();
   try {
@@ -1570,15 +1627,27 @@ function handleSalvarSimulado(dados) {
     const ssAluno    = SpreadsheetApp.openById(idPlanilha);
     const aba        = ssAluno.getSheetByName(ABA.SIMULADOS);
     if (!aba) throw new Error("Aba '" + ABA.SIMULADOS + "' não encontrada.");
+    _garantirColunasSim(aba);
     const idSimulado = "sim_" + new Date().getTime();
     let dataFormatada = txt(dados.data);
     if (dataFormatada && dataFormatada.indexOf("-") !== -1) {
       const partes = dataFormatada.split("-");
       dataFormatada = partes[2] + "/" + partes[1] + "/" + partes[0];
     }
+    const modelo = txt(dados.modelo) === "Custom" ? "Custom" : "ENEM";
+    let materiasJson = "";
+    let cLG = "", cCH = "", cCN = "", cMAT = "";
+    if (modelo === "Custom") {
+      const mats = Array.isArray(dados.materias) ? dados.materias.map(function(m) {
+        return { materia: txt(m.materia), questoes: num(m.questoes), acertos: num(m.acertos) };
+      }).filter(function(m) { return m.materia; }) : [];
+      materiasJson = JSON.stringify(mats);
+    } else {
+      cLG = num(dados.lg); cCH = num(dados.ch); cCN = num(dados.cn); cMAT = num(dados.mat);
+    }
     aba.appendRow([idSimulado, "Pendente", dataFormatada, txt(dados.especificacao),
-      num(dados.lg), num(dados.ch), num(dados.cn), num(dados.mat), num(dados.redacao),
-      "", "", "", "", "", ""]);
+      cLG, cCH, cCN, cMAT, num(dados.redacao),
+      "", "", "", "", "", "", modelo, materiasJson, ""]);
     return responderJSON({ status: "sucesso", id: idSimulado });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
   finally     { lock.releaseLock(); }
@@ -1593,6 +1662,7 @@ function handleSalvarAutopsia(dados) {
     const ssAluno     = SpreadsheetApp.openById(idPlanilha);
     const aba         = ssAluno.getSheetByName(ABA.SIMULADOS);
     if (!aba) throw new Error("Aba '" + ABA.SIMULADOS + "' não encontrada.");
+    _garantirColunasSim(aba);
     const idProcurado = txt(dados.idSimulado);
     if (!idProcurado) throw new Error("idSimulado ausente.");
     const matriz      = aba.getDataRange().getValues();
@@ -1601,16 +1671,27 @@ function handleSalvarAutopsia(dados) {
       if (String(matriz[i][COL_SIM.ID]) === idProcurado) { linhaAlvo = i + 1; break; }
     }
     if (linhaAlvo === -1) throw new Error("Simulado não encontrado.");
-    const statusFinal      = txt(dados.statusAnalise) || "Concluída";
-    const errosCompactados = JSON.stringify(dados.erros || []);
-    const kolb             = dados.kolb || {};
-    aba.getRange(linhaAlvo, COL_SIM.STATUS       + 1).setValue(statusFinal);
-    aba.getRange(linhaAlvo, COL_SIM.ERROS_JSON   + 1).setValue(errosCompactados);
-    aba.getRange(linhaAlvo, COL_SIM.KOLB_EXP     + 1).setValue(txt(kolb.exp));
-    aba.getRange(linhaAlvo, COL_SIM.KOLB_REF     + 1).setValue(txt(kolb.ref));
-    aba.getRange(linhaAlvo, COL_SIM.KOLB_CON     + 1).setValue(txt(kolb.con));
-    aba.getRange(linhaAlvo, COL_SIM.KOLB_ACAO    + 1).setValue(txt(kolb.acao));
-    aba.getRange(linhaAlvo, COL_SIM.KOLB_REDACAO + 1).setValue(txt(kolb.redacao));
+    const statusFinal = txt(dados.statusAnalise) || "Concluída";
+    aba.getRange(linhaAlvo, COL_SIM.STATUS + 1).setValue(statusFinal);
+
+    // Erros: só sobrescreve se enviado (não zera classificação já salva)
+    if (dados.erros !== undefined) {
+      aba.getRange(linhaAlvo, COL_SIM.ERROS_JSON + 1).setValue(JSON.stringify(dados.erros || []));
+    }
+
+    // Análise subjetiva: AAR é o novo fluxo. Kolb mantido p/ compat com
+    // front antigo durante a transição (deploy GAS antes do front novo).
+    if (dados.aar !== undefined) {
+      aba.getRange(linhaAlvo, COL_SIM.AAR_JSON + 1).setValue(JSON.stringify(dados.aar || {}));
+    }
+    if (dados.kolb !== undefined) {
+      const kolb = dados.kolb || {};
+      aba.getRange(linhaAlvo, COL_SIM.KOLB_EXP     + 1).setValue(txt(kolb.exp));
+      aba.getRange(linhaAlvo, COL_SIM.KOLB_REF     + 1).setValue(txt(kolb.ref));
+      aba.getRange(linhaAlvo, COL_SIM.KOLB_CON     + 1).setValue(txt(kolb.con));
+      aba.getRange(linhaAlvo, COL_SIM.KOLB_ACAO    + 1).setValue(txt(kolb.acao));
+      aba.getRange(linhaAlvo, COL_SIM.KOLB_REDACAO + 1).setValue(txt(kolb.redacao));
+    }
     return responderJSON({ status: "sucesso" });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
   finally     { lock.releaseLock(); }
