@@ -13,6 +13,16 @@ const borderColorMap = {
   emerald: '#10b981', purple: '#a855f7', blue: '#3b82f6',
   red: '#ef4444', slate: '#94a3b8',
 };
+
+// Cor por disciplina (Bio verde, Qui roxo, Fis azul, Mat vermelho).
+// Domínio = tom forte; Progresso = tom claro da mesma cor (mantém a
+// identidade da matéria e ainda distingue os dois indicadores).
+const CORES_MATERIA = {
+  'Biologia':   { dom: '#10b981', prog: '#6ee7b7' },
+  'Química':    { dom: '#a855f7', prog: '#c4b5fd' },
+  'Física':     { dom: '#3b82f6', prog: '#93c5fd' },
+  'Matemática': { dom: '#ef4444', prog: '#fca5a5' },
+};
 // Converte valor (decimal 0–1, "73%" ou número) para inteiro 0–100.
 function toPct100(val) {
   const n = parseFloat(String(val ?? '').replace('%', '').replace(',', '.'));
@@ -39,22 +49,27 @@ function DeltaBadge({ diff, positivo, suffix }) {
   );
 }
 
-// KPI principal (destaque): número grande + sub + delta + barra opcional.
+// KPI principal (destaque). Altura padronizada: título reserva 2 linhas
+// (minHeight) pra alinhar os números entre cards, e a área da barra fica
+// ancorada no rodapé (marginTop auto) e sempre reserva espaço — assim todos
+// os 4 cards ficam exatamente da mesma altura, com ou sem barra.
 function KpiCard({ label, valor, sub, delta, suffix, bar, theme }) {
   const borderColor = borderColorMap[theme] || '#94a3b8';
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: `4px solid ${borderColor}`, borderRadius: 12, padding: '14px 16px' }}>
-      <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', marginBottom: 8 }}>{label}</p>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: `4px solid ${borderColor}`, borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', margin: 0, minHeight: 26, lineHeight: 1.3 }}>{label}</p>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
         <span style={{ fontSize: 30, fontWeight: 800, color: '#060242', lineHeight: 1 }}>{valor}</span>
         {sub ? <span style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{sub}</span> : null}
         <DeltaBadge diff={delta?.diff} positivo={delta?.positivo} suffix={suffix} />
       </div>
-      {bar != null ? (
-        <div style={{ marginTop: 10, height: 6, background: '#eef2f7', borderRadius: 9999, overflow: 'hidden' }}>
-          <div style={{ width: `${Math.min(100, bar)}%`, height: '100%', background: bar >= 100 ? '#34d399' : borderColor, borderRadius: 9999 }} />
+      <div style={{ marginTop: 'auto', paddingTop: 10 }}>
+        <div style={{ height: 6, borderRadius: 9999, overflow: 'hidden', background: bar != null ? '#eef2f7' : 'transparent' }}>
+          {bar != null ? (
+            <div style={{ width: `${Math.min(100, bar)}%`, height: '100%', background: bar >= 100 ? '#34d399' : borderColor, borderRadius: 9999 }} />
+          ) : null}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
@@ -309,29 +324,30 @@ function ExportarAcompanhamento() {
                 </div>
               )}
 
-              {/* 2. Consistência (streak) */}
+              {/* 2. Consistência (✓/✗ por semana — autoexplicativo) */}
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', margin: 0 }}>
-                    Consistência — Horas vs Meta
-                  </p>
-                  {semTotal > 0 ? (
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
-                      {semBatidas}/{semTotal} semanas na meta
-                    </span>
-                  ) : null}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {historicoConsistencia.map((bateu, i) => (
-                    <div key={i} style={{
-                      width: 26, height: 26, borderRadius: 6,
-                      background: bateu ? '#34d399' : '#fca5a5',
-                    }} title={`Semana ${i + 1}`} />
-                  ))}
-                  {[...Array(Math.max(0, 4 - historicoConsistencia.length))].map((_, i) => (
-                    <div key={`ph${i}`} style={{ width: 26, height: 26, borderRadius: 6, background: '#f1f5f9', border: '1px solid #e2e8f0' }} />
-                  ))}
-                </div>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', margin: '0 0 8px' }}>
+                  Bateu a meta de horas?
+                </p>
+                {semTotal > 0 ? (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      {historicoConsistencia.map((bateu, i) => (
+                        <span key={i} style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: bateu ? '#10b981' : '#ef4444' }}>
+                          {bateu ? '✓' : '✗'}
+                        </span>
+                      ))}
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginLeft: 6 }}>
+                        {semBatidas} de {semTotal} na meta
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 10, color: '#94a3b8', margin: '6px 0 0' }}>
+                      ✓ bateu a meta · ✗ não bateu · últimas {semTotal} semanas
+                    </p>
+                  </>
+                ) : (
+                  <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Sem semanas registradas ainda.</p>
+                )}
               </div>
 
               {/* 3. FOCO — Meta + Plano de Ação (último diário) */}
@@ -384,13 +400,16 @@ function ExportarAcompanhamento() {
                 <div>
                   {secaoLabel('Desempenho por matéria')}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 24px' }}>
-                    {materias.map((m) => (
-                      <div key={m.nome} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#334155' }}>{m.nome}</span>
-                        <Barra label="Domínio" valor={m.dom} cor="#3b82f6" />
-                        <Barra label="Progresso" valor={m.prog} cor="#a855f7" />
-                      </div>
-                    ))}
+                    {materias.map((m) => {
+                      const c = CORES_MATERIA[m.nome] || { dom: '#3b82f6', prog: '#93c5fd' };
+                      return (
+                        <div key={m.nome} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: c.dom }}>{m.nome}</span>
+                          <Barra label="Domínio" valor={m.dom} cor={c.dom} />
+                          <Barra label="Progresso" valor={m.prog} cor={c.prog} />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
