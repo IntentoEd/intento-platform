@@ -209,6 +209,7 @@ function ExportarAcompanhamento() {
     nome,
     dom: toPct100(desemp[i * 2]?.curr),
     prog: toPct100(desemp[i * 2 + 1]?.curr),
+    domDelta: calcDelta(desemp[i * 2], 'pct', false),
   }));
 
   // Estilo de vida (barras) — maior = melhor em todas as dimensões
@@ -414,11 +415,13 @@ function ExportarAcompanhamento() {
                       const c = CORES_MATERIA[m.nome] || { main: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' };
                       return (
                         <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                            <span style={{ fontSize: 13, fontWeight: 800, color: c.main }}>{m.nome}</span>
-                            <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap' }}>
-                              Domínio <span style={{ fontWeight: 800, color: '#060242' }}>{m.dom}%</span>
-                            </span>
+                          <span style={{ fontSize: 12, fontWeight: 800, color: c.main }}>{m.nome}</span>
+                          <div>
+                            <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', margin: '0 0 2px' }}>Domínio</p>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                              <span style={{ fontSize: 20, fontWeight: 800, color: '#060242', lineHeight: 1 }}>{m.dom}%</span>
+                              <DeltaBadge diff={m.domDelta?.diff} positivo={m.domDelta?.positivo} />
+                            </div>
                           </div>
                           <Barra label="Progresso" valor={m.prog} cor={c.main} />
                         </div>
