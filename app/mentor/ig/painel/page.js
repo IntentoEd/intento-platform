@@ -8,9 +8,13 @@ import Link from 'next/link';
 import { useMentor } from '@/lib/MentorContext';
 import { LoadingInline } from '@/components/Loading';
 
-// Cor por disciplina (Bio verde, Qui roxo, Fis azul, Mat vermelho).
+// Cor por disciplina (Bio verde, Qui roxo, Fis azul, Mat vermelho):
+// main = título + barra; bg/border = fundo suave do mini card.
 const CORES_MATERIA = {
-  'Biologia': '#10b981', 'Química': '#a855f7', 'Física': '#3b82f6', 'Matemática': '#ef4444',
+  'Biologia':   { main: '#10b981', bg: '#ecfdf5', border: '#bbf7d0' },
+  'Química':    { main: '#a855f7', bg: '#faf5ff', border: '#e9d5ff' },
+  'Física':     { main: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' },
+  'Matemática': { main: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
 };
 // Converte valor (decimal 0–1, "73%" ou número) para inteiro 0–100.
 function toPct100(val) {
@@ -401,22 +405,22 @@ function ExportarAcompanhamento() {
                 </div>
               )}
 
-              {/* 4. Desempenho por matéria (secundário) — Domínio número, Progresso barra */}
+              {/* 4. Desempenho por matéria (secundário) — mini card tingido por disciplina */}
               {desemp.length > 0 && (
                 <div>
                   {secaoLabel('Desempenho por matéria')}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 24px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     {materias.map((m) => {
-                      const cor = CORES_MATERIA[m.nome] || '#3b82f6';
+                      const c = CORES_MATERIA[m.nome] || { main: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' };
                       return (
-                        <div key={m.nome} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: cor }}>{m.nome}</span>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>
-                              Domínio <span style={{ color: '#060242' }}>{m.dom}%</span>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: c.main }}>{m.nome}</span>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap' }}>
+                              Domínio <span style={{ fontWeight: 800, color: '#060242' }}>{m.dom}%</span>
                             </span>
                           </div>
-                          <Barra label="Progresso" valor={m.prog} cor={cor} />
+                          <Barra label="Progresso" valor={m.prog} cor={c.main} />
                         </div>
                       );
                     })}
