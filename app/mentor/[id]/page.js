@@ -1951,10 +1951,14 @@ export default function GestaoIndividualAluno() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {lista.slice().sort((a, b) => String(b.data || '').localeCompare(String(a.data || ''))).map(sim => {
-                      const total = (sim.lg || 0) + (sim.ch || 0) + (sim.cn || 0) + (sim.mat || 0);
+                      const isCustom = sim.modelo === 'Custom';
+                      const total = isCustom
+                        ? (sim.materias || []).reduce((s, m) => s + (parseInt(m.acertos) || 0), 0)
+                        : (sim.lg || 0) + (sim.ch || 0) + (sim.cn || 0) + (sim.mat || 0);
                       const concluido = sim.status === 'Concluída';
+                      const temAAR = sim.aar && (sim.aar.esperava || sim.aar.aconteceu || sim.aar.porque || (sim.aar.acoes || []).some(a => a.texto));
                       const temAnalise = concluido && (
-                        (sim.errosLista && sim.errosLista.length > 0) ||
+                        (sim.errosLista && sim.errosLista.length > 0) || temAAR ||
                         sim.kolb?.exp || sim.kolb?.ref || sim.kolb?.con || sim.kolb?.acao || sim.kolb?.redacao
                       );
                       return (
@@ -1969,17 +1973,32 @@ export default function GestaoIndividualAluno() {
                               <p className="text-[11px] text-slate-400 mt-0.5">{sim.data || '—'}</p>
                             </div>
                             <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex justify-between items-center">
-                              <span className="text-xs font-medium text-slate-500">Acertos</span>
-                              <span className="font-bold text-intento-blue text-sm">{total}<span className="text-xs text-slate-400 font-normal">/180</span></span>
+                              <span className="text-xs font-medium text-slate-500">{isCustom ? 'Aproveitamento' : 'Acertos'}</span>
+                              {isCustom
+                                ? <span className="font-bold text-intento-blue text-sm">{sim.aproveitamento ?? 0}%</span>
+                                : <span className="font-bold text-intento-blue text-sm">{total}<span className="text-xs text-slate-400 font-normal">/180</span></span>}
                             </div>
-                            <div className="grid grid-cols-4 gap-1.5 text-center">
-                              {[['LG', sim.lg, 'text-sky-600'], ['CH', sim.ch, 'text-orange-500'], ['CN', sim.cn, 'text-emerald-600'], ['MAT', sim.mat, 'text-red-500']].map(([l, v, tw]) => (
-                                <div key={l} className="bg-slate-50 rounded p-1.5 border border-slate-100">
-                                  <p className="text-[9px] text-slate-400 font-medium uppercase">{l}</p>
-                                  <p className={`text-sm font-bold ${tw}`}>{v || 0}</p>
+                            {isCustom ? (
+                              (sim.materias || []).length > 0 && (
+                                <div className="space-y-1">
+                                  {(sim.materias || []).map((m, i) => (
+                                    <div key={i} className="flex justify-between items-center text-[11px] bg-slate-50 rounded px-2 py-1 border border-slate-100">
+                                      <span className="text-slate-600 font-medium truncate">{m.materia}</span>
+                                      <span className="font-bold text-slate-700 shrink-0 ml-2">{m.acertos || 0}<span className="text-slate-400 font-normal">/{m.questoes || 0}</span></span>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
+                              )
+                            ) : (
+                              <div className="grid grid-cols-4 gap-1.5 text-center">
+                                {[['LG', sim.lg, 'text-sky-600'], ['CH', sim.ch, 'text-orange-500'], ['CN', sim.cn, 'text-emerald-600'], ['MAT', sim.mat, 'text-red-500']].map(([l, v, tw]) => (
+                                  <div key={l} className="bg-slate-50 rounded p-1.5 border border-slate-100">
+                                    <p className="text-[9px] text-slate-400 font-medium uppercase">{l}</p>
+                                    <p className={`text-sm font-bold ${tw}`}>{v || 0}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             {sim.redacao > 0 && (
                               <div className="flex justify-between items-center text-xs">
                                 <span className="text-slate-500 font-medium">Redação</span>
@@ -2027,7 +2046,13 @@ export default function GestaoIndividualAluno() {
             acc[a].push(e);
             return acc;
           }, {});
-          const totalAcertos = (sim.lg || 0) + (sim.ch || 0) + (sim.cn || 0) + (sim.mat || 0);
+          const isCustom = sim.modelo === 'Custom';
+          const totalAcertos = isCustom
+            ? (sim.materias || []).reduce((s, m) => s + (parseInt(m.acertos) || 0), 0)
+            : (sim.lg || 0) + (sim.ch || 0) + (sim.cn || 0) + (sim.mat || 0);
+          const totalQuestoes = isCustom ? (sim.materias || []).reduce((s, m) => s + (parseInt(m.questoes) || 0), 0) : 180;
+          const fmtDataAcao = (d) => (d && d.indexOf('-') > -1) ? d.split('-').reverse().join('/') : (d || '');
+          const temAAR = sim.aar && (sim.aar.esperava || sim.aar.aconteceu || sim.aar.porque || (sim.aar.acoes || []).some(a => a.texto));
 
           return (
             <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in"
@@ -2040,7 +2065,7 @@ export default function GestaoIndividualAluno() {
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{sim.modelo || 'ENEM'} · {sim.data}</p>
                     <h2 className="text-base font-semibold text-intento-blue mt-0.5">{sim.especificacao || 'Análise do Simulado'}</h2>
                     <div className="flex items-center gap-4 mt-2 text-xs">
-                      <span className="text-slate-500">Acertos: <span className="font-bold text-intento-blue">{totalAcertos}/180</span></span>
+                      <span className="text-slate-500">Acertos: <span className="font-bold text-intento-blue">{totalAcertos}/{totalQuestoes}</span></span>
                       {sim.redacao > 0 && <span className="text-slate-500">Redação: <span className="font-bold text-intento-blue">{sim.redacao}</span></span>}
                     </div>
                   </div>
@@ -2100,8 +2125,42 @@ export default function GestaoIndividualAluno() {
                     )}
                   </section>
 
-                  {/* ANÁLISE SUBJETIVA */}
-                  {(sim.kolb?.exp || sim.kolb?.ref || sim.kolb?.con || sim.kolb?.acao || sim.kolb?.redacao) && (
+                  {/* ANÁLISE SUBJETIVA — AAR (novo fluxo) */}
+                  {temAAR && (
+                    <section>
+                      <div className="flex items-baseline justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-intento-blue">Análise da Prova</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                          { titulo: 'O que esperava', texto: sim.aar?.esperava,  accent: 'border-l-blue-400' },
+                          { titulo: 'O que aconteceu', texto: sim.aar?.aconteceu, accent: 'border-l-amber-400' },
+                          { titulo: 'Por quê',         texto: sim.aar?.porque,    accent: 'border-l-purple-400', full: true },
+                        ].filter(b => b.texto).map(b => (
+                          <div key={b.titulo} className={`bg-white rounded-xl border border-slate-200 border-l-4 ${b.accent} p-4 ${b.full ? 'md:col-span-2' : ''}`}>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{b.titulo}</p>
+                            <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{b.texto}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {(sim.aar?.acoes || []).filter(a => a.texto).length > 0 && (
+                        <div className="mt-4 bg-white rounded-xl border border-slate-200 border-l-4 border-l-emerald-400 p-4">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Plano de ação</p>
+                          <div className="space-y-2">
+                            {sim.aar.acoes.filter(a => a.texto).map((a, i) => (
+                              <div key={i} className="flex justify-between items-center gap-3 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+                                <span className="text-xs text-slate-700 font-medium">{a.texto}</span>
+                                {a.data && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1 shrink-0">{fmtDataAcao(a.data)}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </section>
+                  )}
+
+                  {/* ANÁLISE SUBJETIVA — Kolb (legado: só simulados antigos sem AAR) */}
+                  {!temAAR && (sim.kolb?.exp || sim.kolb?.ref || sim.kolb?.con || sim.kolb?.acao || sim.kolb?.redacao) && (
                     <section>
                       <div className="flex items-baseline justify-between mb-4">
                         <h3 className="text-sm font-semibold text-intento-blue">Análise Subjetiva (Kolb)</h3>
