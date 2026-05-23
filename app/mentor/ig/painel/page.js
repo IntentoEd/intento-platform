@@ -28,36 +28,42 @@ function toNum(val) {
 }
 const fmtH = (n) => (n % 1 === 0 ? String(n) : n.toFixed(1));
 
-// Selo de variação vs. semana anterior.
-function DeltaBadge({ diff, positivo, suffix }) {
-  if (diff == null || diff === 0) return null;
+// Tokens de tipografia — uma escala única pra unificar todo o card.
+const T = {
+  label:   { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', margin: 0 },
+  numLg:   { fontSize: 30, fontWeight: 800, color: '#060242', lineHeight: 1 },
+  numMd:   { fontSize: 20, fontWeight: 800, color: '#060242', lineHeight: 1 },
+  numSm:   { fontSize: 12, fontWeight: 700, color: '#060242', lineHeight: 1 },
+  sub:     { fontSize: 13, fontWeight: 600, color: '#94a3b8' },
+  caption: { fontSize: 9,  fontWeight: 600, color: '#94a3b8' },
+  body:    { fontSize: 13, fontWeight: 600, color: '#1e293b', lineHeight: 1.4 },
+};
+
+// Variação vs. semana anterior — texto inline (seta + valor), SEM pílula,
+// pra encostar na baseline do número. Seta = direção; cor = bom/ruim.
+function Delta({ info, suffix }) {
+  if (!info || info.diff == null || info.diff === 0) return null;
+  const abs = Math.abs(info.diff);
   return (
-    <span style={{
-      fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 9999,
-      background: positivo ? '#d1fae5' : '#fee2e2',
-      color: positivo ? '#065f46' : '#7f1d1d',
-    }}>
-      {diff > 0 ? '+' : ''}{diff % 1 === 0 ? diff.toFixed(0) : diff.toFixed(1)}{suffix || ''}
+    <span style={{ fontSize: 11, fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap', color: info.positivo ? '#059669' : '#dc2626' }}>
+      {info.diff > 0 ? '▲' : '▼'} {abs % 1 === 0 ? abs : abs.toFixed(1)}{suffix || ''}
     </span>
   );
 }
 
-// KPI principal (destaque) — estilo minimalista: card branco, borda suave +
-// sombra leve, sem barra colorida à esquerda. Cor só onde significa algo
-// (selo de delta e barra de horas vs. meta). Altura padronizada: título
-// reserva 2 linhas e a área da barra fica ancorada no rodapé reservando
-// espaço, então os 4 cards ficam exatamente da mesma altura.
+// KPI principal (destaque) — card branco minimalista. Altura padronizada:
+// rótulo reserva 2 linhas e a barra fica ancorada no rodapé.
 function KpiCard({ label, valor, sub, delta, suffix, bar }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #e8ecf2', borderRadius: 14, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: '14px 16px', display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', margin: 0, minHeight: 26, lineHeight: 1.3 }}>{label}</p>
+      <p style={{ ...T.label, minHeight: 26, lineHeight: 1.3 }}>{label}</p>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-        <span style={{ fontSize: 30, fontWeight: 800, color: '#060242', lineHeight: 1 }}>{valor}</span>
-        {sub ? <span style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{sub}</span> : null}
-        <DeltaBadge diff={delta?.diff} positivo={delta?.positivo} suffix={suffix} />
+        <span style={T.numLg}>{valor}</span>
+        {sub ? <span style={T.sub}>{sub}</span> : null}
+        <Delta info={delta} suffix={suffix} />
       </div>
       <div style={{ marginTop: 'auto', paddingTop: 10 }}>
-        <div style={{ height: 6, borderRadius: 9999, overflow: 'hidden', background: bar != null ? '#eef2f7' : 'transparent' }}>
+        <div style={{ height: 7, borderRadius: 9999, overflow: 'hidden', background: bar != null ? 'rgba(6,2,66,0.08)' : 'transparent' }}>
           {bar != null ? (
             <div style={{ width: `${Math.min(100, bar)}%`, height: '100%', background: bar >= 100 ? '#10b981' : '#060242', borderRadius: 9999 }} />
           ) : null}
@@ -67,16 +73,18 @@ function KpiCard({ label, valor, sub, delta, suffix, bar }) {
   );
 }
 
-// Barra horizontal 0–100% (Desempenho / Estilo de Vida — secundários).
-function Barra({ label, valor, cor }) {
+// Barra horizontal 0–100% (Desempenho / Estilo). Track translúcido (funciona
+// em fundo branco ou tingido). Delta opcional, alinhado numa coluna à direita.
+function Barra({ label, valor, cor, delta }) {
   const v = Math.max(0, Math.min(100, valor));
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: '#475569', width: 66, flexShrink: 0 }}>{label}</span>
-      <div style={{ flex: 1, height: 8, background: '#eef2f7', borderRadius: 9999, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ ...T.label, width: 66, flexShrink: 0 }}>{label}</span>
+      <div style={{ flex: 1, height: 7, background: 'rgba(6,2,66,0.08)', borderRadius: 9999, overflow: 'hidden' }}>
         <div style={{ width: `${v}%`, height: '100%', background: cor, borderRadius: 9999 }} />
       </div>
-      <span style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', width: 34, textAlign: 'right', flexShrink: 0 }}>{valor}%</span>
+      <span style={{ ...T.numSm, width: 32, textAlign: 'right', flexShrink: 0 }}>{valor}%</span>
+      {delta ? <span style={{ width: 36, textAlign: 'right', flexShrink: 0 }}><Delta info={delta} /></span> : null}
     </div>
   );
 }
@@ -210,6 +218,7 @@ function ExportarAcompanhamento() {
     dom: toPct100(desemp[i * 2]?.curr),
     prog: toPct100(desemp[i * 2 + 1]?.curr),
     domDelta: calcDelta(desemp[i * 2], 'pct', false),
+    progDelta: calcDelta(desemp[i * 2 + 1], 'pct', false),
   }));
 
   // Estilo de vida (barras) — maior = melhor em todas as dimensões
@@ -226,9 +235,7 @@ function ExportarAcompanhamento() {
   const semTotal = consistencia4.length;
 
   const secaoLabel = (texto) => (
-    <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: 10 }}>
-      {texto}
-    </p>
+    <p style={{ ...T.label, marginBottom: 10 }}>{texto}</p>
   );
 
   return (
@@ -327,9 +334,7 @@ function ExportarAcompanhamento() {
               {/* 2. Consistência (últimas 4 semanas — caixas ✓/✗ com data) */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', margin: 0 }}>
-                    Bateu a meta de horas?
-                  </p>
+                  <p style={T.label}>Bateu a meta de horas?</p>
                   {semTotal > 0 ? (
                     <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
                       {semBatidas} de {semTotal} na meta
@@ -350,7 +355,7 @@ function ExportarAcompanhamento() {
                         }}>
                           {bateu ? '✓' : '✗'}
                         </div>
-                        <span style={{ fontSize: 9, fontWeight: 600, color: '#94a3b8' }}>
+                        <span style={T.caption}>
                           {labels4[i] ? curtaData(labels4[i]) : `S${i + 1}`}
                         </span>
                       </div>
@@ -364,14 +369,14 @@ function ExportarAcompanhamento() {
               {/* 3. FOCO — Meta + Plano de Ação (último diário) */}
               {(metasDiario.length > 0 || acoesDiario.length > 0) && (
                 <div style={{ background: '#fbfaf5', border: '1px solid #f0e9d2', borderRadius: 14, padding: 16 }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9a7b1f', marginBottom: 12 }}>
+                  <p style={{ ...T.label, color: '#9a7b1f', marginBottom: 12 }}>
                     Foco{ultimoEncontro?.data ? ` · último diário ${ultimoEncontro.data}` : ''}
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
                     {metasDiario.length > 0 && (
                       <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderLeft: '4px solid #D4B726', borderRadius: 12, padding: 14 }}>
-                        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8', marginBottom: 8 }}>
+                        <p style={{ ...T.label, marginBottom: 8 }}>
                           {metasDiario.length === 1 ? 'Meta' : 'Metas'}
                         </p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -380,7 +385,7 @@ function ExportarAcompanhamento() {
                               {metasDiario.length > 1 && (
                                 <span style={{ fontSize: 10, fontWeight: 700, background: '#fde68a', color: '#78350f', borderRadius: 4, padding: '2px 6px', minWidth: 18, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
                               )}
-                              <p style={{ fontSize: 13, color: '#1e293b', fontWeight: 600, lineHeight: 1.4, margin: 0 }}>{m}</p>
+                              <p style={{ ...T.body, margin: 0 }}>{m}</p>
                             </div>
                           ))}
                         </div>
@@ -389,13 +394,13 @@ function ExportarAcompanhamento() {
 
                     {acoesDiario.length > 0 && (
                       <div>
-                        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8', marginBottom: 8 }}>
+                        <p style={{ ...T.label, marginBottom: 8 }}>
                           Plano de Ação
                         </p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           {acoesDiario.map((a, i) => (
                             <div key={i} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 14px' }}>
-                              <span style={{ fontSize: 12, color: '#1e293b', fontWeight: 600 }}>{i + 1}. {a}</span>
+                              <span style={T.body}>{i + 1}. {a}</span>
                             </div>
                           ))}
                         </div>
@@ -414,16 +419,16 @@ function ExportarAcompanhamento() {
                     {materias.map((m) => {
                       const c = CORES_MATERIA[m.nome] || { main: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' };
                       return (
-                        <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                           <span style={{ fontSize: 12, fontWeight: 800, color: c.main }}>{m.nome}</span>
                           <div>
-                            <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', margin: '0 0 2px' }}>Domínio</p>
+                            <p style={{ ...T.label, marginBottom: 3 }}>Domínio</p>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                              <span style={{ fontSize: 20, fontWeight: 800, color: '#060242', lineHeight: 1 }}>{m.dom}%</span>
-                              <DeltaBadge diff={m.domDelta?.diff} positivo={m.domDelta?.positivo} />
+                              <span style={T.numMd}>{m.dom}%</span>
+                              <Delta info={m.domDelta} />
                             </div>
                           </div>
-                          <Barra label="Progresso" valor={m.prog} cor={c.main} />
+                          <Barra label="Progresso" valor={m.prog} cor={c.main} delta={m.progDelta} />
                         </div>
                       );
                     })}
@@ -435,8 +440,8 @@ function ExportarAcompanhamento() {
               {estiloBars.length > 0 && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', margin: 0 }}>Estilo de Vida</p>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8' }}>maior = melhor</span>
+                    <p style={T.label}>Estilo de Vida</p>
+                    <span style={T.caption}>maior = melhor</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
                     {estiloBars.map((e) => (
