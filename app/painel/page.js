@@ -288,17 +288,16 @@ export default function PainelDoAluno() {
     if (salvandoSimulado) return;
     const idPlanilha = getSpreadsheetId();
 
+    // Validações ANTES de marcar "salvando" — senão um erro de validação
+    // sai sem resetar o estado e o botão trava em "Salvando..." pra sempre.
     if (!idPlanilha) {
       mostrarToast("Erro: ID da planilha não encontrado na sessão.", "error");
       return;
     }
-    setSalvandoSimulado(true);
-
-    if(!formRegistro.data || !formRegistro.especificacao) {
+    if (!formRegistro.data || !formRegistro.especificacao) {
       mostrarToast("Preencha a data e a especificação.", "error");
       return;
     }
-
     // TODO: validation also in backend
     if (tipoModelo === 'ENEM') {
       const invalido = ['lg', 'ch', 'cn', 'mat'].some(k => {
@@ -311,6 +310,7 @@ export default function PainelDoAluno() {
       }
     }
 
+    setSalvandoSimulado(true);
     mostrarToast("Registrando Simulado...", "success");
     try {
       const res = await apiFetch('/api/mentor', {
