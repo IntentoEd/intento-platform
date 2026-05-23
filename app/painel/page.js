@@ -34,6 +34,37 @@ const DISCIPLINAS_ENEM = {
   'Matemática': ['Matemática']
 };
 
+// After Action Review (substitui o Ciclo de Kolb na análise subjetiva)
+const EMPTY_AAR = { esperava: '', aconteceu: '', porque: '', acoes: [{ texto: '', data: '' }] };
+const AAR_ESPERAVA_OPCOES = ['Fui melhor que esperava', 'Saiu como esperado', 'Fui pior que esperava'];
+
+// Resumo de desempenho p/ os cards read-only da Etapa 2 (ENEM e Custom)
+const resumoDesempenho = (sim) => {
+  let itens = [];
+  if (sim.modelo === 'Custom') {
+    itens = (sim.materias || []).map(m => ({
+      nome: m.materia,
+      pct: parseInt(m.questoes || 0) > 0 ? Math.round((parseInt(m.acertos || 0) / parseInt(m.questoes)) * 100) : 0
+    }));
+  } else {
+    itens = [
+      { nome: 'Linguagens', pct: Math.round((parseInt(sim.lg || 0) / 45) * 100) },
+      { nome: 'Humanas',    pct: Math.round((parseInt(sim.ch || 0) / 45) * 100) },
+      { nome: 'Natureza',   pct: Math.round((parseInt(sim.cn || 0) / 45) * 100) },
+      { nome: 'Matemática', pct: Math.round((parseInt(sim.mat || 0) / 45) * 100) },
+    ];
+  }
+  const aprov = sim.modelo === 'Custom'
+    ? (sim.aproveitamento ?? 0)
+    : Math.round(((parseInt(sim.lg || 0) + parseInt(sim.ch || 0) + parseInt(sim.cn || 0) + parseInt(sim.mat || 0)) / 180) * 100);
+  let forte = null, fraca = null;
+  itens.forEach(it => {
+    if (!forte || it.pct > forte.pct) forte = it;
+    if (!fraca || it.pct < fraca.pct) fraca = it;
+  });
+  return { aprov, areaForte: forte ? forte.nome : '—', areaFraca: fraca ? fraca.nome : '—' };
+};
+
 // =========================================================================
 // COMPONENTE: CARDS DE DESEMPENHO (Anterior -> Atual)
 // =========================================================================
@@ -119,15 +150,16 @@ export default function PainelDoAluno() {
 
   // ESTADOS DO SIMULADO 
   const [modalRegistroAberto, setModalRegistroAberto] = useState(false);
-  const [tipoModelo, setTipoModelo] = useState("ENEM"); 
+  const [tipoModelo, setTipoModelo] = useState("ENEM");
   const [formRegistro, setFormRegistro] = useState({ data: '', especificacao: '', lg: '', ch: '', cn: '', mat: '', redacao: '' });
+  const [materiasCustom, setMateriasCustom] = useState([]); // [{materia, questoes, acertos}]
   const [topicosDicionario, setTopicosDicionario] = useState({});
   
   // A Visualização da Análise
   const [simuladoAnalise, setSimuladoAnalise] = useState(null);
   const [abaAnalise, setAbaAnalise] = useState('Objetiva'); 
   const [areaExpandida, setAreaExpandida] = useState(null); // O NOVO CONTROLE DA SANFONA
-  const [formAutopsia, setFormAutopsia] = useState({ erros: [], kolb: { exp: '', ref: '', con: '', acao: '', redacao: '' } });
+  const [formAutopsia, setFormAutopsia] = useState({ erros: [], aar: EMPTY_AAR });
   const [salvandoAutopsia, setSalvandoAutopsia] = useState(false);
   const [salvandoSimulado, setSalvandoSimulado] = useState(false);
   const [salvandoCaderno, setSalvandoCaderno] = useState(false);
@@ -225,46 +257,85 @@ export default function PainelDoAluno() {
   // FUNÇÕES DO SIMULADO (A ANÁLISE)
   // =========================================================================
   const iniciarAutopsia = (sim) => {
-    // SE O SIMULADO JÁ TEM DADOS SALVOS, NÓS CARREGAMOS A MEMÓRIA!
-    if (sim.erros && sim.erros.length > 0) {
-      setFormAutopsia({ erros: sim.erros, kolb: sim.kolb });
+    // Normaliza AAR salvo (garante ao menos 1 ação)
+    const aarSalvo = (sim.aar && typeof sim.aar === 'object')
+      ? {
+          esperava: sim.aar.esperava || '',
+          aconteceu: sim.aar.aconteceu || '',
+          porque: sim.aar.porque || '',
+          acoes: (Array.isArray(sim.aar.acoes) && sim.aar.acoes.length) ? sim.aar.acoes : [{ texto: '', data: '' }]
+        }
+      : EMPTY_AAR;
+
+    // SE A ANÁLISE OBJETIVA JÁ FOI SALVA, CARREGA A MEMÓRIA (errosLista, não os counts)
+    if (sim.errosLista && sim.errosLista.length > 0) {
+      setFormAutopsia({ erros: sim.errosLista, aar: aarSalvo });
       setSimuladoAnalise(sim);
       setAbaAnalise('Objetiva');
       setAreaExpandida(null);
-      window.scrollTo(0, 0); 
-      return; // Para a função aqui, não gera linhas novas.
+      window.scrollTo(0, 0);
+      return;
     }
 
-    // SE É A PRIMEIRA VEZ, GERA AS CAIXAS VAZIAS (Como já funcionava)
+    // PRIMEIRA VEZ: gera as caixas vazias por área (ENEM) ou matéria (Custom)
     let errosGerados = [];
     let idCounter = 0;
     let primeiraAreaComErro = null;
 
-    if (sim.modelo === 'ENEM') {
+    if (sim.modelo === 'Custom') {
+      (sim.materias || []).forEach(m => {
+        const qtdErros = Math.max(0, parseInt(m.questoes || 0) - parseInt(m.acertos || 0));
+        if (qtdErros > 0 && !primeiraAreaComErro) primeiraAreaComErro = m.materia;
+        for (let i = 0; i < qtdErros; i++) {
+          // No Custom a matéria já é a disciplina (tópicos vêm de topicosDicionario[materia])
+          errosGerados.push({ id: idCounter++, area: m.materia, questao: '', disciplina: m.materia, topico: '', tipo: '' });
+        }
+      });
+    } else {
       const areas = [
         { nome: 'Linguagens', acertos: parseInt(sim.lg || 0), total: 45 },
         { nome: 'Humanas', acertos: parseInt(sim.ch || 0), total: 45 },
         { nome: 'Natureza', acertos: parseInt(sim.cn || 0), total: 45 },
         { nome: 'Matemática', acertos: parseInt(sim.mat || 0), total: 45 }
       ];
-
       areas.forEach(a => {
         const qtdErros = a.total - a.acertos;
         if (qtdErros > 0 && !primeiraAreaComErro) primeiraAreaComErro = a.nome;
-        
-        for(let i = 0; i < qtdErros; i++) {
+        for (let i = 0; i < qtdErros; i++) {
           const disciplinaPadrao = a.nome === 'Matemática' ? 'Matemática' : '';
           errosGerados.push({ id: idCounter++, area: a.nome, questao: '', disciplina: disciplinaPadrao, topico: '', tipo: '' });
         }
       });
     }
 
-    setFormAutopsia({ erros: errosGerados, kolb: { exp: '', ref: '', con: '', acao: '', redacao: '' } });
+    setFormAutopsia({ erros: errosGerados, aar: aarSalvo });
     setSimuladoAnalise(sim);
     setAbaAnalise('Objetiva');
     setAreaExpandida(primeiraAreaComErro);
-    window.scrollTo(0, 0); 
+    window.scrollTo(0, 0);
   };
+
+  // Helpers do AAR (Etapa 4 = lista de ações com data)
+  const setAarCampo = (campo, valor) => setFormAutopsia(f => ({ ...f, aar: { ...f.aar, [campo]: valor } }));
+  const setAcao = (idx, campo, valor) => setFormAutopsia(f => ({ ...f, aar: { ...f.aar, acoes: f.aar.acoes.map((a, i) => i === idx ? { ...a, [campo]: valor } : a) } }));
+  const addAcao = () => setFormAutopsia(f => f.aar.acoes.length >= 5 ? f : ({ ...f, aar: { ...f.aar, acoes: [...f.aar.acoes, { texto: '', data: '' }] } }));
+  const removeAcao = (idx) => setFormAutopsia(f => ({ ...f, aar: { ...f.aar, acoes: f.aar.acoes.length <= 1 ? f.aar.acoes : f.aar.acoes.filter((_, i) => i !== idx) } }));
+
+  // Helpers de matérias do registro Custom
+  const addMateriaCustom = (materia) => {
+    if (!materia) return;
+    setMateriasCustom(prev => prev.some(m => m.materia === materia) ? prev : [...prev, { materia, questoes: '', acertos: '' }]);
+  };
+  const updateMateriaCustom = (idx, campo, valor) => setMateriasCustom(prev => prev.map((m, i) => i === idx ? { ...m, [campo]: valor } : m));
+  const removeMateriaCustom = (idx) => setMateriasCustom(prev => prev.filter((_, i) => i !== idx));
+
+  // Cabeçalho numerado das etapas do AAR (função, não componente, p/ não remontar inputs)
+  const cabecalhoEtapa = (n, titulo) => (
+    <div className="flex items-center gap-3">
+      <span className="w-7 h-7 rounded-full bg-intento-blue text-white text-sm font-bold flex items-center justify-center shrink-0">{n}</span>
+      <h4 className="text-base font-semibold text-intento-blue">{titulo}</h4>
+    </div>
+  );
 
   
   // A FUNÇÃO DE ESTADO CORRIGIDA (Atualização em Lote)
@@ -299,13 +370,27 @@ export default function PainelDoAluno() {
       return;
     }
     // TODO: validation also in backend
-    if (tipoModelo === 'ENEM') {
+    const isCustom = tipoModelo !== 'ENEM';
+    if (!isCustom) {
       const invalido = ['lg', 'ch', 'cn', 'mat'].some(k => {
         const v = parseInt(formRegistro[k]);
         return isNaN(v) || v < 0 || v > 45;
       });
       if (invalido) {
         mostrarToast("Acertos por área devem estar entre 0 e 45.", "error");
+        return;
+      }
+    } else {
+      if (materiasCustom.length === 0) {
+        mostrarToast("Adicione ao menos uma matéria.", "error");
+        return;
+      }
+      const invalido = materiasCustom.some(m => {
+        const q = parseInt(m.questoes), a = parseInt(m.acertos);
+        return isNaN(q) || q < 1 || isNaN(a) || a < 0 || a > q;
+      });
+      if (invalido) {
+        mostrarToast("Em cada matéria: questões ≥ 1 e acertos entre 0 e o total de questões.", "error");
         return;
       }
     }
@@ -316,17 +401,20 @@ export default function PainelDoAluno() {
       const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          acao: 'salvarSimulado', 
+        body: JSON.stringify({
+          acao: 'salvarSimulado',
           idPlanilha: idPlanilha, // Agora garantido!
-          ...formRegistro 
+          modelo: isCustom ? 'Custom' : 'ENEM',
+          materias: isCustom ? materiasCustom : undefined,
+          ...formRegistro
         })
       });
       const data = await res.json();
-      
+
       if (data.status === 'sucesso') {
         mostrarToast("Registro Salvo! A página será atualizada.", "success");
         setModalRegistroAberto(false);
+        setMateriasCustom([]);
         sessionStorage.setItem('_painelAba', String(abaAtiva));
         setTimeout(() => window.location.reload(), 1500);
       } else {
@@ -353,19 +441,23 @@ export default function PainelDoAluno() {
       }
     }
 
-    if (!formAutopsia.kolb.exp || !formAutopsia.kolb.acao || !formAutopsia.kolb.redacao) {
-      mostrarToast("Preencha os campos obrigatórios no Kolb e Redação.", "error");
+    // AAR: exige ao menos 1 ação com texto + data (Etapa 4)
+    const temAcaoValida = formAutopsia.aar.acoes.some(a => a.texto.trim() && a.data);
+    if (!temAcaoValida) {
+      mostrarToast("Defina ao menos uma ação com data na Etapa 4.", "error");
       setAbaAnalise('Subjetiva'); return;
     }
 
     setSalvandoAutopsia(true);
     try {
+      // Salva só ações preenchidas (texto + data)
+      const aarLimpo = { ...formAutopsia.aar, acoes: formAutopsia.aar.acoes.filter(a => a.texto.trim() && a.data) };
       const payload = {
         acao: 'salvarAutopsia',
         idPlanilha: idPlanilha,
         idSimulado: simuladoAnalise.id,
         statusAnalise: 'Concluída',
-        kolb: formAutopsia.kolb
+        aar: aarLimpo
       };
       // Só reenvia os erros se foram modificados nesta sessão, para não sobrescrever dados já salvos
       if (objetivaModificada) payload.erros = formAutopsia.erros;
@@ -404,12 +496,12 @@ export default function PainelDoAluno() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          acao: 'salvarAutopsia', 
+          acao: 'salvarAutopsia',
           idPlanilha: idPlanilha,
           idSimulado: simuladoAnalise.id,
           statusAnalise: 'Pendente',
           erros: formAutopsia.erros,
-          kolb: formAutopsia.kolb
+          aar: formAutopsia.aar
         })
       });
       mostrarToast("Progresso salvo!", "success");
@@ -773,9 +865,15 @@ export default function PainelDoAluno() {
 
               {/* CARD DE APROVEITAMENTO */}
               {(() => {
-                const acertosTotais = parseInt(simuladoAnalise.lg) + parseInt(simuladoAnalise.ch) + parseInt(simuladoAnalise.cn) + parseInt(simuladoAnalise.mat);
-                const aproveitamento = Math.round((acertosTotais / 180) * 100);
-                
+                const isCustom = simuladoAnalise.modelo === 'Custom';
+                const acertosTotais = isCustom
+                  ? (simuladoAnalise.materias || []).reduce((s, m) => s + parseInt(m.acertos || 0), 0)
+                  : parseInt(simuladoAnalise.lg || 0) + parseInt(simuladoAnalise.ch || 0) + parseInt(simuladoAnalise.cn || 0) + parseInt(simuladoAnalise.mat || 0);
+                const totalQuestoes = isCustom
+                  ? (simuladoAnalise.materias || []).reduce((s, m) => s + parseInt(m.questoes || 0), 0)
+                  : 180;
+                const aproveitamento = totalQuestoes > 0 ? Math.round((acertosTotais / totalQuestoes) * 100) : 0;
+
                 let corBg = "bg-red-50 border-red-200"; let corText = "text-red-700"; let corLabel = "text-red-600";
                 if (aproveitamento >= 71 && aproveitamento <= 84) { corBg = "bg-yellow-50 border-yellow-200"; corText = "text-yellow-700"; corLabel = "text-yellow-600"; }
                 if (aproveitamento >= 85) { corBg = "bg-emerald-50 border-emerald-200"; corText = "text-emerald-700"; corLabel = "text-emerald-600"; }
@@ -786,7 +884,7 @@ export default function PainelDoAluno() {
                       <p className={`text-[10px] ${corLabel} font-medium uppercase tracking-wide`}>Aproveitamento</p>
                       <p className={`text-4xl font-bold ${corText} mt-1`}>{aproveitamento}%</p>
                     </div>
-                    <div className={`${cardClass} text-center py-6`}><p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Total</p><p className="text-4xl font-bold text-intento-blue mt-2">180</p></div>
+                    <div className={`${cardClass} text-center py-6`}><p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Total</p><p className="text-4xl font-bold text-intento-blue mt-2">{totalQuestoes}</p></div>
                     <div className={`${cardClass} text-center py-6`}><p className="text-[10px] text-emerald-500 font-medium uppercase tracking-wide">Acertos</p><p className="text-4xl font-bold text-emerald-600 mt-2">{acertosTotais}</p></div>
                     <div className={`${cardClass} text-center py-6 bg-slate-50`}><p className="text-[10px] text-red-400 font-medium uppercase tracking-wide">Erros</p><p className="text-4xl font-bold text-red-500 mt-2">{formAutopsia.erros.length}</p></div>
                   </div>
@@ -803,7 +901,11 @@ export default function PainelDoAluno() {
                     </p>
                   </div>
                   
-                  {['Linguagens', 'Humanas', 'Natureza', 'Matemática'].map(area => {
+                  {(simuladoAnalise.modelo === 'Custom'
+                    ? (simuladoAnalise.materias || []).map(m => m.materia)
+                    : ['Linguagens', 'Humanas', 'Natureza', 'Matemática']
+                  ).map(area => {
+                    const isCustom = simuladoAnalise.modelo === 'Custom';
                     const errosDaArea = formAutopsia.erros.filter(e => e.area === area);
                     if (errosDaArea.length === 0) return null;
 
@@ -843,19 +945,21 @@ export default function PainelDoAluno() {
                                   <input type="number" placeholder="Ex: 12" min="1" className="w-full p-3 border border-slate-200 rounded-lg font-black text-slate-700 outline-none focus:border-intento-yellow text-center bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={erro.questao} onChange={e => atualizarErro(erro.id, { questao: e.target.value })} />
                                 </div>
 
-                                <div className="w-full md:w-48 shrink-0">
-                                  <label className={labelClass}>Disciplina</label>
-                                  <select className="w-full p-3 border border-slate-200 rounded-lg font-bold text-slate-700 outline-none focus:border-intento-yellow bg-white appearance-none" value={erro.disciplina} onChange={e => atualizarErro(erro.id, { disciplina: e.target.value, topico: '' })}>
-                                    <option value="">Selecione...</option>
-                                    {DISCIPLINAS_ENEM[area].map(d => <option key={d} value={d}>{d}</option>)}
-                                  </select>
-                                </div>
+                                {!isCustom && (
+                                  <div className="w-full md:w-48 shrink-0">
+                                    <label className={labelClass}>Disciplina</label>
+                                    <select className="w-full p-3 border border-slate-200 rounded-lg font-bold text-slate-700 outline-none focus:border-intento-yellow bg-white appearance-none" value={erro.disciplina} onChange={e => atualizarErro(erro.id, { disciplina: e.target.value, topico: '' })}>
+                                      <option value="">Selecione...</option>
+                                      {(DISCIPLINAS_ENEM[area] || []).map(d => <option key={d} value={d}>{d}</option>)}
+                                    </select>
+                                  </div>
+                                )}
 
                                 <div className="flex-1">
                                   <label className={labelClass}>Tópico do Currículo</label>
-                                  <select className="w-full p-3 border border-slate-200 rounded-lg font-bold text-slate-700 outline-none focus:border-intento-yellow bg-white appearance-none" value={erro.topico} onChange={e => atualizarErro(erro.id, { topico: e.target.value })} disabled={!erro.disciplina}>
-                                    <option value="">{erro.disciplina ? "Selecione o Tópico..." : "Escolha a disciplina primeiro"}</option>
-                                    {(topicosDicionario[erro.disciplina] || []).map(t => <option key={t} value={t}>{t}</option>)}
+                                  <select className="w-full p-3 border border-slate-200 rounded-lg font-bold text-slate-700 outline-none focus:border-intento-yellow bg-white appearance-none" value={erro.topico} onChange={e => atualizarErro(erro.id, { topico: e.target.value })} disabled={!isCustom && !erro.disciplina}>
+                                    <option value="">{(isCustom || erro.disciplina) ? "Selecione o Tópico..." : "Escolha a disciplina primeiro"}</option>
+                                    {(topicosDicionario[isCustom ? area : erro.disciplina] || []).map(t => <option key={t} value={t}>{t}</option>)}
                                   </select>
                                 </div>
 
@@ -891,42 +995,83 @@ export default function PainelDoAluno() {
               {/* TELA DE ANÁLISE SUBJETIVA */}
               {abaAnalise === 'Subjetiva' && (
                 <div className="space-y-8 animate-in slide-in-from-bottom-4 fade-in pb-10">
-                  <div className="bg-intento-blue p-6 md:p-8 rounded-xl border border-blue-900/30 relative overflow-hidden">
-                    <h3 className="text-lg font-semibold text-white mb-1">Ciclo de Kolb</h3>
-                    <p className="text-blue-300/70 text-sm mb-8 max-w-2xl">Documente suas percepções emocionais e estratégicas para traçar uma rota de correção para a próxima semana.</p>
+                  <div>
+                    <h3 className="text-lg font-semibold text-intento-blue">Análise da Prova</h3>
+                    <p className="text-slate-400 text-sm">Quatro perguntas rápidas pra transformar este simulado em ação concreta.</p>
+                  </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10">
-                      <div className="bg-white/5 p-5 rounded-xl border border-white/10">
-                        <label className="block text-[10px] font-medium text-intento-yellow/80 uppercase mb-3 tracking-wider flex items-center gap-1.5">1. Experiência <span className="text-blue-300/50 normal-case font-normal">— clique para escrever</span></label>
-                        <textarea className="w-full bg-transparent text-white placeholder-blue-300/40 outline-none resize-none font-normal text-sm leading-relaxed custom-scrollbar focus:placeholder-blue-300/20 transition-all" rows="4" placeholder="Como você se sentiu durante a prova? Houve cansaço, nervosismo, ansiedade ou falta de tempo?" value={formAutopsia.kolb.exp} onChange={e => setFormAutopsia({...formAutopsia, kolb: {...formAutopsia.kolb, exp: e.target.value}})}></textarea>
-                      </div>
-                      <div className="bg-white/5 p-5 rounded-xl border border-white/10">
-                        <label className="block text-[10px] font-medium text-intento-yellow/80 uppercase mb-3 tracking-wider flex items-center gap-1.5">2. Reflexão <span className="text-blue-300/50 normal-case font-normal">— clique para escrever</span></label>
-                        <textarea className="w-full bg-transparent text-white placeholder-blue-300/40 outline-none resize-none font-normal text-sm leading-relaxed custom-scrollbar focus:placeholder-blue-300/20 transition-all" rows="4" placeholder="Olhando para os seus erros, qual foi o seu maior gargalo real?" value={formAutopsia.kolb.ref} onChange={e => setFormAutopsia({...formAutopsia, kolb: {...formAutopsia.kolb, ref: e.target.value}})}></textarea>
-                      </div>
-                      <div className="bg-white/5 p-5 rounded-xl border border-white/10">
-                        <label className="block text-[10px] font-medium text-intento-yellow/80 uppercase mb-3 tracking-wider flex items-center gap-1.5">3. Conceituação <span className="text-blue-300/50 normal-case font-normal">— clique para escrever</span></label>
-                        <textarea className="w-full bg-transparent text-white placeholder-blue-300/40 outline-none resize-none font-normal text-sm leading-relaxed custom-scrollbar focus:placeholder-blue-300/20 transition-all" rows="4" placeholder="O que você aprendeu com a correção destas questões?" value={formAutopsia.kolb.con} onChange={e => setFormAutopsia({...formAutopsia, kolb: {...formAutopsia.kolb, con: e.target.value}})}></textarea>
-                      </div>
-                      <div className="bg-emerald-900/30 p-5 rounded-xl border border-emerald-500/30">
-                        <label className="block text-[10px] font-medium text-emerald-400/80 uppercase mb-3 tracking-wider flex items-center gap-1.5">4. Ação <span className="text-emerald-300/40 normal-case font-normal">— clique para escrever</span></label>
-                        <textarea className="w-full bg-transparent text-white placeholder-emerald-300/40 outline-none resize-none font-normal text-sm leading-relaxed custom-scrollbar focus:placeholder-emerald-300/20 transition-all" rows="4" placeholder="O que você vai mudar na sua rotina de estudos imediatamente?" value={formAutopsia.kolb.acao} onChange={e => setFormAutopsia({...formAutopsia, kolb: {...formAutopsia.kolb, acao: e.target.value}})}></textarea>
-                      </div>
+                  {/* ETAPA 1 — O que eu esperava? */}
+                  <div className="bg-white p-6 md:p-7 rounded-xl border border-slate-200 space-y-4">
+                    {cabecalhoEtapa('1', 'O que eu esperava?')}
+                    <p className="text-sm font-medium text-slate-600">Como você esperava sair neste simulado?</p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      {AAR_ESPERAVA_OPCOES.map(op => {
+                        const ativo = formAutopsia.aar.esperava === op;
+                        return (
+                          <button key={op} type="button" onClick={() => setAarCampo('esperava', op)}
+                            className={`flex-1 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${ativo ? 'bg-intento-blue text-white border-intento-blue' : 'bg-white text-slate-600 border-slate-200 hover:border-intento-blue/40'}`}>
+                            {op}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  <div className="bg-white p-6 md:p-8 rounded-xl border border-slate-200">
-                    <div className="flex items-center gap-3 mb-5">
-                      <div className="w-9 h-9 bg-purple-50 text-purple-500 rounded-lg flex items-center justify-center shrink-0"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></div>
-                      <div>
-                        <h3 className="text-base font-semibold text-intento-blue">Kolb de Redação</h3>
-                        <p className="text-slate-400 text-sm">Nota: <span className="text-purple-500 font-medium">{simuladoAnalise.redacao}</span></p>
-                      </div>
+                  {/* ETAPA 2 — O que aconteceu? */}
+                  <div className="bg-white p-6 md:p-7 rounded-xl border border-slate-200 space-y-4">
+                    {cabecalhoEtapa('2', 'O que aconteceu?')}
+                    {(() => {
+                      const resumo = resumoDesempenho(simuladoAnalise);
+                      return (
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-center">
+                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Aproveitamento</p>
+                            <p className="text-2xl font-bold text-intento-blue mt-1">{resumo.aprov}%</p>
+                          </div>
+                          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
+                            <p className="text-[10px] text-emerald-600 font-medium uppercase tracking-wide">Mais forte</p>
+                            <p className="text-sm font-bold text-emerald-700 mt-1.5 leading-tight">{resumo.areaForte}</p>
+                          </div>
+                          <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-center">
+                            <p className="text-[10px] text-red-500 font-medium uppercase tracking-wide">Mais fraca</p>
+                            <p className="text-sm font-bold text-red-700 mt-1.5 leading-tight">{resumo.areaFraca}</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    <textarea className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 placeholder-slate-400 outline-none resize-none text-sm leading-relaxed focus:border-intento-blue/40 custom-scrollbar" rows="3" placeholder="O que mais te chamou atenção no resultado? Alguma matéria te surpreendeu — pra melhor ou pra pior?" value={formAutopsia.aar.aconteceu} onChange={e => setAarCampo('aconteceu', e.target.value)}></textarea>
+                    {simuladoAnalise.redacao > 0 && (
+                      <p className="text-xs text-slate-400">Nota da redação: <span className="font-semibold text-purple-500">{simuladoAnalise.redacao}</span></p>
+                    )}
+                  </div>
+
+                  {/* ETAPA 3 — Por quê? */}
+                  <div className="bg-white p-6 md:p-7 rounded-xl border border-slate-200 space-y-4">
+                    {cabecalhoEtapa('3', 'Por quê?')}
+                    <p className="text-sm font-medium text-slate-600">Qual foi a causa principal do seu resultado nesta prova?</p>
+                    <textarea className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 placeholder-slate-400 outline-none resize-none text-sm leading-relaxed focus:border-intento-blue/40 custom-scrollbar" rows="3" placeholder="Seja honesto: estudei pouco esse conteúdo? Treinei teoria mas não questões? Foi atenção? Cansaço?" value={formAutopsia.aar.porque} onChange={e => setAarCampo('porque', e.target.value)}></textarea>
+                  </div>
+
+                  {/* ETAPA 4 — O que vou fazer? */}
+                  <div className="bg-white p-6 md:p-7 rounded-xl border border-slate-200 space-y-4">
+                    {cabecalhoEtapa('4', 'O que vou fazer?')}
+                    <p className="text-sm font-medium text-slate-600">Sua principal ação até o próximo simulado — com prazo.</p>
+                    <div className="space-y-2">
+                      {formAutopsia.aar.acoes.map((a, idx) => (
+                        <div key={idx} className="flex flex-col sm:flex-row gap-2">
+                          <input type="text" className="flex-1 p-3 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:border-intento-blue/40 bg-white" placeholder="Ex: Resolver 40 questões de Matemática" value={a.texto} onChange={e => setAcao(idx, 'texto', e.target.value)} />
+                          <input type="date" className="w-full sm:w-44 p-3 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:border-intento-blue/40 bg-white" value={a.data} onChange={e => setAcao(idx, 'data', e.target.value)} />
+                          {formAutopsia.aar.acoes.length > 1 && (
+                            <button type="button" onClick={() => removeAcao(idx)} aria-label="Remover ação" className="p-3 text-slate-300 hover:text-red-500 transition-colors shrink-0 self-center">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-5">
-                      <label className="block text-[10px] font-medium text-slate-400 uppercase mb-3 tracking-wider">Reflexão da Produção Textual</label>
-                      <textarea className="w-full bg-transparent text-slate-700 placeholder-slate-300 outline-none resize-none font-normal text-sm leading-relaxed custom-scrollbar" rows="6" placeholder="Faça os 4 passos do Kolb aqui. Em qual competência você perdeu nota? Faltou repertório? Teve problema de coesão? Como vai corrigir na próxima redação?" value={formAutopsia.kolb.redacao} onChange={e => setFormAutopsia({...formAutopsia, kolb: {...formAutopsia.kolb, redacao: e.target.value}})}></textarea>
-                    </div>
+                    {formAutopsia.aar.acoes.length < 5 && (
+                      <button type="button" onClick={addAcao} className="text-sm font-semibold text-intento-blue hover:underline">+ Adicionar ação</button>
+                    )}
                   </div>
 
                   <div className="flex justify-between items-center pt-6">
@@ -1631,8 +1776,12 @@ export default function PainelDoAluno() {
                             <h4 className="text-base font-semibold text-intento-blue mb-1">{sim.especificacao}</h4>
                             <p className="text-sm text-slate-400 mb-5">Realizado em {String(sim.data || '').split(' ')[0]}</p>
                             <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
-                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Acertos</span>
-                              <span className="font-bold text-intento-blue text-sm">{parseInt(sim.lg)+parseInt(sim.ch)+parseInt(sim.cn)+parseInt(sim.mat)} <span className="text-xs text-slate-400 font-normal">/ 180</span></span>
+                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{sim.modelo === 'Custom' ? 'Aproveitamento' : 'Acertos'}</span>
+                              {sim.modelo === 'Custom' ? (
+                                <span className="font-bold text-intento-blue text-sm">{sim.aproveitamento ?? 0}%</span>
+                              ) : (
+                                <span className="font-bold text-intento-blue text-sm">{parseInt(sim.lg)+parseInt(sim.ch)+parseInt(sim.cn)+parseInt(sim.mat)} <span className="text-xs text-slate-400 font-normal">/ 180</span></span>
+                              )}
                             </div>
                           </div>
                           <div className="p-4 border-t border-slate-100">
@@ -1862,13 +2011,13 @@ export default function PainelDoAluno() {
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg flex flex-col overflow-hidden">
             <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center">
               <h2 className="text-base font-semibold text-intento-blue">Novo Registro de Simulado</h2>
-              <button onClick={() => setModalRegistroAberto(false)} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); }} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
 
             <div className="p-7 space-y-5">
               <div className="flex bg-slate-100 p-1 rounded-lg">
                 <button onClick={() => setTipoModelo("ENEM")} className={`flex-1 py-2.5 rounded-md font-medium text-sm transition-all ${tipoModelo === "ENEM" ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'}`}>ENEM</button>
-                <button onClick={() => setTipoModelo("OUTROS")} className={`flex-1 py-2.5 rounded-md font-medium text-sm transition-all ${tipoModelo === "OUTROS" ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'}`}>Outros Vestibulares</button>
+                <button onClick={() => setTipoModelo("Custom")} className={`flex-1 py-2.5 rounded-md font-medium text-sm transition-all ${tipoModelo === "Custom" ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'}`}>Outros Vestibulares</button>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1885,17 +2034,43 @@ export default function PainelDoAluno() {
                     <div><label className="block text-[10px] font-medium text-emerald-500 uppercase mb-1.5 tracking-wide">Natureza</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-emerald-200 rounded-lg font-semibold text-center outline-none focus:border-emerald-400 bg-white text-slate-700" value={formRegistro.cn} onChange={e => setFormRegistro({...formRegistro, cn: e.target.value})} /></div>
                     <div><label className="block text-[10px] font-medium text-red-400 uppercase mb-1.5 tracking-wide">Matemática</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-red-200 rounded-lg font-semibold text-center outline-none focus:border-red-400 bg-white text-slate-700" value={formRegistro.mat} onChange={e => setFormRegistro({...formRegistro, mat: e.target.value})} /></div>
                   </div>
-                  <div className="mt-4"><label className="block text-[10px] font-medium text-purple-400 uppercase mb-1.5 tracking-wide">Nota Redação</label><input type="number" placeholder="Ex: 920" className="w-full p-2 border border-purple-200 rounded-lg font-semibold outline-none focus:border-purple-400 bg-white text-slate-700" value={formRegistro.redacao} onChange={e => setFormRegistro({...formRegistro, redacao: e.target.value})} /></div>
+                  <div className="mt-4"><label className="block text-[10px] font-medium text-purple-400 uppercase mb-1.5 tracking-wide">Nota Redação <span className="text-slate-300 normal-case">(opcional)</span></label><input type="number" placeholder="Ex: 920" className="w-full p-2 border border-purple-200 rounded-lg font-semibold outline-none focus:border-purple-400 bg-white text-slate-700" value={formRegistro.redacao} onChange={e => setFormRegistro({...formRegistro, redacao: e.target.value})} /></div>
                 </div>
               ) : (
-                <div className="bg-orange-50 text-orange-700 p-5 rounded-xl font-medium text-sm border border-orange-100 text-center">
-                  A interface para outros vestibulares será habilitada em breve.
+                <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Matérias do simulado</p>
+                    <span className="text-[10px] text-slate-400">acertos / questões</span>
+                  </div>
+
+                  {materiasCustom.length === 0 && (
+                    <p className="text-xs text-slate-400 text-center py-2">Adicione as matérias deste simulado abaixo.</p>
+                  )}
+
+                  {materiasCustom.map((m, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="flex-1 text-sm font-semibold text-slate-700 truncate">{m.materia}</span>
+                      <input type="number" min="0" placeholder="acertos" className="w-20 p-2 border border-slate-200 rounded-lg font-semibold text-center text-sm outline-none focus:border-intento-yellow bg-white" value={m.acertos} onChange={e => updateMateriaCustom(idx, 'acertos', e.target.value)} />
+                      <span className="text-slate-300">/</span>
+                      <input type="number" min="1" placeholder="questões" className="w-20 p-2 border border-slate-200 rounded-lg font-semibold text-center text-sm outline-none focus:border-intento-yellow bg-white" value={m.questoes} onChange={e => updateMateriaCustom(idx, 'questoes', e.target.value)} />
+                      <button type="button" onClick={() => removeMateriaCustom(idx)} aria-label="Remover matéria" className="p-1.5 text-slate-300 hover:text-red-500 transition-colors shrink-0">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  ))}
+
+                  <select value="" onChange={e => { addMateriaCustom(e.target.value); e.target.value=''; }} className={inputClass}>
+                    <option value="">+ Adicionar matéria...</option>
+                    {Object.keys(topicosDicionario).filter(d => !materiasCustom.some(m => m.materia === d)).map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+
+                  <div className="pt-1"><label className="block text-[10px] font-medium text-purple-400 uppercase mb-1.5 tracking-wide">Nota Redação <span className="text-slate-300 normal-case">(opcional)</span></label><input type="number" placeholder="Ex: 920" className="w-full p-2 border border-purple-200 rounded-lg font-semibold outline-none focus:border-purple-400 bg-white text-slate-700" value={formRegistro.redacao} onChange={e => setFormRegistro({...formRegistro, redacao: e.target.value})} /></div>
                 </div>
               )}
             </div>
 
             <div className="px-7 py-5 border-t border-slate-100 flex justify-end gap-3">
-              <button onClick={() => setModalRegistroAberto(false)} className={btnGhost}>Cancelar</button>
+              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); }} className={btnGhost}>Cancelar</button>
               <button onClick={salvarSimulado} disabled={salvandoSimulado} className={btnPrimary + ' disabled:opacity-60'}>{salvandoSimulado ? 'Salvando...' : 'Salvar Registro'}</button>            </div>
           </div>
         </div>
