@@ -16,6 +16,14 @@ const CORES_MATERIA = {
   'Física':     { main: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' },
   'Matemática': { main: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
 };
+
+// Estados da consistência (horas vs meta da semana). Símbolo do "quase" = ≈.
+// Cores em nível 600 pra contraste do glifo (WCAG).
+const CONS_ESTADO = {
+  hit:  { bg: '#ecfdf5', border: '#a7f3d0', cor: '#059669', simbolo: '✓' },
+  near: { bg: '#fffbeb', border: '#fde68a', cor: '#d97706', simbolo: '≈' },
+  miss: { bg: '#fef2f2', border: '#fecaca', cor: '#dc2626', simbolo: '✗' },
+};
 // Converte valor (decimal 0–1, "73%" ou número) para inteiro 0–100.
 function toPct100(val) {
   const n = parseFloat(String(val ?? '').replace('%', '').replace(',', '.'));
@@ -33,7 +41,7 @@ const fmtH = (n) => (n % 1 === 0 ? String(n) : n.toFixed(1));
 // slate-400 (#94a3b8) reprovava (~2.5:1).
 const T = {
   label:   { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', margin: 0 },
-  numLg:   { fontSize: 30, fontWeight: 800, color: '#060242', lineHeight: 1 },
+  numLg:   { fontSize: 28, fontWeight: 800, color: '#060242', lineHeight: 1 },
   numMd:   { fontSize: 20, fontWeight: 800, color: '#060242', lineHeight: 1 },
   numSm:   { fontSize: 12, fontWeight: 700, color: '#060242', lineHeight: 1 },
   sub:     { fontSize: 13, fontWeight: 600, color: '#64748b' },
@@ -55,13 +63,12 @@ function Delta({ info, suffix }) {
 
 // KPI principal (destaque) — card branco minimalista. Altura padronizada:
 // rótulo reserva 2 linhas e a barra fica ancorada no rodapé.
-function KpiCard({ label, valor, sub, delta, suffix, bar }) {
+function KpiCard({ label, valor, delta, suffix, bar, barCaption }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #e8ecf2', borderRadius: 14, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: 16, display: 'flex', flexDirection: 'column', height: '100%' }}>
       <p style={{ ...T.label, minHeight: 26, lineHeight: 1.3 }}>{label}</p>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 8, whiteSpace: 'nowrap' }}>
         <span style={T.numLg}>{valor}</span>
-        {sub ? <span style={T.sub}>{sub}</span> : null}
         <Delta info={delta} suffix={suffix} />
       </div>
       <div style={{ marginTop: 'auto', paddingTop: 12 }}>
@@ -70,6 +77,7 @@ function KpiCard({ label, valor, sub, delta, suffix, bar }) {
             <div style={{ width: `${Math.min(100, bar)}%`, height: '100%', background: bar >= 100 ? '#10b981' : '#060242', borderRadius: 9999 }} />
           ) : null}
         </div>
+        {barCaption ? <p style={{ ...T.caption, marginTop: 6 }}>{barCaption}</p> : null}
       </div>
     </div>
   );
@@ -188,9 +196,15 @@ function ExportarAcompanhamento() {
   // Deriva os dados
   const semanal = dadosPainel?.semanal || { isFirstWeek: true, geral: [], estilo: [], desempenho: [] };
   const mensal = dadosPainel?.mensal || {};
-  const historicoConsistencia = (mensal.horas || []).map((h, i) =>
-    parseFloat(h) >= parseFloat(mensal.meta?.[i] || 0) && parseFloat(mensal.meta?.[i] || 0) > 0
-  );
+  // Estado da semana: 'hit' (≥ meta) · 'near' (> 80% da meta) · 'miss' (≤ 80% ou sem meta)
+  const historicoConsistencia = (mensal.horas || []).map((h, i) => {
+    const meta = parseFloat(mensal.meta?.[i] || 0);
+    if (!(meta > 0)) return 'miss';
+    const ratio = parseFloat(h || 0) / meta;
+    if (ratio >= 1) return 'hit';
+    if (ratio > 0.8) return 'near';
+    return 'miss';
+  });
   const semanaRef = getSemanaRef();
 
   // Meta de horas da semana (última registrada) + meta/plano do último diário
@@ -233,7 +247,7 @@ function ExportarAcompanhamento() {
     const p = String(lbl || '').split(' a ')[0].trim().split('/');
     return p.length >= 2 ? `${p[0]}/${p[1]}` : '';
   };
-  const semBatidas = consistencia4.filter(Boolean).length;
+  const semBatidas = consistencia4.filter((s) => s === 'hit').length;
   const semTotal = consistencia4.length;
 
   const secaoLabel = (texto) => (
@@ -322,10 +336,10 @@ function ExportarAcompanhamento() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
                   <KpiCard
                     label="Horas Estudadas"
-                    valor={metaHNum ? fmtH(horasNum) : `${fmtH(horasNum)}h`}
-                    sub={metaHNum ? `/ ${fmtH(metaHNum)}h` : null}
+                    valor={`${fmtH(horasNum)}h`}
                     delta={calcDelta(gHoras, 'num', false)} suffix="h"
                     bar={horasBar}
+                    barCaption={metaHNum ? `meta ${fmtH(metaHNum)}h` : null}
                   />
                   <KpiCard label="Domínio Geral" valor={`${toPct100(gDom?.curr)}%`} delta={calcDelta(gDom, 'pct', false)} />
                   <KpiCard label="Progresso Geral" valor={`${toPct100(gProg?.curr)}%`} delta={calcDelta(gProg, 'pct', false)} />
@@ -345,26 +359,27 @@ function ExportarAcompanhamento() {
                 </div>
                 {semTotal > 0 ? (
                   <div style={{ display: 'flex', gap: 8 }}>
-                    {consistencia4.map((bateu, i) => (
-                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                        <div style={{
-                          width: '100%', height: 40, borderRadius: 10,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 20, fontWeight: 800,
-                          background: bateu ? '#ecfdf5' : '#fef2f2',
-                          border: `1px solid ${bateu ? '#a7f3d0' : '#fecaca'}`,
-                          color: bateu ? '#10b981' : '#ef4444',
-                        }}>
-                          {bateu ? '✓' : '✗'}
+                    {consistencia4.map((estado, i) => {
+                      const e = CONS_ESTADO[estado] || CONS_ESTADO.miss;
+                      return (
+                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                          <div style={{
+                            width: '100%', height: 40, borderRadius: 10,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 20, fontWeight: 800,
+                            background: e.bg, border: `1px solid ${e.border}`, color: e.cor,
+                          }}>
+                            {e.simbolo}
+                          </div>
+                          <span style={T.caption}>
+                            {labels4[i] ? curtaData(labels4[i]) : `S${i + 1}`}
+                          </span>
                         </div>
-                        <span style={T.caption}>
-                          {labels4[i] ? curtaData(labels4[i]) : `S${i + 1}`}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
-                  <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Sem semanas registradas ainda.</p>
+                  <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Sem semanas registradas ainda.</p>
                 )}
               </div>
 
@@ -421,14 +436,14 @@ function ExportarAcompanhamento() {
                     {materias.map((m) => {
                       const c = CORES_MATERIA[m.nome] || { main: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' };
                       return (
-                        <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
                           <span style={{ fontSize: 13, fontWeight: 800, color: c.main }}>{m.nome}</span>
-                          <div>
-                            <p style={{ ...T.label, marginBottom: 4 }}>Domínio</p>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                            <span style={T.label}>Domínio</span>
+                            <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                               <span style={T.numMd}>{m.dom}%</span>
                               <Delta info={m.domDelta} />
-                            </div>
+                            </span>
                           </div>
                           <Barra label="Progresso" valor={m.prog} cor={c.main} delta={m.progDelta} />
                         </div>
