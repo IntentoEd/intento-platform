@@ -8,20 +8,9 @@ import Link from 'next/link';
 import { useMentor } from '@/lib/MentorContext';
 import { LoadingInline } from '@/components/Loading';
 
-// ─── Paleta de cores por tema ────────────────────────────────────────────────
-const borderColorMap = {
-  emerald: '#10b981', purple: '#a855f7', blue: '#3b82f6',
-  red: '#ef4444', slate: '#94a3b8',
-};
-
 // Cor por disciplina (Bio verde, Qui roxo, Fis azul, Mat vermelho).
-// Domínio = tom forte; Progresso = tom claro da mesma cor (mantém a
-// identidade da matéria e ainda distingue os dois indicadores).
 const CORES_MATERIA = {
-  'Biologia':   { dom: '#10b981', prog: '#6ee7b7' },
-  'Química':    { dom: '#a855f7', prog: '#c4b5fd' },
-  'Física':     { dom: '#3b82f6', prog: '#93c5fd' },
-  'Matemática': { dom: '#ef4444', prog: '#fca5a5' },
+  'Biologia': '#10b981', 'Química': '#a855f7', 'Física': '#3b82f6', 'Matemática': '#ef4444',
 };
 // Converte valor (decimal 0–1, "73%" ou número) para inteiro 0–100.
 function toPct100(val) {
@@ -49,14 +38,14 @@ function DeltaBadge({ diff, positivo, suffix }) {
   );
 }
 
-// KPI principal (destaque). Altura padronizada: título reserva 2 linhas
-// (minHeight) pra alinhar os números entre cards, e a área da barra fica
-// ancorada no rodapé (marginTop auto) e sempre reserva espaço — assim todos
-// os 4 cards ficam exatamente da mesma altura, com ou sem barra.
-function KpiCard({ label, valor, sub, delta, suffix, bar, theme }) {
-  const borderColor = borderColorMap[theme] || '#94a3b8';
+// KPI principal (destaque) — estilo minimalista: card branco, borda suave +
+// sombra leve, sem barra colorida à esquerda. Cor só onde significa algo
+// (selo de delta e barra de horas vs. meta). Altura padronizada: título
+// reserva 2 linhas e a área da barra fica ancorada no rodapé reservando
+// espaço, então os 4 cards ficam exatamente da mesma altura.
+function KpiCard({ label, valor, sub, delta, suffix, bar }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: `4px solid ${borderColor}`, borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ background: '#fff', border: '1px solid #e8ecf2', borderRadius: 14, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: '14px 16px', display: 'flex', flexDirection: 'column', height: '100%' }}>
       <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', margin: 0, minHeight: 26, lineHeight: 1.3 }}>{label}</p>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
         <span style={{ fontSize: 30, fontWeight: 800, color: '#060242', lineHeight: 1 }}>{valor}</span>
@@ -66,7 +55,7 @@ function KpiCard({ label, valor, sub, delta, suffix, bar, theme }) {
       <div style={{ marginTop: 'auto', paddingTop: 10 }}>
         <div style={{ height: 6, borderRadius: 9999, overflow: 'hidden', background: bar != null ? '#eef2f7' : 'transparent' }}>
           {bar != null ? (
-            <div style={{ width: `${Math.min(100, bar)}%`, height: '100%', background: bar >= 100 ? '#34d399' : borderColor, borderRadius: 9999 }} />
+            <div style={{ width: `${Math.min(100, bar)}%`, height: '100%', background: bar >= 100 ? '#10b981' : '#060242', borderRadius: 9999 }} />
           ) : null}
         </div>
       </div>
@@ -221,9 +210,15 @@ function ExportarAcompanhamento() {
   // Estilo de vida (barras) — maior = melhor em todas as dimensões
   const estiloBars = (semanal.estilo || []).map((c) => ({ nome: c.name, val: toPct100(c.curr) }));
 
-  // Streak de consistência
-  const semBatidas = historicoConsistencia.filter(Boolean).length;
-  const semTotal = historicoConsistencia.length;
+  // Consistência — só as últimas 4 semanas (+ data de início de cada uma)
+  const consistencia4 = historicoConsistencia.slice(-4);
+  const labels4 = (mensal.labels || []).slice(-4);
+  const curtaData = (lbl) => {
+    const p = String(lbl || '').split(' a ')[0].trim().split('/');
+    return p.length >= 2 ? `${p[0]}/${p[1]}` : '';
+  };
+  const semBatidas = consistencia4.filter(Boolean).length;
+  const semTotal = consistencia4.length;
 
   const secaoLabel = (texto) => (
     <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: 10 }}>
@@ -312,39 +307,50 @@ function ExportarAcompanhamento() {
               {semanal.geral?.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                   <KpiCard
-                    label="Horas Estudadas" theme="emerald"
+                    label="Horas Estudadas"
                     valor={metaHNum ? fmtH(horasNum) : `${fmtH(horasNum)}h`}
                     sub={metaHNum ? `/ ${fmtH(metaHNum)}h` : null}
                     delta={calcDelta(gHoras, 'num', false)} suffix="h"
                     bar={horasBar}
                   />
-                  <KpiCard label="Domínio Geral" theme="blue" valor={`${toPct100(gDom?.curr)}%`} delta={calcDelta(gDom, 'pct', false)} />
-                  <KpiCard label="Progresso Geral" theme="purple" valor={`${toPct100(gProg?.curr)}%`} delta={calcDelta(gProg, 'pct', false)} />
-                  <KpiCard label="Revisões Atrasadas" theme="red" valor={`${toNum(gRev?.curr)}`} delta={calcDelta(gRev, 'num', true)} />
+                  <KpiCard label="Domínio Geral" valor={`${toPct100(gDom?.curr)}%`} delta={calcDelta(gDom, 'pct', false)} />
+                  <KpiCard label="Progresso Geral" valor={`${toPct100(gProg?.curr)}%`} delta={calcDelta(gProg, 'pct', false)} />
+                  <KpiCard label="Revisões Atrasadas" valor={`${toNum(gRev?.curr)}`} delta={calcDelta(gRev, 'num', true)} />
                 </div>
               )}
 
-              {/* 2. Consistência (✓/✗ por semana — autoexplicativo) */}
+              {/* 2. Consistência (últimas 4 semanas — caixas ✓/✗ com data) */}
               <div>
-                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', margin: '0 0 8px' }}>
-                  Bateu a meta de horas?
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', margin: 0 }}>
+                    Bateu a meta de horas?
+                  </p>
+                  {semTotal > 0 ? (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
+                      {semBatidas} de {semTotal} na meta
+                    </span>
+                  ) : null}
+                </div>
                 {semTotal > 0 ? (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      {historicoConsistencia.map((bateu, i) => (
-                        <span key={i} style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: bateu ? '#10b981' : '#ef4444' }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {consistencia4.map((bateu, i) => (
+                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                        <div style={{
+                          width: '100%', height: 40, borderRadius: 10,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 20, fontWeight: 800,
+                          background: bateu ? '#ecfdf5' : '#fef2f2',
+                          border: `1px solid ${bateu ? '#a7f3d0' : '#fecaca'}`,
+                          color: bateu ? '#10b981' : '#ef4444',
+                        }}>
                           {bateu ? '✓' : '✗'}
+                        </div>
+                        <span style={{ fontSize: 9, fontWeight: 600, color: '#94a3b8' }}>
+                          {labels4[i] ? curtaData(labels4[i]) : `S${i + 1}`}
                         </span>
-                      ))}
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginLeft: 6 }}>
-                        {semBatidas} de {semTotal} na meta
-                      </span>
-                    </div>
-                    <p style={{ fontSize: 10, color: '#94a3b8', margin: '6px 0 0' }}>
-                      ✓ bateu a meta · ✗ não bateu · últimas {semTotal} semanas
-                    </p>
-                  </>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Sem semanas registradas ainda.</p>
                 )}
@@ -395,18 +401,22 @@ function ExportarAcompanhamento() {
                 </div>
               )}
 
-              {/* 4. Desempenho por matéria (secundário — barras 0–100%) */}
+              {/* 4. Desempenho por matéria (secundário) — Domínio número, Progresso barra */}
               {desemp.length > 0 && (
                 <div>
                   {secaoLabel('Desempenho por matéria')}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 24px' }}>
                     {materias.map((m) => {
-                      const c = CORES_MATERIA[m.nome] || { dom: '#3b82f6', prog: '#93c5fd' };
+                      const cor = CORES_MATERIA[m.nome] || '#3b82f6';
                       return (
-                        <div key={m.nome} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: c.dom }}>{m.nome}</span>
-                          <Barra label="Domínio" valor={m.dom} cor={c.dom} />
-                          <Barra label="Progresso" valor={m.prog} cor={c.prog} />
+                        <div key={m.nome} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: cor }}>{m.nome}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>
+                              Domínio <span style={{ color: '#060242' }}>{m.dom}%</span>
+                            </span>
+                          </div>
+                          <Barra label="Progresso" valor={m.prog} cor={cor} />
                         </div>
                       );
                     })}
