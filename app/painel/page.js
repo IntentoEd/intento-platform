@@ -65,6 +65,39 @@ const resumoDesempenho = (sim) => {
   return { aprov, areaForte: forte ? forte.nome : '—', areaFraca: fraca ? fraca.nome : '—' };
 };
 
+// Métricas de simulado por modelo (ENEM ou Custom), calculadas no client a partir da lista
+const metricasSimulado = (lista, modelo) => {
+  const sims = (lista || []).filter(s => (s.modelo || 'ENEM') === modelo && s.status === 'Concluída');
+  const ult3 = sims.slice(-3);
+  const n = ult3.length || 1;
+  let lac = 0, rec = 0, inter = 0, at = 0;
+  ult3.forEach(s => (s.errosLista || []).forEach(e => {
+    if (e.tipo === 'Lacuna') lac++;
+    else if (e.tipo === 'Recordação') rec++;
+    else if (e.tipo === 'Interpretação') inter++;
+    else if (e.tipo === 'Atenção') at++;
+  }));
+  const erros = { lac: Math.round(lac / n), rec: Math.round(rec / n), inter: Math.round(inter / n), atencao: Math.round(at / n) };
+  const comRed = sims.filter(s => s.redacao > 0).slice(-3);
+  const medRedacao = comRed.length ? Math.round(comRed.reduce((a, s) => a + s.redacao, 0) / comRed.length) : 0;
+  const base = { realizados: sims.length, erros, medRedacao };
+  if (modelo === 'Custom') {
+    const aprovMedio = ult3.length ? Math.round(ult3.reduce((a, s) => a + (s.aproveitamento || 0), 0) / ult3.length) : 0;
+    const mapM = {};
+    sims.forEach(s => (s.materias || []).forEach(m => {
+      const q = parseInt(m.questoes) || 0, ac = parseInt(m.acertos) || 0;
+      if (q <= 0) return;
+      if (!mapM[m.materia]) mapM[m.materia] = { soma: 0, n: 0 };
+      mapM[m.materia].soma += (ac / q) * 100; mapM[m.materia].n++;
+    }));
+    const porMateria = Object.keys(mapM).map(k => ({ nome: k, pct: Math.round(mapM[k].soma / mapM[k].n) })).sort((a, b) => b.pct - a.pct);
+    return { ...base, aprovMedio, porMateria };
+  }
+  const sLG = ult3.reduce((a, s) => a + (s.lg || 0), 0), sCH = ult3.reduce((a, s) => a + (s.ch || 0), 0);
+  const sCN = ult3.reduce((a, s) => a + (s.cn || 0), 0), sMAT = ult3.reduce((a, s) => a + (s.mat || 0), 0);
+  return { ...base, medAcertos: Math.round((sLG + sCH + sCN + sMAT) / n), medLG: Math.round(sLG / n), medCH: Math.round(sCH / n), medCN: Math.round(sCN / n), medMAT: Math.round(sMAT / n) };
+};
+
 // =========================================================================
 // COMPONENTE: CARDS DE DESEMPENHO (Anterior -> Atual)
 // =========================================================================
@@ -153,6 +186,7 @@ export default function PainelDoAluno() {
   const [tipoModelo, setTipoModelo] = useState("ENEM");
   const [formRegistro, setFormRegistro] = useState({ data: '', especificacao: '', lg: '', ch: '', cn: '', mat: '', redacao: '' });
   const [materiasCustom, setMateriasCustom] = useState([]); // [{materia, questoes, acertos}]
+  const [abaMetrica, setAbaMetrica] = useState('ENEM'); // toggle métricas ENEM | Outros
   const [topicosDicionario, setTopicosDicionario] = useState({});
   
   // A Visualização da Análise
@@ -441,17 +475,17 @@ export default function PainelDoAluno() {
       }
     }
 
-    // AAR: exige ao menos 1 ação com texto + data (Etapa 4)
-    const temAcaoValida = formAutopsia.aar.acoes.some(a => a.texto.trim() && a.data);
+    // AAR: exige ao menos 1 ação preenchida (Etapa 4)
+    const temAcaoValida = formAutopsia.aar.acoes.some(a => a.texto.trim());
     if (!temAcaoValida) {
-      mostrarToast("Defina ao menos uma ação com data na Etapa 4.", "error");
+      mostrarToast("Defina ao menos uma ação na Etapa 4.", "error");
       setAbaAnalise('Subjetiva'); return;
     }
 
     setSalvandoAutopsia(true);
     try {
-      // Salva só ações preenchidas (texto + data)
-      const aarLimpo = { ...formAutopsia.aar, acoes: formAutopsia.aar.acoes.filter(a => a.texto.trim() && a.data) };
+      // Salva só ações com texto preenchido
+      const aarLimpo = { ...formAutopsia.aar, acoes: formAutopsia.aar.acoes.filter(a => a.texto.trim()) };
       const payload = {
         acao: 'salvarAutopsia',
         idPlanilha: idPlanilha,
@@ -571,6 +605,14 @@ export default function PainelDoAluno() {
   const rotinaDias = dados.rotinaDias || ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
   const simKpi = dados.sim?.kpi || { realizados: 0, medAcertos: 0, medRedacao: 0, medLG: 0, medCH: 0, medCN: 0, medMAT: 0, erros: { atencao: 0, inter: 0, rec: 0, lac: 0 } };
   const histSim = dados.sim?.hist || { labels: [], lg: [], ch: [], cn: [], mat: [] };
+  // Métricas separadas por modelo (toggle ENEM | Outros)
+  const mEnem = metricasSimulado(simuladosLista, 'ENEM');
+  const mCustom = metricasSimulado(simuladosLista, 'Custom');
+  const mAtual = abaMetrica === 'ENEM' ? mEnem : mCustom;
+  const histCustom = (() => {
+    const c = (simuladosLista || []).filter(s => s.modelo === 'Custom' && s.status === 'Concluída');
+    return { labels: c.map(s => s.data), aprov: c.map(s => s.aproveitamento || 0) };
+  })();
 
   const historicoConsistencia = (mensal.horas || []).map((h, i) => parseFloat(h) >= parseFloat(mensal.meta[i] || 0) && parseFloat(mensal.meta[i] || 0) > 0);
   
@@ -1055,14 +1097,13 @@ export default function PainelDoAluno() {
                   {/* ETAPA 4 — O que vou fazer? */}
                   <div className="bg-white p-6 md:p-7 rounded-xl border border-slate-200 space-y-4">
                     {cabecalhoEtapa('4', 'O que vou fazer?')}
-                    <p className="text-sm font-medium text-slate-600">Sua principal ação até o próximo simulado — com prazo.</p>
+                    <p className="text-sm font-medium text-slate-600">O que você vai fazer diferente até o próximo simulado?</p>
                     <div className="space-y-2">
                       {formAutopsia.aar.acoes.map((a, idx) => (
-                        <div key={idx} className="flex flex-col sm:flex-row gap-2">
-                          <input type="text" className="flex-1 p-3 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:border-intento-blue/40 bg-white" placeholder="Ex: Resolver 40 questões de Matemática" value={a.texto} onChange={e => setAcao(idx, 'texto', e.target.value)} />
-                          <input type="date" className="w-full sm:w-44 p-3 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:border-intento-blue/40 bg-white" value={a.data} onChange={e => setAcao(idx, 'data', e.target.value)} />
+                        <div key={idx} className="flex items-center gap-2">
+                          <input type="text" className="flex-1 p-3 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:border-intento-blue/40 bg-white" placeholder="Ex: Mudar a estratégia em: x" value={a.texto} onChange={e => setAcao(idx, 'texto', e.target.value)} />
                           {formAutopsia.aar.acoes.length > 1 && (
-                            <button type="button" onClick={() => removeAcao(idx)} aria-label="Remover ação" className="p-3 text-slate-300 hover:text-red-500 transition-colors shrink-0 self-center">
+                            <button type="button" onClick={() => removeAcao(idx)} aria-label="Remover ação" className="p-3 text-slate-300 hover:text-red-500 transition-colors shrink-0">
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
                             </button>
                           )}
@@ -1646,44 +1687,93 @@ export default function PainelDoAluno() {
                   </div>
 
                   <div className="space-y-6">
-                    <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Métricas Gerais</h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Métricas Gerais</h3>
+                      <div className="flex bg-slate-100 p-1 rounded-lg self-start">
+                        <button onClick={() => setAbaMetrica('ENEM')} className={`px-5 py-1.5 rounded-md font-medium text-xs transition-all ${abaMetrica === 'ENEM' ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'}`}>ENEM</button>
+                        <button onClick={() => setAbaMetrica('Custom')} className={`px-5 py-1.5 rounded-md font-medium text-xs transition-all ${abaMetrica === 'Custom' ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'}`}>Outros</button>
+                      </div>
+                    </div>
 
                     {/* Linha 1 — KPIs principais */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className={`${cardClass} text-center bg-slate-50`}>
-                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Simulados Realizados</p>
-                        <p className="text-3xl font-bold text-intento-blue mt-1">{simKpi.realizados || 0}</p>
-                        <p className="text-[10px] font-medium text-slate-400 mt-1">total</p>
+                    {abaMetrica === 'ENEM' ? (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className={`${cardClass} text-center bg-slate-50`}>
+                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Simulados Realizados</p>
+                          <p className="text-3xl font-bold text-intento-blue mt-1">{mEnem.realizados || 0}</p>
+                          <p className="text-[10px] font-medium text-slate-400 mt-1">total ENEM</p>
+                        </div>
+                        <div className={`${cardClass} text-center border-b-2 border-b-intento-yellow`}>
+                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Acertos</p>
+                          <p className="text-4xl font-bold text-intento-yellow mt-1">{mEnem.medAcertos || 0}<span className="text-base text-slate-400 font-medium">/180</span></p>
+                          <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                        </div>
+                        <div className={`${cardClass} text-center border-b-2 border-b-intento-blue`}>
+                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Redação</p>
+                          <p className="text-4xl font-bold text-intento-blue mt-1">{mEnem.medRedacao || 0}</p>
+                          <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                        </div>
                       </div>
-                      <div className={`${cardClass} text-center border-b-2 border-b-intento-yellow`}>
-                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Acertos</p>
-                        <p className="text-4xl font-bold text-intento-yellow mt-1">{simKpi.medAcertos || 0}<span className="text-base text-slate-400 font-medium">/180</span></p>
-                        <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className={`${cardClass} text-center bg-slate-50`}>
+                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Simulados Realizados</p>
+                          <p className="text-3xl font-bold text-intento-blue mt-1">{mCustom.realizados || 0}</p>
+                          <p className="text-[10px] font-medium text-slate-400 mt-1">outros vestibulares</p>
+                        </div>
+                        <div className={`${cardClass} text-center border-b-2 border-b-intento-yellow`}>
+                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Aproveitamento Médio</p>
+                          <p className="text-4xl font-bold text-intento-yellow mt-1">{mCustom.aprovMedio || 0}<span className="text-base text-slate-400 font-medium">%</span></p>
+                          <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                        </div>
+                        <div className={`${cardClass} text-center border-b-2 border-b-intento-blue`}>
+                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Redação</p>
+                          <p className="text-4xl font-bold text-intento-blue mt-1">{mCustom.medRedacao || 0}</p>
+                          <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                        </div>
                       </div>
-                      <div className={`${cardClass} text-center border-b-2 border-b-intento-blue`}>
-                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Redação</p>
-                        <p className="text-4xl font-bold text-intento-blue mt-1">{simKpi.medRedacao || 0}</p>
-                        <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
-                      </div>
-                    </div>
+                    )}
 
-                    {/* Linha 2 — Média por disciplina (últimos 3) */}
-                    <div>
-                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-3">Média por disciplina · últimos 3 simulados</p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {[
-                          { label: 'Linguagens',   key: 'medLG',  color: '#0ea5e9', tw: 'text-sky-600' },
-                          { label: 'Humanas',      key: 'medCH',  color: '#f97316', tw: 'text-orange-500' },
-                          { label: 'Natureza',     key: 'medCN',  color: '#10b981', tw: 'text-emerald-600' },
-                          { label: 'Matemática',   key: 'medMAT', color: '#ef4444', tw: 'text-red-500' },
-                        ].map(d => (
-                          <div key={d.key} className={`${cardClass} text-center py-4`} style={{ borderTop: `3px solid ${d.color}` }}>
-                            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{d.label}</p>
-                            <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{simKpi[d.key] || 0}<span className="text-xs text-slate-400 font-medium">/45</span></p>
-                          </div>
-                        ))}
+                    {/* Linha 2 — Média por disciplina (ENEM) ou por matéria (Custom) */}
+                    {abaMetrica === 'ENEM' ? (
+                      <div>
+                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-3">Média por disciplina · últimos 3 simulados</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {[
+                            { label: 'Linguagens',   key: 'medLG',  color: '#0ea5e9', tw: 'text-sky-600' },
+                            { label: 'Humanas',      key: 'medCH',  color: '#f97316', tw: 'text-orange-500' },
+                            { label: 'Natureza',     key: 'medCN',  color: '#10b981', tw: 'text-emerald-600' },
+                            { label: 'Matemática',   key: 'medMAT', color: '#ef4444', tw: 'text-red-500' },
+                          ].map(d => (
+                            <div key={d.key} className={`${cardClass} text-center py-4`} style={{ borderTop: `3px solid ${d.color}` }}>
+                              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{d.label}</p>
+                              <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{mEnem[d.key] || 0}<span className="text-xs text-slate-400 font-medium">/45</span></p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div>
+                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-3">Aproveitamento médio por matéria</p>
+                        {(!mCustom.porMateria || mCustom.porMateria.length === 0) ? (
+                          <p className="text-xs text-slate-400 font-medium py-6 text-center bg-white rounded-xl border border-slate-200">Nenhum simulado de outros vestibulares ainda.</p>
+                        ) : (
+                          <div className="space-y-2.5">
+                            {mCustom.porMateria.map(m => (
+                              <div key={m.nome}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs font-semibold text-slate-700">{m.nome}</span>
+                                  <span className="text-[11px] font-medium text-slate-400">{m.pct}%</span>
+                                </div>
+                                <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                                  <div className="h-full rounded-full bg-intento-blue transition-all duration-500" style={{ width: `${m.pct}%` }} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Linha 3 — Tipos de erros + Histórico */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1694,10 +1784,10 @@ export default function PainelDoAluno() {
                         <p className="text-[10px] font-medium text-slate-400 mb-5">média dos últimos 3 simulados</p>
                         {(() => {
                           const tipos = [
-                            { nome: 'Lacuna',        valor: simKpi.erros?.lac || 0,     trilho: 'bg-red-100',     barra: 'bg-red-500',     dot: 'bg-red-500' },
-                            { nome: 'Recordação',    valor: simKpi.erros?.rec || 0,     trilho: 'bg-purple-100',  barra: 'bg-purple-500',  dot: 'bg-purple-500' },
-                            { nome: 'Interpretação', valor: simKpi.erros?.inter || 0,   trilho: 'bg-blue-100',    barra: 'bg-blue-500',    dot: 'bg-blue-500' },
-                            { nome: 'Atenção',       valor: simKpi.erros?.atencao || 0, trilho: 'bg-yellow-100',  barra: 'bg-yellow-500',  dot: 'bg-yellow-500' },
+                            { nome: 'Lacuna',        valor: mAtual.erros?.lac || 0,     trilho: 'bg-red-100',     barra: 'bg-red-500',     dot: 'bg-red-500' },
+                            { nome: 'Recordação',    valor: mAtual.erros?.rec || 0,     trilho: 'bg-purple-100',  barra: 'bg-purple-500',  dot: 'bg-purple-500' },
+                            { nome: 'Interpretação', valor: mAtual.erros?.inter || 0,   trilho: 'bg-blue-100',    barra: 'bg-blue-500',    dot: 'bg-blue-500' },
+                            { nome: 'Atenção',       valor: mAtual.erros?.atencao || 0, trilho: 'bg-yellow-100',  barra: 'bg-yellow-500',  dot: 'bg-yellow-500' },
                           ].sort((a, b) => b.valor - a.valor);
                           const total = tipos.reduce((s, t) => s + t.valor, 0);
                           if (total === 0) {
@@ -1731,30 +1821,49 @@ export default function PainelDoAluno() {
                       <div className={`${cardClass} col-span-2`}>
                         <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Histórico de Provas</h3>
                         <div className="h-64">
-                          <Line
-                            data={{
-                              labels: histSim.labels || [],
-                              datasets: [
-                                { label: 'LG',   data: histSim.lg  || [], borderColor: '#0ea5e9', backgroundColor: '#0ea5e9', tension: 0.3 },
-                                { label: 'CH',   data: histSim.ch  || [], borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 },
-                                { label: 'CN',   data: histSim.cn  || [], borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.3 },
-                                { label: 'MAT',  data: histSim.mat || [], borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.3 },
-                                {
-                                  label: 'Meta',
-                                  data: (histSim.labels || []).map(() => 40),
-                                  borderColor: '#94a3b8',
-                                  backgroundColor: 'transparent',
-                                  borderDash: [6, 4],
-                                  pointRadius: 0,
-                                  borderWidth: 1.5,
-                                },
-                              ],
-                            }}
-                            options={{
-                              ...chartOptions,
-                              scales: { ...(chartOptions?.scales || {}), y: { min: 0, max: 45 } },
-                            }}
-                          />
+                          {abaMetrica === 'ENEM' ? (
+                            <Line
+                              data={{
+                                labels: histSim.labels || [],
+                                datasets: [
+                                  { label: 'LG',   data: histSim.lg  || [], borderColor: '#0ea5e9', backgroundColor: '#0ea5e9', tension: 0.3 },
+                                  { label: 'CH',   data: histSim.ch  || [], borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 },
+                                  { label: 'CN',   data: histSim.cn  || [], borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.3 },
+                                  { label: 'MAT',  data: histSim.mat || [], borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.3 },
+                                  {
+                                    label: 'Meta',
+                                    data: (histSim.labels || []).map(() => 40),
+                                    borderColor: '#94a3b8',
+                                    backgroundColor: 'transparent',
+                                    borderDash: [6, 4],
+                                    pointRadius: 0,
+                                    borderWidth: 1.5,
+                                  },
+                                ],
+                              }}
+                              options={{
+                                ...chartOptions,
+                                scales: { ...(chartOptions?.scales || {}), y: { min: 0, max: 45 } },
+                              }}
+                            />
+                          ) : (
+                            (histCustom.labels || []).length === 0 ? (
+                              <div className="h-full flex items-center justify-center"><p className="text-xs text-slate-400 font-medium">Sem histórico de outros vestibulares ainda.</p></div>
+                            ) : (
+                              <Line
+                                data={{
+                                  labels: histCustom.labels,
+                                  datasets: [
+                                    { label: 'Aproveitamento %', data: histCustom.aprov, borderColor: '#060242', backgroundColor: '#060242', tension: 0.3 },
+                                  ],
+                                }}
+                                options={{
+                                  ...chartOptions,
+                                  scales: { ...(chartOptions?.scales || {}), y: { min: 0, max: 100 } },
+                                }}
+                              />
+                            )
+                          )}
                         </div>
                       </div>
 
