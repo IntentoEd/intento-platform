@@ -188,6 +188,8 @@ const COL_SIM = {
 // Ano mínimo aceito p/ data de simulado. Espelha SIMULADO_ANO_MIN em
 // lib/simuladoData.js (front) — se mudar um, mude o outro.
 const SIM_ANO_MIN = 2000;
+// Mínimo de caracteres significativos no título. Espelha SIMULADO_TITULO_MIN.
+const SIM_TITULO_MIN = 3;
 
 const COL_CAD = {
   ID: 0, DISCIPLINA: 1, TOPICO: 2, DATA_ERRO: 3, PERGUNTA: 4,
@@ -1611,6 +1613,15 @@ function handleLoginGlobal(dados) {
 
 // Migração preguiçosa: cada planilha de aluno tinha 15 colunas (até KOLB_REDACAO).
 // Garante MODELO/MATERIAS_JSON/AAR_JSON antes de qualquer escrita.
+// Valida título de simulado: após trim, ao menos SIM_TITULO_MIN caracteres
+// significativos (letras/números).
+function _validarTituloSimulado(raw) {
+  const s = txt(raw).trim();
+  if (s.length < SIM_TITULO_MIN) return false;
+  const signif = (s.match(/[A-Za-zÀ-ÖØ-öø-ÿ0-9]/g) || []).length;
+  return signif >= SIM_TITULO_MIN;
+}
+
 // Valida data de simulado: parseável e dentro de [SIM_ANO_MIN-01-01, hoje].
 function _validarDataSimulado(raw) {
   const s = txt(raw).split(" ")[0].split("T")[0];
@@ -1647,6 +1658,9 @@ function handleSalvarSimulado(dados) {
     const aba        = ssAluno.getSheetByName(ABA.SIMULADOS);
     if (!aba) throw new Error("Aba '" + ABA.SIMULADOS + "' não encontrada.");
     _garantirColunasSim(aba);
+    if (!_validarTituloSimulado(dados.especificacao)) {
+      return responderJSON({ status: "erro", mensagem: "Nome do simulado inválido (mínimo " + SIM_TITULO_MIN + " caracteres significativos)." });
+    }
     if (!_validarDataSimulado(dados.data)) {
       return responderJSON({ status: "erro", mensagem: "Data do simulado inválida (informe uma data entre " + SIM_ANO_MIN + " e hoje)." });
     }

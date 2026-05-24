@@ -11,7 +11,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 import { Bar, Line } from '@/components/Charts';
 import { getCache, setCache } from '@/lib/cacheClient';
-import { SIMULADO_ANO_MIN, isSimuladoDateValid, formatSimuladoDate, histSimulado, simuladoDataMinISO, simuladoDataMaxISO } from '@/lib/simuladoData';
+import { SIMULADO_ANO_MIN, SIMULADO_TITULO_MIN, ENEM_AREA_MAX, isSimuladoDateValid, formatSimuladoDate, histSimulado, metricasSimulado, tituloSimuladoValido, simuladoDataMinISO, simuladoDataMaxISO } from '@/lib/simuladoData';
 import PushToggle from '@/components/PushToggle';
 import ProvasAluno from '@/components/ProvasAluno';
 import BoletimAluno from '@/components/BoletimAluno';
@@ -64,40 +64,6 @@ const resumoDesempenho = (sim) => {
     if (!fraca || it.pct < fraca.pct) fraca = it;
   });
   return { aprov, areaForte: forte ? forte.nome : '—', areaFraca: fraca ? fraca.nome : '—' };
-};
-
-// Métricas de simulado por modelo (ENEM ou Custom), calculadas no client a partir da lista
-const metricasSimulado = (lista, modelo) => {
-  const sims = (lista || []).filter(s => (s.modelo || 'ENEM') === modelo && s.status === 'Concluída');
-  const ult3 = sims.slice(-3);
-  const n = ult3.length || 1;
-  // Usa as contagens por simulado (s.erros), que existem tanto no formato antigo
-  // (objeto de contagens) quanto no novo (array classificado) — errosLista fica
-  // vazio nos simulados antigos.
-  let lac = 0, rec = 0, inter = 0, at = 0;
-  ult3.forEach(s => {
-    const er = s.erros || {};
-    lac += er.lac || 0; rec += er.rec || 0; inter += er.inter || 0; at += er.atencao || 0;
-  });
-  const erros = { lac: Math.round(lac / n), rec: Math.round(rec / n), inter: Math.round(inter / n), atencao: Math.round(at / n) };
-  const comRed = sims.filter(s => s.redacao > 0).slice(-3);
-  const medRedacao = comRed.length ? Math.round(comRed.reduce((a, s) => a + s.redacao, 0) / comRed.length) : 0;
-  const base = { realizados: sims.length, erros, medRedacao };
-  if (modelo === 'Custom') {
-    const aprovMedio = ult3.length ? Math.round(ult3.reduce((a, s) => a + (s.aproveitamento || 0), 0) / ult3.length) : 0;
-    const mapM = {};
-    sims.forEach(s => (s.materias || []).forEach(m => {
-      const q = parseInt(m.questoes) || 0, ac = parseInt(m.acertos) || 0;
-      if (q <= 0) return;
-      if (!mapM[m.materia]) mapM[m.materia] = { soma: 0, n: 0 };
-      mapM[m.materia].soma += (ac / q) * 100; mapM[m.materia].n++;
-    }));
-    const porMateria = Object.keys(mapM).map(k => ({ nome: k, pct: Math.round(mapM[k].soma / mapM[k].n) })).sort((a, b) => b.pct - a.pct);
-    return { ...base, aprovMedio, porMateria };
-  }
-  const sLG = ult3.reduce((a, s) => a + (s.lg || 0), 0), sCH = ult3.reduce((a, s) => a + (s.ch || 0), 0);
-  const sCN = ult3.reduce((a, s) => a + (s.cn || 0), 0), sMAT = ult3.reduce((a, s) => a + (s.mat || 0), 0);
-  return { ...base, medAcertos: Math.round((sLG + sCH + sCN + sMAT) / n), medLG: Math.round(sLG / n), medCH: Math.round(sCH / n), medCN: Math.round(sCN / n), medMAT: Math.round(sMAT / n) };
 };
 
 // =========================================================================
@@ -189,6 +155,7 @@ export default function PainelDoAluno() {
   const [formRegistro, setFormRegistro] = useState({ data: '', especificacao: '', lg: '', ch: '', cn: '', mat: '', redacao: '' });
   const [materiasCustom, setMateriasCustom] = useState([]); // [{materia, questoes, acertos}]
   const [erroDataSimulado, setErroDataSimulado] = useState(''); // erro inline da data no registro
+  const [erroTituloSimulado, setErroTituloSimulado] = useState(''); // erro inline do título
   const [abaMetrica, setAbaMetrica] = useState('ENEM'); // toggle métricas ENEM | Outros
   const [topicosDicionario, setTopicosDicionario] = useState({});
   
@@ -406,6 +373,12 @@ export default function PainelDoAluno() {
       mostrarToast("Preencha a data e a especificação.", "error");
       return;
     }
+    if (!tituloSimuladoValido(formRegistro.especificacao)) {
+      setErroTituloSimulado(`Informe um nome com ao menos ${SIMULADO_TITULO_MIN} caracteres significativos.`);
+      mostrarToast("Nome do simulado inválido.", "error");
+      return;
+    }
+    setErroTituloSimulado('');
     if (!isSimuladoDateValid(formRegistro.data)) {
       setErroDataSimulado(`Informe uma data entre ${SIMULADO_ANO_MIN} e hoje.`);
       mostrarToast("Data do simulado inválida.", "error");
@@ -417,10 +390,10 @@ export default function PainelDoAluno() {
     if (!isCustom) {
       const invalido = ['lg', 'ch', 'cn', 'mat'].some(k => {
         const v = parseInt(formRegistro[k]);
-        return isNaN(v) || v < 0 || v > 45;
+        return isNaN(v) || v < 0 || v > ENEM_AREA_MAX;
       });
       if (invalido) {
-        mostrarToast("Acertos por área devem estar entre 0 e 45.", "error");
+        mostrarToast(`Acertos por área devem estar entre 0 e ${ENEM_AREA_MAX}.`, "error");
         return;
       }
     } else {
@@ -1874,37 +1847,38 @@ export default function PainelDoAluno() {
 
                   <div className="pt-8 border-t border-slate-200">
                     <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-6">Seus Últimos Simulados</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {simuladosLista.map((sim) => (
-                        <div key={sim.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-md transition-all">
-                          {sim.status === 'Pendente' ? (
-                            <div className="bg-amber-500 text-white text-[10px] font-semibold uppercase tracking-wide py-2 text-center">Análise Pendente</div>
-                          ) : (
-                            <div className="bg-emerald-500 text-white text-[10px] font-semibold uppercase tracking-wide py-2 text-center">Análise Concluída</div>
-                          )}
-                          <div className="p-5 flex-1">
-                            <p className="text-xs text-slate-400 font-medium mb-1">{sim.modelo}</p>
-                            <h4 className="text-base font-semibold text-intento-blue mb-1">{sim.especificacao}</h4>
-                            <p className="text-sm text-slate-400 mb-5">Realizado em {formatSimuladoDate(sim.data)}</p>
-                            <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
-                              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{sim.modelo === 'Custom' ? 'Aproveitamento' : 'Acertos'}</span>
-                              {sim.modelo === 'Custom' ? (
-                                <span className="font-bold text-intento-blue text-sm">{sim.aproveitamento ?? 0}%</span>
-                              ) : (
-                                <span className="font-bold text-intento-blue text-sm">{parseInt(sim.lg)+parseInt(sim.ch)+parseInt(sim.cn)+parseInt(sim.mat)} <span className="text-xs text-slate-400 font-normal">/ 180</span></span>
-                              )}
+                    {simuladosLista.length === 0 ? (
+                      <p className="text-sm text-slate-400 font-medium py-8 text-center bg-white rounded-xl border border-slate-200">Nenhum simulado registrado ainda.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {simuladosLista.map((sim) => {
+                          const concluido = sim.status === 'Concluída';
+                          const isCustom = sim.modelo === 'Custom';
+                          return (
+                            <div key={sim.id} className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex items-center gap-3 sm:gap-4 hover:border-intento-blue/40 transition-colors">
+                              <span className={`shrink-0 w-2.5 h-2.5 rounded-full ${concluido ? 'bg-emerald-500' : 'bg-amber-500'}`} title={concluido ? 'Análise concluída' : 'Análise pendente'} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-sm font-semibold text-intento-blue truncate">{sim.especificacao}</h4>
+                                  <span className="shrink-0 text-[10px] font-medium text-slate-400 uppercase tracking-wide bg-slate-100 px-1.5 py-0.5 rounded">{sim.modelo}</span>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-0.5">Realizado em {formatSimuladoDate(sim.data)}</p>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                {isCustom ? (
+                                  <span className="text-sm font-bold text-intento-blue">{sim.aproveitamento ?? 0}%</span>
+                                ) : (
+                                  <span className="text-sm font-bold text-intento-blue">{parseInt(sim.lg) + parseInt(sim.ch) + parseInt(sim.cn) + parseInt(sim.mat)}<span className="text-xs text-slate-400 font-normal">/180</span></span>
+                                )}
+                              </div>
+                              <button onClick={() => iniciarAutopsia(sim)} className={`shrink-0 ${concluido ? btnGhost : btnPrimary} text-xs py-2 px-4`}>
+                                {concluido ? 'Revisar' : 'Analisar'}
+                              </button>
                             </div>
-                          </div>
-                          <div className="p-4 border-t border-slate-100">
-                            {sim.status === 'Pendente' ? (
-                              <button onClick={() => iniciarAutopsia(sim)} className={`w-full ${btnPrimary} text-xs py-2.5`}>🔍 Iniciar Análise</button>
-                            ) : (
-                              <button onClick={() => iniciarAutopsia(sim)} className={`w-full ${btnGhost} text-xs py-2.5`}>Revisar / Editar Análise</button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2122,7 +2096,7 @@ export default function PainelDoAluno() {
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg flex flex-col overflow-hidden">
             <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center">
               <h2 className="text-base font-semibold text-intento-blue">Novo Registro de Simulado</h2>
-              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); setErroDataSimulado(''); }} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); setErroDataSimulado(''); setErroTituloSimulado(''); }} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
 
             <div className="p-7 space-y-5">
@@ -2137,7 +2111,11 @@ export default function PainelDoAluno() {
                   <input type="date" className={inputClass} min={simuladoDataMinISO()} max={simuladoDataMaxISO()} value={formRegistro.data} onChange={e => { setFormRegistro({...formRegistro, data: e.target.value}); if (erroDataSimulado) setErroDataSimulado(''); }} />
                   {erroDataSimulado && <p className="text-[11px] text-red-500 font-medium mt-1">{erroDataSimulado}</p>}
                 </div>
-                <div><label className={labelClass}>Especificação</label><input type="text" placeholder="Ex: ENEM 2023 - PPL" className={inputClass} value={formRegistro.especificacao} onChange={e => setFormRegistro({...formRegistro, especificacao: e.target.value})} /></div>
+                <div>
+                  <label className={labelClass}>Especificação</label>
+                  <input type="text" placeholder="Ex: ENEM 2023 - PPL" className={inputClass} value={formRegistro.especificacao} onChange={e => { setFormRegistro({...formRegistro, especificacao: e.target.value}); if (erroTituloSimulado) setErroTituloSimulado(''); }} />
+                  {erroTituloSimulado && <p className="text-[11px] text-red-500 font-medium mt-1">{erroTituloSimulado}</p>}
+                </div>
               </div>
 
               {tipoModelo === "ENEM" ? (
@@ -2185,7 +2163,7 @@ export default function PainelDoAluno() {
             </div>
 
             <div className="px-7 py-5 border-t border-slate-100 flex justify-end gap-3">
-              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); setErroDataSimulado(''); }} className={btnGhost}>Cancelar</button>
+              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); setErroDataSimulado(''); setErroTituloSimulado(''); }} className={btnGhost}>Cancelar</button>
               <button onClick={salvarSimulado} disabled={salvandoSimulado} className={btnPrimary + ' disabled:opacity-60'}>{salvandoSimulado ? 'Salvando...' : 'Salvar Registro'}</button>            </div>
           </div>
         </div>
