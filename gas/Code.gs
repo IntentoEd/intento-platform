@@ -185,6 +185,10 @@ const COL_SIM = {
   MODELO: 15, MATERIAS_JSON: 16, AAR_JSON: 17
 };
 
+// Ano mínimo aceito p/ data de simulado. Espelha SIMULADO_ANO_MIN em
+// lib/simuladoData.js (front) — se mudar um, mude o outro.
+const SIM_ANO_MIN = 2000;
+
 const COL_CAD = {
   ID: 0, DISCIPLINA: 1, TOPICO: 2, DATA_ERRO: 3, PERGUNTA: 4,
   RESPOSTA: 5, ESTAGIO: 6, PROXIMA_REVISAO: 7, HISTORICO: 8,
@@ -1607,6 +1611,21 @@ function handleLoginGlobal(dados) {
 
 // Migração preguiçosa: cada planilha de aluno tinha 15 colunas (até KOLB_REDACAO).
 // Garante MODELO/MATERIAS_JSON/AAR_JSON antes de qualquer escrita.
+// Valida data de simulado: parseável e dentro de [SIM_ANO_MIN-01-01, hoje].
+function _validarDataSimulado(raw) {
+  const s = txt(raw).split(" ")[0].split("T")[0];
+  let y, m, d;
+  if (s.indexOf("/") !== -1) { const p = s.split("/"); if (p.length !== 3) return false; d = +p[0]; m = +p[1]; y = +p[2]; }
+  else if (s.indexOf("-") !== -1) { const p = s.split("-"); if (p.length !== 3) return false; y = +p[0]; m = +p[1]; d = +p[2]; }
+  else return false;
+  if (!y || !m || !d) return false;
+  const dt = new Date(y, m - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return false;
+  const min = new Date(SIM_ANO_MIN, 0, 1);
+  const max = new Date(); max.setHours(23, 59, 59, 999);
+  return dt >= min && dt <= max;
+}
+
 function _garantirColunasSim(aba) {
   const precisa = COL_SIM.AAR_JSON + 1; // 18
   const atual   = aba.getMaxColumns();
@@ -1628,6 +1647,9 @@ function handleSalvarSimulado(dados) {
     const aba        = ssAluno.getSheetByName(ABA.SIMULADOS);
     if (!aba) throw new Error("Aba '" + ABA.SIMULADOS + "' não encontrada.");
     _garantirColunasSim(aba);
+    if (!_validarDataSimulado(dados.data)) {
+      return responderJSON({ status: "erro", mensagem: "Data do simulado inválida (informe uma data entre " + SIM_ANO_MIN + " e hoje)." });
+    }
     const idSimulado = "sim_" + new Date().getTime();
     let dataFormatada = txt(dados.data);
     if (dataFormatada && dataFormatada.indexOf("-") !== -1) {
