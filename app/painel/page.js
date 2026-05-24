@@ -543,13 +543,6 @@ export default function PainelDoAluno() {
     }
   };
 
-  const getBadge = (val) => {
-    if (val >= 90) return <span className="inline-flex items-center px-2.5 py-1 bg-intento-blue text-intento-yellow text-[10px] uppercase tracking-wide font-medium rounded-full mt-2">Elite</span>;
-    if (val >= 80) return <span className="inline-flex items-center px-2.5 py-1 bg-blue-50 text-blue-600 text-[10px] uppercase tracking-wide font-medium rounded-full mt-2">Core</span>;
-    if (val >= 70) return <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-600 text-[10px] uppercase tracking-wide font-medium rounded-full mt-2">Starter</span>;
-    return null;
-  };
-
   if (carregando || !sessao) {
     return (
       <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -1236,7 +1229,6 @@ export default function PainelDoAluno() {
                             <div key={label} style={{ borderColor: color + '55', background: color + '0a' }} className="rounded-xl border p-5 flex flex-col gap-3 shadow-sm">
                               <div className="flex items-center justify-between">
                                 <p style={{ color }} className="text-xs font-semibold uppercase tracking-wider">{label}</p>
-                                {getBadge(dom)}
                               </div>
                               <div>
                                 <p className="text-4xl font-bold text-intento-blue leading-none">{dom}<span className="text-lg font-medium text-slate-300 ml-0.5">%</span></p>
