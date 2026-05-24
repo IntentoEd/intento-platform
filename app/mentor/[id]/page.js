@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Line } from '@/components/Charts';
+import { formatSimuladoDate, histSimulado } from '@/lib/simuladoData';
 import { LoadingScreen, LoadingInline } from '@/components/Loading';
 import AbaProvas from '@/components/AbaProvas';
 import StatusAppSelect from '@/components/StatusAppSelect';
@@ -1872,15 +1873,13 @@ export default function GestaoIndividualAluno() {
         {/* ================================================================== */}
         {abaInterna === 'simulados' && (() => {
           const simKpi  = dadosSimulados?.kpi  || { realizados: 0, medAcertos: 0, medRedacao: 0, medLG: 0, medCH: 0, medCN: 0, medMAT: 0, erros: { atencao: 0, inter: 0, rec: 0, lac: 0 } };
-          const histSim = dadosSimulados?.hist || { labels: [], lg: [], ch: [], cn: [], mat: [] };
           const lista   = dadosSimulados?.lista || [];
           const mEnem = metricasSimulado(lista, 'ENEM');
           const mCustom = metricasSimulado(lista, 'Custom');
           const mAtual = abaMetrica === 'ENEM' ? mEnem : mCustom;
-          const histCustom = (() => {
-            const c = lista.filter(s => s.modelo === 'Custom' && s.status === 'Concluída');
-            return { labels: c.map(s => s.data), aprov: c.map(s => s.aproveitamento || 0) };
-          })();
+          // Histórico cronológico (parse + sort asc + exclui datas inválidas)
+          const histEnem = histSimulado(lista, 'ENEM');
+          const histCustom = histSimulado(lista, 'Custom');
 
           const tipos = [
             { nome: 'Lacuna',        valor: mAtual.erros?.lac || 0,     trilho: 'bg-red-100',     barra: 'bg-red-500',     dot: 'bg-red-500' },
@@ -2011,13 +2010,13 @@ export default function GestaoIndividualAluno() {
                     {abaMetrica === 'ENEM' ? (
                       <Line
                         data={{
-                          labels: histSim.labels || [],
+                          labels: histEnem.labels || [],
                           datasets: [
-                            { label: 'LG',  data: histSim.lg  || [], borderColor: '#0ea5e9', backgroundColor: '#0ea5e9', tension: 0.3 },
-                            { label: 'CH',  data: histSim.ch  || [], borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 },
-                            { label: 'CN',  data: histSim.cn  || [], borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.3 },
-                            { label: 'MAT', data: histSim.mat || [], borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.3 },
-                            { label: 'Meta', data: (histSim.labels || []).map(() => 40), borderColor: '#94a3b8', backgroundColor: 'transparent', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5 },
+                            { label: 'LG',  data: histEnem.lg  || [], borderColor: '#0ea5e9', backgroundColor: '#0ea5e9', tension: 0.3 },
+                            { label: 'CH',  data: histEnem.ch  || [], borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 },
+                            { label: 'CN',  data: histEnem.cn  || [], borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.3 },
+                            { label: 'MAT', data: histEnem.mat || [], borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.3 },
+                            { label: 'Meta', data: (histEnem.labels || []).map(() => 40), borderColor: '#94a3b8', backgroundColor: 'transparent', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5 },
                           ],
                         }}
                         options={{
@@ -2076,7 +2075,7 @@ export default function GestaoIndividualAluno() {
                             <div>
                               <p className="text-xs text-slate-400 font-medium">{sim.modelo || 'ENEM'}</p>
                               <h4 className="text-sm font-semibold text-intento-blue mt-0.5">{sim.especificacao || '—'}</h4>
-                              <p className="text-[11px] text-slate-400 mt-0.5">{sim.data || '—'}</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">{formatSimuladoDate(sim.data)}</p>
                             </div>
                             <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex justify-between items-center">
                               <span className="text-xs font-medium text-slate-500">{isCustom ? 'Aproveitamento' : 'Acertos'}</span>
@@ -2168,7 +2167,7 @@ export default function GestaoIndividualAluno() {
                 {/* Header */}
                 <div className="bg-white px-8 py-5 border-b border-slate-200 flex justify-between items-start gap-4">
                   <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{sim.modelo || 'ENEM'} · {sim.data}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{sim.modelo || 'ENEM'} · {formatSimuladoDate(sim.data)}</p>
                     <h2 className="text-base font-semibold text-intento-blue mt-0.5">{sim.especificacao || 'Análise do Simulado'}</h2>
                     <div className="flex items-center gap-4 mt-2 text-xs">
                       <span className="text-slate-500">Acertos: <span className="font-bold text-intento-blue">{totalAcertos}/{totalQuestoes}</span></span>

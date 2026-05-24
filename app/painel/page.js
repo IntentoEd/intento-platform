@@ -11,6 +11,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 import { Bar, Line } from '@/components/Charts';
 import { getCache, setCache } from '@/lib/cacheClient';
+import { SIMULADO_ANO_MIN, isSimuladoDateValid, formatSimuladoDate, histSimulado, simuladoDataMinISO, simuladoDataMaxISO } from '@/lib/simuladoData';
 import PushToggle from '@/components/PushToggle';
 import ProvasAluno from '@/components/ProvasAluno';
 import BoletimAluno from '@/components/BoletimAluno';
@@ -187,6 +188,7 @@ export default function PainelDoAluno() {
   const [tipoModelo, setTipoModelo] = useState("ENEM");
   const [formRegistro, setFormRegistro] = useState({ data: '', especificacao: '', lg: '', ch: '', cn: '', mat: '', redacao: '' });
   const [materiasCustom, setMateriasCustom] = useState([]); // [{materia, questoes, acertos}]
+  const [erroDataSimulado, setErroDataSimulado] = useState(''); // erro inline da data no registro
   const [abaMetrica, setAbaMetrica] = useState('ENEM'); // toggle métricas ENEM | Outros
   const [topicosDicionario, setTopicosDicionario] = useState({});
   
@@ -404,6 +406,12 @@ export default function PainelDoAluno() {
       mostrarToast("Preencha a data e a especificação.", "error");
       return;
     }
+    if (!isSimuladoDateValid(formRegistro.data)) {
+      setErroDataSimulado(`Informe uma data entre ${SIMULADO_ANO_MIN} e hoje.`);
+      mostrarToast("Data do simulado inválida.", "error");
+      return;
+    }
+    setErroDataSimulado('');
     // TODO: validation also in backend
     const isCustom = tipoModelo !== 'ENEM';
     if (!isCustom) {
@@ -605,15 +613,13 @@ export default function PainelDoAluno() {
   const rotina = dados.rotina || {};
   const rotinaDias = dados.rotinaDias || ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
   const simKpi = dados.sim?.kpi || { realizados: 0, medAcertos: 0, medRedacao: 0, medLG: 0, medCH: 0, medCN: 0, medMAT: 0, erros: { atencao: 0, inter: 0, rec: 0, lac: 0 } };
-  const histSim = dados.sim?.hist || { labels: [], lg: [], ch: [], cn: [], mat: [] };
   // Métricas separadas por modelo (toggle ENEM | Outros)
   const mEnem = metricasSimulado(simuladosLista, 'ENEM');
   const mCustom = metricasSimulado(simuladosLista, 'Custom');
   const mAtual = abaMetrica === 'ENEM' ? mEnem : mCustom;
-  const histCustom = (() => {
-    const c = (simuladosLista || []).filter(s => s.modelo === 'Custom' && s.status === 'Concluída');
-    return { labels: c.map(s => s.data), aprov: c.map(s => s.aproveitamento || 0) };
-  })();
+  // Histórico cronológico (parse + sort asc + exclui datas inválidas)
+  const histEnem = histSimulado(simuladosLista, 'ENEM');
+  const histCustom = histSimulado(simuladosLista, 'Custom');
 
   const historicoConsistencia = (mensal.horas || []).map((h, i) => parseFloat(h) >= parseFloat(mensal.meta[i] || 0) && parseFloat(mensal.meta[i] || 0) > 0);
   
@@ -896,7 +902,7 @@ export default function PainelDoAluno() {
                   </button>
                   <div>
                     <h2 className="text-xl font-semibold text-intento-blue">Análise de Simulado</h2>
-                    <p className="text-slate-400 text-sm mt-0.5">{simuladoAnalise.especificacao} · {simuladoAnalise.data}</p>
+                    <p className="text-slate-400 text-sm mt-0.5">{simuladoAnalise.especificacao} · {formatSimuladoDate(simuladoAnalise.data)}</p>
                   </div>
                 </div>
 
@@ -1820,15 +1826,15 @@ export default function PainelDoAluno() {
                           {abaMetrica === 'ENEM' ? (
                             <Line
                               data={{
-                                labels: histSim.labels || [],
+                                labels: histEnem.labels || [],
                                 datasets: [
-                                  { label: 'LG',   data: histSim.lg  || [], borderColor: '#0ea5e9', backgroundColor: '#0ea5e9', tension: 0.3 },
-                                  { label: 'CH',   data: histSim.ch  || [], borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 },
-                                  { label: 'CN',   data: histSim.cn  || [], borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.3 },
-                                  { label: 'MAT',  data: histSim.mat || [], borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.3 },
+                                  { label: 'LG',   data: histEnem.lg  || [], borderColor: '#0ea5e9', backgroundColor: '#0ea5e9', tension: 0.3 },
+                                  { label: 'CH',   data: histEnem.ch  || [], borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 },
+                                  { label: 'CN',   data: histEnem.cn  || [], borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.3 },
+                                  { label: 'MAT',  data: histEnem.mat || [], borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.3 },
                                   {
                                     label: 'Meta',
-                                    data: (histSim.labels || []).map(() => 40),
+                                    data: (histEnem.labels || []).map(() => 40),
                                     borderColor: '#94a3b8',
                                     backgroundColor: 'transparent',
                                     borderDash: [6, 4],
@@ -1879,7 +1885,7 @@ export default function PainelDoAluno() {
                           <div className="p-5 flex-1">
                             <p className="text-xs text-slate-400 font-medium mb-1">{sim.modelo}</p>
                             <h4 className="text-base font-semibold text-intento-blue mb-1">{sim.especificacao}</h4>
-                            <p className="text-sm text-slate-400 mb-5">Realizado em {String(sim.data || '').split(' ')[0]}</p>
+                            <p className="text-sm text-slate-400 mb-5">Realizado em {formatSimuladoDate(sim.data)}</p>
                             <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
                               <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{sim.modelo === 'Custom' ? 'Aproveitamento' : 'Acertos'}</span>
                               {sim.modelo === 'Custom' ? (
@@ -2116,7 +2122,7 @@ export default function PainelDoAluno() {
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg flex flex-col overflow-hidden">
             <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center">
               <h2 className="text-base font-semibold text-intento-blue">Novo Registro de Simulado</h2>
-              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); }} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); setErroDataSimulado(''); }} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
 
             <div className="p-7 space-y-5">
@@ -2126,7 +2132,11 @@ export default function PainelDoAluno() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div><label className={labelClass}>Data da Prova</label><input type="date" className={inputClass} value={formRegistro.data} onChange={e => setFormRegistro({...formRegistro, data: e.target.value})} /></div>
+                <div>
+                  <label className={labelClass}>Data da Prova</label>
+                  <input type="date" className={inputClass} min={simuladoDataMinISO()} max={simuladoDataMaxISO()} value={formRegistro.data} onChange={e => { setFormRegistro({...formRegistro, data: e.target.value}); if (erroDataSimulado) setErroDataSimulado(''); }} />
+                  {erroDataSimulado && <p className="text-[11px] text-red-500 font-medium mt-1">{erroDataSimulado}</p>}
+                </div>
                 <div><label className={labelClass}>Especificação</label><input type="text" placeholder="Ex: ENEM 2023 - PPL" className={inputClass} value={formRegistro.especificacao} onChange={e => setFormRegistro({...formRegistro, especificacao: e.target.value})} /></div>
               </div>
 
@@ -2175,7 +2185,7 @@ export default function PainelDoAluno() {
             </div>
 
             <div className="px-7 py-5 border-t border-slate-100 flex justify-end gap-3">
-              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); }} className={btnGhost}>Cancelar</button>
+              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); setErroDataSimulado(''); }} className={btnGhost}>Cancelar</button>
               <button onClick={salvarSimulado} disabled={salvandoSimulado} className={btnPrimary + ' disabled:opacity-60'}>{salvandoSimulado ? 'Salvando...' : 'Salvar Registro'}</button>            </div>
           </div>
         </div>
