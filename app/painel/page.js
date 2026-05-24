@@ -70,13 +70,14 @@ const metricasSimulado = (lista, modelo) => {
   const sims = (lista || []).filter(s => (s.modelo || 'ENEM') === modelo && s.status === 'Concluída');
   const ult3 = sims.slice(-3);
   const n = ult3.length || 1;
+  // Usa as contagens por simulado (s.erros), que existem tanto no formato antigo
+  // (objeto de contagens) quanto no novo (array classificado) — errosLista fica
+  // vazio nos simulados antigos.
   let lac = 0, rec = 0, inter = 0, at = 0;
-  ult3.forEach(s => (s.errosLista || []).forEach(e => {
-    if (e.tipo === 'Lacuna') lac++;
-    else if (e.tipo === 'Recordação') rec++;
-    else if (e.tipo === 'Interpretação') inter++;
-    else if (e.tipo === 'Atenção') at++;
-  }));
+  ult3.forEach(s => {
+    const er = s.erros || {};
+    lac += er.lac || 0; rec += er.rec || 0; inter += er.inter || 0; at += er.atencao || 0;
+  });
   const erros = { lac: Math.round(lac / n), rec: Math.round(rec / n), inter: Math.round(inter / n), atencao: Math.round(at / n) };
   const comRed = sims.filter(s => s.redacao > 0).slice(-3);
   const medRedacao = comRed.length ? Math.round(comRed.reduce((a, s) => a + s.redacao, 0) / comRed.length) : 0;
@@ -1758,16 +1759,11 @@ export default function PainelDoAluno() {
                         {(!mCustom.porMateria || mCustom.porMateria.length === 0) ? (
                           <p className="text-xs text-slate-400 font-medium py-6 text-center bg-white rounded-xl border border-slate-200">Nenhum simulado de outros vestibulares ainda.</p>
                         ) : (
-                          <div className="space-y-2.5">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {mCustom.porMateria.map(m => (
-                              <div key={m.nome}>
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-xs font-semibold text-slate-700">{m.nome}</span>
-                                  <span className="text-[11px] font-medium text-slate-400">{m.pct}%</span>
-                                </div>
-                                <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                                  <div className="h-full rounded-full bg-intento-blue transition-all duration-500" style={{ width: `${m.pct}%` }} />
-                                </div>
+                              <div key={m.nome} className={`${cardClass} text-center py-4`} style={{ borderTop: '3px solid #060242' }}>
+                                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{m.nome}</p>
+                                <p className="text-2xl font-bold mt-1 text-intento-blue">{m.pct}<span className="text-xs text-slate-400 font-medium">%</span></p>
                               </div>
                             ))}
                           </div>
