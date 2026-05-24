@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Line } from '@/components/Charts';
-import { formatSimuladoDate, histSimulado } from '@/lib/simuladoData';
+import { formatSimuladoDate, histSimulado, metricasSimulado } from '@/lib/simuladoData';
 import { LoadingScreen, LoadingInline } from '@/components/Loading';
 import AbaProvas from '@/components/AbaProvas';
 import StatusAppSelect from '@/components/StatusAppSelect';
@@ -616,40 +616,6 @@ const StarRating = ({ rating, setRating, readOnly = false, small = false }) => {
       ))}
     </div>
   );
-};
-
-// Métricas de simulado por modelo (ENEM ou Custom), calculadas a partir da lista
-const metricasSimulado = (lista, modelo) => {
-  const sims = (lista || []).filter(s => (s.modelo || 'ENEM') === modelo && s.status === 'Concluída');
-  const ult3 = sims.slice(-3);
-  const n = ult3.length || 1;
-  // Usa as contagens por simulado (s.erros), que existem tanto no formato antigo
-  // (objeto de contagens) quanto no novo (array classificado) — errosLista fica
-  // vazio nos simulados antigos.
-  let lac = 0, rec = 0, inter = 0, at = 0;
-  ult3.forEach(s => {
-    const er = s.erros || {};
-    lac += er.lac || 0; rec += er.rec || 0; inter += er.inter || 0; at += er.atencao || 0;
-  });
-  const erros = { lac: Math.round(lac / n), rec: Math.round(rec / n), inter: Math.round(inter / n), atencao: Math.round(at / n) };
-  const comRed = sims.filter(s => s.redacao > 0).slice(-3);
-  const medRedacao = comRed.length ? Math.round(comRed.reduce((a, s) => a + s.redacao, 0) / comRed.length) : 0;
-  const base = { realizados: sims.length, erros, medRedacao };
-  if (modelo === 'Custom') {
-    const aprovMedio = ult3.length ? Math.round(ult3.reduce((a, s) => a + (s.aproveitamento || 0), 0) / ult3.length) : 0;
-    const mapM = {};
-    sims.forEach(s => (s.materias || []).forEach(m => {
-      const q = parseInt(m.questoes) || 0, ac = parseInt(m.acertos) || 0;
-      if (q <= 0) return;
-      if (!mapM[m.materia]) mapM[m.materia] = { soma: 0, n: 0 };
-      mapM[m.materia].soma += (ac / q) * 100; mapM[m.materia].n++;
-    }));
-    const porMateria = Object.keys(mapM).map(k => ({ nome: k, pct: Math.round(mapM[k].soma / mapM[k].n) })).sort((a, b) => b.pct - a.pct);
-    return { ...base, aprovMedio, porMateria };
-  }
-  const sLG = ult3.reduce((a, s) => a + (s.lg || 0), 0), sCH = ult3.reduce((a, s) => a + (s.ch || 0), 0);
-  const sCN = ult3.reduce((a, s) => a + (s.cn || 0), 0), sMAT = ult3.reduce((a, s) => a + (s.mat || 0), 0);
-  return { ...base, medAcertos: Math.round((sLG + sCH + sCN + sMAT) / n), medLG: Math.round(sLG / n), medCH: Math.round(sCH / n), medCN: Math.round(sCN / n), medMAT: Math.round(sMAT / n) };
 };
 
 export default function GestaoIndividualAluno() {
