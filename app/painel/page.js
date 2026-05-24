@@ -12,7 +12,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { Bar, Line } from '@/components/Charts';
 import { getCache, setCache } from '@/lib/cacheClient';
 import { SIMULADO_ANO_MIN, SIMULADO_TITULO_MIN, ENEM_AREA_MAX, isSimuladoDateValid, formatSimuladoDate, histSimulado, metricasSimulado, tituloSimuladoValido, simuladoDataMinISO, simuladoDataMaxISO } from '@/lib/simuladoData';
-import { formatSemanaLabel, cicloLabelFromRange } from '@/lib/semanaLabel';
+import { agregarMensalPorMes } from '@/lib/semanaLabel';
 import PushToggle from '@/components/PushToggle';
 import ProvasAluno from '@/components/ProvasAluno';
 import BoletimAluno from '@/components/BoletimAluno';
@@ -592,11 +592,10 @@ export default function PainelDoAluno() {
   
   const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } }, scales: { x: { grid: { color: 'rgba(150, 150, 150, 0.1)' } }, y: { grid: { color: 'rgba(150, 150, 150, 0.1)' } } } };
 
-  // Opções dos gráficos semanais: eixo X com rótulo curto (sem rotação) e
-  // tooltip com o intervalo completo + ciclo (mensal.labels = "dd/mm a dd/mm").
-  const semanaLabelsRaw = mensal.labels || [];
-  const labelsSemanaCurtos = semanaLabelsRaw.map(formatSemanaLabel);
-  const opcoesSemana = {
+  // Gráficos da Visão Geral agregados por MÊS (mês = último dia da semana).
+  // Eixo X com rótulo curto (sem rotação); tooltip com mês completo + ciclo.
+  const mensalMes = agregarMensalPorMes(mensal);
+  const opcoesMes = {
     ...chartOptions,
     scales: {
       ...chartOptions.scales,
@@ -606,8 +605,8 @@ export default function PainelDoAluno() {
       ...chartOptions.plugins,
       tooltip: {
         callbacks: {
-          title: (items) => semanaLabelsRaw[items[0].dataIndex] || '',
-          afterTitle: (items) => cicloLabelFromRange(semanaLabelsRaw[items[0].dataIndex] || ''),
+          title: (items) => mensalMes.nomesCompletos[items[0].dataIndex] || '',
+          afterTitle: (items) => mensalMes.ciclos[items[0].dataIndex] || '',
         },
       },
     },
@@ -1273,9 +1272,9 @@ export default function PainelDoAluno() {
                           <div className="h-64"><Bar data={{ labels: ['Biologia', 'Química', 'Física', 'Matemática'], datasets: [{ label: 'Progresso (%)', data: snapshot.prog || [0,0,0,0], backgroundColor: ['#10b981', '#a855f7', '#3b82f6', '#ef4444'], borderRadius: 4 }] }} options={{ indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { max: 100, grid: { color: 'rgba(150, 150, 150, 0.1)' } }, y: { grid: { display: false } } } }} /></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Execução (Horas vs Meta)</h3><div className="h-64"><Bar data={{ labels: labelsSemanaCurtos, datasets: [{ type: 'line', label: 'Meta', data: mensal.meta || [], borderColor: '#64748b', tension: 0.1 }, { type: 'bar', label: 'Horas', data: mensal.horas || [], backgroundColor: '#D4B726', borderRadius: 4 }] }} options={opcoesSemana} /></div></div>
-                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Domínio e Progresso</h3><div className="h-64"><Bar data={{ labels: labelsSemanaCurtos, datasets: [{ type: 'line', label: 'Domínio', data: mensal.domTot || [], borderColor: '#3b82f6', tension: 0.3 }, { type: 'bar', label: 'Progresso', data: mensal.progTot || [], backgroundColor: 'rgba(100, 116, 139, 0.2)', borderRadius: 4 }] }} options={opcoesSemana} /></div></div>
-                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Estilo de Vida</h3><div className="h-64"><Line data={{ labels: labelsSemanaCurtos, datasets: [{ label: 'Estresse', data: mensal.estresse || [], borderColor: '#ef4444' }, { label: 'Ansiedade', data: mensal.ansiedade || [], borderColor: '#f97316' }, { label: 'Sono', data: mensal.sono || [], borderColor: '#8b5cf6' }] }} options={{...opcoesSemana, scales: { ...opcoesSemana.scales, y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } } }}} /></div></div>
+                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Execução (Horas vs Meta)</h3><div className="h-64"><Bar data={{ labels: mensalMes.labels, datasets: [{ type: 'line', label: 'Meta', data: mensalMes.meta, borderColor: '#64748b', tension: 0.1 }, { type: 'bar', label: 'Horas', data: mensalMes.horas, backgroundColor: '#D4B726', borderRadius: 4 }] }} options={opcoesMes} /></div></div>
+                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Domínio e Progresso</h3><div className="h-64"><Bar data={{ labels: mensalMes.labels, datasets: [{ type: 'line', label: 'Domínio', data: mensalMes.domTot, borderColor: '#3b82f6', tension: 0.3 }, { type: 'bar', label: 'Progresso', data: mensalMes.progTot, backgroundColor: 'rgba(100, 116, 139, 0.2)', borderRadius: 4 }] }} options={opcoesMes} /></div></div>
+                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Estilo de Vida</h3><div className="h-64"><Line data={{ labels: mensalMes.labels, datasets: [{ label: 'Estresse', data: mensalMes.estresse, borderColor: '#ef4444' }, { label: 'Ansiedade', data: mensalMes.ansiedade, borderColor: '#f97316' }, { label: 'Sono', data: mensalMes.sono, borderColor: '#8b5cf6' }] }} options={{...opcoesMes, scales: { ...opcoesMes.scales, y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } } }}} /></div></div>
                         </div>
                       </div>
                     )}
