@@ -67,7 +67,7 @@ function VarMateria({ info }) {
   if (!info || info.diff == null || info.diff === 0) return null;
   const abs = Math.abs(info.diff);
   return (
-    <span style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', color: info.positivo ? '#0F6E56' : '#b91c1c' }}>
+    <span style={{ fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap', color: info.positivo ? '#0F6E56' : '#b91c1c' }}>
       {info.diff > 0 ? '↗' : '↘'} {abs % 1 === 0 ? abs : abs.toFixed(1)}pp
     </span>
   );
@@ -77,16 +77,16 @@ function VarMateria({ info }) {
 // número + barra fina (fração do edital). Cor por disciplina (escura) no acento
 // esquerdo, na barra e no título. Número+variação inline p/ alinhar no PNG.
 function MateriaCard({ nome, cor, dom, prog, domDelta, progDelta }) {
-  const LBL = { margin: 0, fontSize: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '1.2px', color: '#64748b' };
-  const NUM = { fontSize: 28, fontWeight: 500, color: '#060242', lineHeight: 1 };
-  const COL = { width: 118, textAlign: 'right', whiteSpace: 'nowrap', flexShrink: 0 };
+  const LBL = { margin: 0, fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '1px', color: '#64748b' };
+  const NUM = { fontSize: 18, fontWeight: 500, color: '#060242', lineHeight: 1 };
+  const COL = { width: 96, textAlign: 'right', whiteSpace: 'nowrap', flexShrink: 0 };
   const pv = Math.max(0, Math.min(100, prog));
   return (
-    <div style={{ background: '#fff', border: '1px solid #e8ecf2', borderLeft: `3px solid ${cor}`, borderRadius: 12, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: '16px 18px' }}>
-      <p style={{ margin: 0, fontSize: 22, fontWeight: 500, color: cor, lineHeight: 1.1 }}>{nome}</p>
+    <div style={{ background: '#fff', border: '1px solid #e8ecf2', borderLeft: `3px solid ${cor}`, borderRadius: 12, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: '14px 16px' }}>
+      <p style={{ margin: 0, fontSize: 15, fontWeight: 500, color: cor, lineHeight: 1.1 }}>{nome}</p>
 
       {/* DOMÍNIO — só número (qualidade, sem barra) */}
-      <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+      <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <span style={LBL}>Domínio</span>
         <span style={COL}>
           <span style={NUM}>{dom}%</span>
@@ -95,7 +95,7 @@ function MateriaCard({ nome, cor, dom, prog, domDelta, progDelta }) {
       </div>
 
       {/* divisor fino */}
-      <div style={{ height: 1, background: '#eef1f5', margin: '14px 0' }} />
+      <div style={{ height: 1, background: '#eef1f5', margin: '12px 0' }} />
 
       {/* PROGRESSO — barra fina + número */}
       <div style={{ display: 'flex', alignItems: 'center' }}>
