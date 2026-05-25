@@ -67,9 +67,11 @@ function KpiCard({ label, valor, delta, suffix, bar, barCaption }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #e8ecf2', borderRadius: 14, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: 16, display: 'flex', flexDirection: 'column', height: '100%' }}>
       <p style={{ ...T.label, minHeight: 26, lineHeight: 1.3 }}>{label}</p>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginTop: 8, whiteSpace: 'nowrap' }}>
+      {/* número + delta como texto inline (baseline natural) — html2canvas
+          renderiza isso de forma confiável; flex align-items quebra no PNG. */}
+      <div style={{ marginTop: 8, whiteSpace: 'nowrap' }}>
         <span style={T.numLg}>{valor}</span>
-        <Delta info={delta} suffix={suffix} />
+        <span style={{ marginLeft: 6 }}><Delta info={delta} suffix={suffix} /></span>
       </div>
       <div style={{ marginTop: 'auto', paddingTop: 12 }}>
         <div style={{ height: 7, borderRadius: 9999, overflow: 'hidden', background: bar != null ? 'rgba(6,2,66,0.08)' : 'transparent' }}>
@@ -453,7 +455,7 @@ function ExportarAcompanhamento() {
                           <span style={{ fontSize: 13, fontWeight: 800, color: c.main }}>{m.nome}</span>
                           <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                             <span style={T.label}>Domínio</span>
-                            <span style={{ display: 'flex', alignItems: 'flex-end' }}>
+                            <span style={{ whiteSpace: 'nowrap' }}>
                               <span style={T.numMd}>{m.dom}%</span>
                               <span style={{ marginLeft: 6 }}><Delta info={m.domDelta} suffix="pp" /></span>
                             </span>
