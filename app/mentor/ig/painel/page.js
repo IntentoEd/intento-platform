@@ -67,7 +67,7 @@ function KpiCard({ label, valor, delta, suffix, bar, barCaption }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #e8ecf2', borderRadius: 14, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: 16, display: 'flex', flexDirection: 'column', height: '100%' }}>
       <p style={{ ...T.label, minHeight: 26, lineHeight: 1.3 }}>{label}</p>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 8, whiteSpace: 'nowrap' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginTop: 8, whiteSpace: 'nowrap' }}>
         <span style={T.numLg}>{valor}</span>
         <Delta info={delta} suffix={suffix} />
       </div>
@@ -173,6 +173,9 @@ function ExportarAcompanhamento() {
     setExportando(true);
     try {
       const html2canvas = (await import('html2canvas')).default;
+      // Espera a fonte (Ubuntu) carregar — sem isso o html2canvas captura com
+      // fonte fallback, com métricas diferentes, e os textos saem desalinhados.
+      if (document.fonts?.ready) { try { await document.fonts.ready; } catch (_) {} }
       const canvas = await html2canvas(cardRef.current, {
         scale: 2,
         useCORS: true,
@@ -448,9 +451,9 @@ function ExportarAcompanhamento() {
                       return (
                         <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: 14, display: 'flex', flexDirection: 'column' }}>
                           <span style={{ fontSize: 13, fontWeight: 800, color: c.main }}>{m.nome}</span>
-                          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                             <span style={T.label}>Domínio</span>
-                            <span style={{ display: 'flex', alignItems: 'baseline' }}>
+                            <span style={{ display: 'flex', alignItems: 'flex-end' }}>
                               <span style={T.numMd}>{m.dom}%</span>
                               <span style={{ marginLeft: 6 }}><Delta info={m.domDelta} suffix="pp" /></span>
                             </span>
