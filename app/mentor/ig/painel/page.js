@@ -10,11 +10,12 @@ import { LoadingInline } from '@/components/Loading';
 
 // Cor por disciplina (Bio verde, Qui roxo, Fis azul, Mat vermelho):
 // main = título + barra; bg/border = fundo suave do mini card.
+// Cor por disciplina, em tom mais escuro/sério (acento, barra e título do card).
 const CORES_MATERIA = {
-  'Biologia':   { main: '#10b981', bg: '#ecfdf5', border: '#bbf7d0' },
-  'Química':    { main: '#a855f7', bg: '#faf5ff', border: '#e9d5ff' },
-  'Física':     { main: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' },
-  'Matemática': { main: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
+  'Biologia':   '#047857', // verde escuro
+  'Química':    '#7e22ce', // roxo escuro
+  'Física':     '#1d4ed8', // azul escuro
+  'Matemática': '#b91c1c', // vermelho escuro
 };
 
 // Estados da consistência (horas vs meta da semana). Símbolo do "quase" = ≈.
@@ -58,6 +59,56 @@ function Delta({ info, suffix }) {
     <span style={{ fontSize: 11, fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap', color: info.positivo ? '#047857' : '#b91c1c' }}>
       {info.diff > 0 ? '▲' : '▼'} {abs % 1 === 0 ? abs : abs.toFixed(1)}{suffix || ''}
     </span>
+  );
+}
+
+// Variação da matéria: ↗ verde-petróleo / ↘ vermelho / zero = nada.
+function VarMateria({ info }) {
+  if (!info || info.diff == null || info.diff === 0) return null;
+  const abs = Math.abs(info.diff);
+  return (
+    <span style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', color: info.positivo ? '#0F6E56' : '#b91c1c' }}>
+      {info.diff > 0 ? '↗' : '↘'} {abs % 1 === 0 ? abs : abs.toFixed(1)}pp
+    </span>
+  );
+}
+
+// Card de matéria. Domínio = só número (qualidade, não progride). Progresso =
+// número + barra fina (fração do edital). Cor por disciplina (escura) no acento
+// esquerdo, na barra e no título. Número+variação inline p/ alinhar no PNG.
+function MateriaCard({ nome, cor, dom, prog, domDelta, progDelta }) {
+  const LBL = { margin: 0, fontSize: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '1.2px', color: '#64748b' };
+  const NUM = { fontSize: 28, fontWeight: 500, color: '#060242', lineHeight: 1 };
+  const COL = { width: 118, textAlign: 'right', whiteSpace: 'nowrap', flexShrink: 0 };
+  const pv = Math.max(0, Math.min(100, prog));
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e8ecf2', borderLeft: `3px solid ${cor}`, borderRadius: 12, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: '16px 18px' }}>
+      <p style={{ margin: 0, fontSize: 22, fontWeight: 500, color: cor, lineHeight: 1.1 }}>{nome}</p>
+
+      {/* DOMÍNIO — só número (qualidade, sem barra) */}
+      <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+        <span style={LBL}>Domínio</span>
+        <span style={COL}>
+          <span style={NUM}>{dom}%</span>
+          <span style={{ marginLeft: 6 }}><VarMateria info={domDelta} /></span>
+        </span>
+      </div>
+
+      {/* divisor fino */}
+      <div style={{ height: 1, background: '#eef1f5', margin: '14px 0' }} />
+
+      {/* PROGRESSO — barra fina + número */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <span style={{ ...LBL, flexShrink: 0 }}>Progresso</span>
+        <div style={{ flex: 1, height: 6, background: 'rgba(6,2,66,0.06)', borderRadius: 9999, overflow: 'hidden', marginLeft: 12, marginRight: 12 }}>
+          <div style={{ width: `${pv}%`, height: '100%', background: cor, borderRadius: 9999 }} />
+        </div>
+        <span style={COL}>
+          <span style={NUM}>{prog}%</span>
+          <span style={{ marginLeft: 6 }}><VarMateria info={progDelta} /></span>
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -448,24 +499,10 @@ function ExportarAcompanhamento() {
                 <div>
                   {secaoLabel('Desempenho por matéria')}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    {materias.map((m) => {
-                      const c = CORES_MATERIA[m.nome] || { main: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' };
-                      return (
-                        <div key={m.nome} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, boxShadow: '0 1px 2px rgba(6,2,66,0.05)', padding: 14, display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: c.main }}>{m.nome}</span>
-                          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                            <span style={T.label}>Domínio</span>
-                            <span style={{ whiteSpace: 'nowrap' }}>
-                              <span style={T.numMd}>{m.dom}%</span>
-                              <span style={{ marginLeft: 6 }}><Delta info={m.domDelta} suffix="pp" /></span>
-                            </span>
-                          </div>
-                          <div style={{ marginTop: 10 }}>
-                            <Barra label="Progresso" valor={m.prog} cor={c.main} delta={m.progDelta} deltaSuffix="pp" reservaDelta />
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {materias.map((m) => (
+                      <MateriaCard key={m.nome} nome={m.nome} cor={CORES_MATERIA[m.nome] || '#060242'}
+                        dom={m.dom} prog={m.prog} domDelta={m.domDelta} progDelta={m.progDelta} />
+                    ))}
                   </div>
                 </div>
               )}
