@@ -133,12 +133,17 @@ semana_horas AS (
   GROUP BY usuarioId
 ),
 -- CHECK-IN direto do raw (app.checkin). A tratada enviesava a média.
+-- Os valores são doubles na escala {0.0, 0.2, ..., 1.0}. Quando o aluno marca
+-- um EXTREMO (0.0 ou 1.0) o número trafega como inteiro e o Firestore grava no
+-- leaf `.integer`, não no `.float` — o export bifurca o campo em RECORD. Ler só
+-- `.float` descartava silenciosamente todo dia marcado em 0 ou 1 (check-in
+-- zerado / média enviesada). COALESCE com `.integer` recupera esses dias.
 semana_checkin AS (
   SELECT REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
-    ROUND(AVG(stress.float), 2)     AS estresse,
-    ROUND(AVG(anxiety.float), 2)    AS ansiedade,
-    ROUND(AVG(motivation.float), 2) AS motivacao,
-    ROUND(AVG(rest.float), 2)       AS sono
+    ROUND(AVG(COALESCE(stress.float,     CAST(stress.integer     AS FLOAT64))), 2) AS estresse,
+    ROUND(AVG(COALESCE(anxiety.float,    CAST(anxiety.integer    AS FLOAT64))), 2) AS ansiedade,
+    ROUND(AVG(COALESCE(motivation.float, CAST(motivation.integer AS FLOAT64))), 2) AS motivacao,
+    ROUND(AVG(COALESCE(rest.float,       CAST(rest.integer       AS FLOAT64))), 2) AS sono
   FROM `intento-edu.app.checkin`
   WHERE DATE(createdAt) BETWEEN semana_inicio AND semana_fim
   GROUP BY usuarioId
