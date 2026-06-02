@@ -474,11 +474,15 @@ function _semanaInicioTs(semanaStr) {
 // IMPORTANTE: triggers time-based do Apps Script passam um event object como
 // 1º argumento — qualquer truthy seria interpretado como dry run. Por isso
 // só consideramos dry run quando o chamador passa `true` LITERAL (smoke).
-function cronGerarRegistrosApp(dryRun) {
+// semanaStrOverride (opcional): 'DD/MM/YYYY a DD/MM/YYYY' pra regenerar uma
+// semana específica (recomposição). Ausente = semana anterior (uso do trigger).
+function cronGerarRegistrosApp(dryRun, semanaStrOverride) {
   var ehDryRun = dryRun === true;
   Logger.log('===== cronGerarRegistrosApp ' + (ehDryRun ? '(DRY RUN)' : '') + ' =====');
 
-  var semanaStr = computarSemanaAnterior_();
+  var semanaStr = (typeof semanaStrOverride === 'string' && semanaStrOverride)
+    ? semanaStrOverride
+    : computarSemanaAnterior_();
   var semana = _semanaStrParaISOs(semanaStr); // { inicio (domingo), fim (sábado) }
   var mesExt = _mesPorExtenso(semana.fim);
   var dataRegistro = Utilities.formatDate(new Date(), 'GMT-3', 'dd/MM/yyyy');
@@ -734,10 +738,14 @@ function handleRegistrarExportacao(dados) {
 // NÃO toca linhas manual/revisado/legado (origem != 'auto') —
 // o trabalho do mentor é preservado.
 //
-// Uso: editar a constante SEMANA_ALVO abaixo e rodar no editor.
-// Depois rodar cronGerarRegistrosApp() pra preencher de novo.
-function apagarLinhasAutoDaSemana() {
-  var SEMANA_ALVO = '10/05/2026 a 16/05/2026'; // edite aqui
+// Uso: passar a semana como argumento, OU usar recomporSemanasAuto() abaixo
+// (apaga + regenera de uma vez). Depois rodar cronGerarRegistrosApp() pra
+// preencher de novo, se chamar só esta.
+// semanaAlvoOverride (opcional): 'DD/MM/YYYY a DD/MM/YYYY'.
+function apagarLinhasAutoDaSemana(semanaAlvoOverride) {
+  var SEMANA_ALVO = (typeof semanaAlvoOverride === 'string' && semanaAlvoOverride)
+    ? semanaAlvoOverride
+    : '10/05/2026 a 16/05/2026'; // default se rodar sem argumento
   Logger.log('===== apagarLinhasAutoDaSemana ' + SEMANA_ALVO + ' =====');
 
   var matriz = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ABA.MESTRE).getDataRange().getValues();
@@ -770,6 +778,35 @@ function apagarLinhasAutoDaSemana() {
   }
   Logger.log('apagarLinhasAutoDaSemana: ' + apagadas + ' linhas em ' + planilhasOK +
              ' planilhas · ' + semLinha + ' sem linha auto · ' + erros + ' erros');
+}
+
+
+// =====================================================================
+// RECOMPOSIÇÃO — apaga + regenera as semanas auto com a lógica atual
+// =====================================================================
+// Use quando a fórmula muda (ex: fix check-in int/float + progresso por folha,
+// jun/2026) e os registros já gravados precisam ser recalculados.
+//
+// COMO USAR: edite _SEMANAS_RECOMPOR com as semanas que quer recompor e rode
+// recomporSemanasAuto() no editor. Pra cada semana: apaga as linhas origem=
+// 'auto' (preserva manual/revisado) e regenera com a query atual.
+//
+// As 3 semanas auto desde o início da integração (15/05) estão listadas —
+// remova as que não quiser tocar.
+var _SEMANAS_RECOMPOR = [
+  '10/05/2026 a 16/05/2026',
+  '17/05/2026 a 23/05/2026',
+  '24/05/2026 a 30/05/2026',
+];
+
+function recomporSemanasAuto() {
+  Logger.log('===== recomporSemanasAuto: ' + _SEMANAS_RECOMPOR.length + ' semana(s) =====');
+  _SEMANAS_RECOMPOR.forEach(function (semana) {
+    Logger.log('--- recompondo ' + semana + ' ---');
+    apagarLinhasAutoDaSemana(semana);
+    cronGerarRegistrosApp(false, semana);
+  });
+  Logger.log('===== recomporSemanasAuto: FIM =====');
 }
 
 
