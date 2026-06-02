@@ -192,8 +192,9 @@ function smokeIntegracaoApp() {
   });
 
   // Esperado (validado mai/2026 contra o app):
-  //   gabriel  → domTotal≈0.89 progTotal≈0.75
-  //   claudia  → domTotal≈0.85 progTotal≈0.41
+  //   gabriel  → domTotal≈0.89   claudia → domTotal≈0.85
+  // (progTotal mudou jun/2026 p/ "% folhas concluídas ponderado" — baselines
+  //  antigos 0.75/0.41 não valem mais; re-validar contra o app.)
   Logger.log('===== FIM SMOKE =====');
 }
 
@@ -218,12 +219,16 @@ var _SQL_REGISTRO_APP = [
   //   (1º descendente da raiz, via COALESCE no passo recursivo). Robusto a
   //   árvores de profundidade arbitrária (o app deveria ter 2 níveis, mas
   //   alguns alunos têm 3 — a lógica nivel=1 antiga quebrava nesses casos).
+  // ramo_fin = finalizada do nó + qualquer ancestral (propaga pra baixo:
+  // marcar um pai conclui toda a subárvore dele).
   'hier AS (',
-  '  SELECT topicoId, topicoId AS raizId, CAST(NULL AS STRING) AS n1Id, usuarioId, finalizada',
+  '  SELECT topicoId, topicoId AS raizId, CAST(NULL AS STRING) AS n1Id, usuarioId,',
+  '    finalizada AS ramo_fin',
   '  FROM `intento-edu.app.topicoPrep`',
   '  WHERE usuarioId IN (SELECT uid FROM alunos) AND paiId IS NULL',
   '  UNION ALL',
-  '  SELECT t.topicoId, h.raizId, COALESCE(h.n1Id, t.topicoId), t.usuarioId, t.finalizada',
+  '  SELECT t.topicoId, h.raizId, COALESCE(h.n1Id, t.topicoId), t.usuarioId,',
+  '    h.ramo_fin OR t.finalizada',
   '  FROM `intento-edu.app.topicoPrep` t',
   '  JOIN hier h ON t.paiId = h.topicoId AND t.usuarioId = h.usuarioId',
   '),',
@@ -260,7 +265,7 @@ var _SQL_REGISTRO_APP = [
   // nos — só nós DENTRO de uma disciplina (n1Id IS NOT NULL exclui a raiz).
   // eh_folha = sem filhos. right/total da última atividade da folha.
   'nos AS (',
-  '  SELECT h.topicoId, h.raizId, h.n1Id, h.usuarioId, h.finalizada,',
+  '  SELECT h.topicoId, h.raizId, h.n1Id, h.usuarioId, h.ramo_fin,',
   '    (tf.topicoId IS NULL) AS eh_folha,',
   '    COALESCE(a.u.rightAnswers, 0) AS right_a,',
   '    COALESCE(a.u.rightAnswers, 0) + COALESCE(a.u.wrongAnswers, 0) AS total_a,',
@@ -275,27 +280,25 @@ var _SQL_REGISTRO_APP = [
   '  SELECT usuarioId, raizId, SUM(right_a) AS right_d, SUM(total_a) AS total_d',
   '  FROM nos GROUP BY usuarioId, raizId',
   '),',
-  // n1_metrica — por tópico nível 1: forced = finalizada manual; total = nº
-  // de folhas no subtópico; finished = soma das contagens de finished.
-  'n1_metrica AS (',
-  '  SELECT usuarioId, raizId, n1Id, MAX(finalizada) AS forced,',
-  '    SUM(CASE WHEN eh_folha THEN 1 ELSE 0 END) AS total, SUM(n_finished) AS finished',
-  '  FROM nos GROUP BY usuarioId, raizId, n1Id',
-  '),',
-  // progresso — por disciplina: tópicos n1 finalizados / total de tópicos n1.
-  'progresso AS (',
-  '  SELECT usuarioId, raizId, SAFE_DIVIDE(COUNTIF(forced OR finished >= total), COUNT(*)) AS prog',
-  '  FROM n1_metrica GROUP BY usuarioId, raizId',
+  // folhas — concluídas por disciplina. Só folhas (eh_folha) entram. Concluída
+  // = ramo_fin (finalizada própria ou de ancestral) OU ≥1 atividade finished.
+  // SEM MAX(finalizada): um subtópico marcado não fecha o tópico inteiro.
+  'folhas AS (',
+  '  SELECT usuarioId, raizId,',
+  '    COUNT(*) AS total_folhas,',
+  '    COUNTIF(ramo_fin OR n_finished >= 1) AS folhas_feitas',
+  '  FROM nos WHERE eh_folha',
+  '  GROUP BY usuarioId, raizId',
   '),',
   // metrica — agrega disciplinas pela MATÉRIA canônica (BIO/QUI/FIS/MAT).
-  // Soma domínios e tira média simples do progresso entre disciplinas-irmãs
-  // que caem na mesma matéria (raro, mas robusto).
+  // Soma domínios; progresso PONDERADO por folha (soma feitas / soma totais).
   'metrica AS (',
   '  SELECT d.usuarioId, rm.materia,',
-  '    SUM(d.right_d) AS right_d, SUM(d.total_d) AS total_d, AVG(p.prog) AS prog',
+  '    SUM(d.right_d) AS right_d, SUM(d.total_d) AS total_d,',
+  '    SUM(f.folhas_feitas) AS folhas_feitas, SUM(f.total_folhas) AS total_folhas',
   '  FROM dominio d',
   '  JOIN raiz_materia rm ON rm.raizId = d.raizId AND rm.usuarioId = d.usuarioId',
-  '  LEFT JOIN progresso p ON p.usuarioId = d.usuarioId AND p.raizId = d.raizId',
+  '  LEFT JOIN folhas f ON f.usuarioId = d.usuarioId AND f.raizId = d.raizId',
   '  WHERE rm.materia IS NOT NULL',
   '  GROUP BY d.usuarioId, rm.materia',
   '),',
@@ -361,11 +364,11 @@ var _SQL_REGISTRO_APP = [
   '  ROUND(MAX(IF(m.materia=\'FIS\', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_FIS,',
   '  ROUND(MAX(IF(m.materia=\'MAT\', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_MAT,',
   '  ROUND(SAFE_DIVIDE(SUM(m.right_d), SUM(m.total_d)), 2) AS dom_TOTAL,',
-  '  ROUND(MAX(IF(m.materia=\'BIO\', m.prog, NULL)), 2) AS prog_BIO,',
-  '  ROUND(MAX(IF(m.materia=\'QUI\', m.prog, NULL)), 2) AS prog_QUI,',
-  '  ROUND(MAX(IF(m.materia=\'FIS\', m.prog, NULL)), 2) AS prog_FIS,',
-  '  ROUND(MAX(IF(m.materia=\'MAT\', m.prog, NULL)), 2) AS prog_MAT,',
-  '  ROUND(AVG(m.prog), 2) AS prog_TOTAL,',
+  '  ROUND(MAX(IF(m.materia=\'BIO\', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_BIO,',
+  '  ROUND(MAX(IF(m.materia=\'QUI\', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_QUI,',
+  '  ROUND(MAX(IF(m.materia=\'FIS\', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_FIS,',
+  '  ROUND(MAX(IF(m.materia=\'MAT\', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_MAT,',
+  '  ROUND(SAFE_DIVIDE(SUM(m.folhas_feitas), SUM(m.total_folhas)), 2) AS prog_TOTAL,',
   '  COALESCE(sh.horas, 0) AS horas,',
   '  sc.estresse, sc.ansiedade, sc.motivacao, sc.sono,',
   '  COALESCE(ra.revisoes_atrasadas, 0) AS revisoes_atrasadas',
