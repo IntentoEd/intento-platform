@@ -20,16 +20,24 @@
 --   da disciplina. right/wrong de cada folha vêm da ÚLTIMA atividade (por
 --   activity.date).
 -- · DOMÍNIO total        = SUM(right)/SUM(total) global das matérias.
--- · PROGRESSO por matéria= count(tópicos n1 finished) / count(tópicos n1).
---   isFinished = forced(topicoPrep.finalizada) OR (finished >= total), onde
---   p/ folha: total=1, finished=nº atividades com finished=true;
---   p/ tópico n1 com subtópicos: total=nº folhas, finished=SOMA das contagens.
--- · PROGRESSO total      = MÉDIA SIMPLES do progresso das matérias.
+-- · PROGRESSO por matéria= folhas concluídas / folhas totais (PONDERADO por
+--   folha, pooled entre as disciplinas da matéria). Folha = nó sem filhos
+--   (subtópico nível 2, ou 3 nas árvores mais fundas). Folha concluída =
+--   `finalizada` na própria folha OU em qualquer ancestral (marcar o pai
+--   conclui a subárvore, via ramo_fin) OU ≥1 atividade finished até semana_fim.
+--   NÃO usa MAX(finalizada): um subtópico marcado não fecha o tópico inteiro;
+--   o tópico só fica 100% quando todas as folhas dele estão concluídas.
+-- · PROGRESSO total      = folhas concluídas / folhas totais (todas as matérias).
 -- · HORAS                = SUM(app.atividade.duration)/3600 na semana.
 -- · CHECK-IN             = AVG(app.checkin.*) na semana.
 -- · REVISÕES ATRASADAS   = replica activity_service.dueReviews (app.topico.reviews).
 --
--- Validado mai/2026 (semana 10-16/05):
+-- ATENÇÃO: a lógica de PROGRESSO mudou (jun/2026) — passou de "% de tópicos
+-- nível-1 finished, por atividade + MAX(finalizada)" para "% de folhas
+-- concluídas, ponderado". Os baselines de progresso (prog_*) abaixo são
+-- ANTERIORES e NÃO valem mais; re-validar contra o app. Domínio/horas/check-in
+-- não foram afetados.
+-- Validado mai/2026 (semana 10-16/05) [progresso pré-mudança]:
 --   betina  B=0.92 Q=0.88 F=0.85 M=0.89 T=0.89
 --   gabriel B=0.89 Q=0.89 F=0.88 M=0.94 T=0.89
 --   lisa    B=0.75 Q=0.82 F=0.82 M=0.71 T=0.78
@@ -51,12 +59,16 @@ alunos AS (
 ),
 -- árvore completa por recursão; cada nó carrega raizId (disciplina) e n1Id
 -- (tópico nível 1 = 1º descendente da raiz).
+-- ramo_fin = `finalizada` acumulado do nó + qualquer ancestral (propaga pra
+-- baixo: marcar um pai conclui toda a subárvore dele).
 hier AS (
-  SELECT topicoId, topicoId AS raizId, CAST(NULL AS STRING) AS n1Id, usuarioId, finalizada
+  SELECT topicoId, topicoId AS raizId, CAST(NULL AS STRING) AS n1Id, usuarioId,
+    finalizada AS ramo_fin
   FROM `intento-edu.app.topicoPrep`
   WHERE usuarioId IN (SELECT uid FROM alunos) AND paiId IS NULL
   UNION ALL
-  SELECT t.topicoId, h.raizId, COALESCE(h.n1Id, t.topicoId), t.usuarioId, t.finalizada
+  SELECT t.topicoId, h.raizId, COALESCE(h.n1Id, t.topicoId), t.usuarioId,
+    h.ramo_fin OR t.finalizada
   FROM `intento-edu.app.topicoPrep` t
   JOIN hier h ON t.paiId = h.topicoId AND t.usuarioId = h.usuarioId
 ),
@@ -90,7 +102,7 @@ ativ AS (
 ),
 -- só nós dentro de uma disciplina (n1Id NOT NULL exclui a raiz).
 nos AS (
-  SELECT h.topicoId, h.raizId, h.n1Id, h.usuarioId, h.finalizada,
+  SELECT h.topicoId, h.raizId, h.n1Id, h.usuarioId, h.ramo_fin,
     (tf.topicoId IS NULL) AS eh_folha,
     COALESCE(a.u.rightAnswers, 0) AS right_a,
     COALESCE(a.u.rightAnswers, 0) + COALESCE(a.u.wrongAnswers, 0) AS total_a,
@@ -104,22 +116,24 @@ dominio AS (
   SELECT usuarioId, raizId, SUM(right_a) AS right_d, SUM(total_a) AS total_d
   FROM nos GROUP BY usuarioId, raizId
 ),
-n1_metrica AS (
-  SELECT usuarioId, raizId, n1Id, MAX(finalizada) AS forced,
-    SUM(CASE WHEN eh_folha THEN 1 ELSE 0 END) AS total, SUM(n_finished) AS finished
-  FROM nos GROUP BY usuarioId, raizId, n1Id
+-- folhas concluídas por disciplina. Só folhas (eh_folha) entram na conta.
+-- Concluída = ramo_fin (finalizada própria ou de ancestral) OU ≥1 atividade.
+folhas AS (
+  SELECT usuarioId, raizId,
+    COUNT(*) AS total_folhas,
+    COUNTIF(ramo_fin OR n_finished >= 1) AS folhas_feitas
+  FROM nos WHERE eh_folha
+  GROUP BY usuarioId, raizId
 ),
-progresso AS (
-  SELECT usuarioId, raizId, SAFE_DIVIDE(COUNTIF(forced OR finished >= total), COUNT(*)) AS prog
-  FROM n1_metrica GROUP BY usuarioId, raizId
-),
--- agrega disciplinas pela matéria canônica.
+-- agrega disciplinas pela matéria canônica. Progresso ponderado por folha:
+-- soma folhas feitas / soma folhas totais (disciplina maior pesa mais).
 metrica AS (
   SELECT d.usuarioId, rm.materia,
-    SUM(d.right_d) AS right_d, SUM(d.total_d) AS total_d, AVG(p.prog) AS prog
+    SUM(d.right_d) AS right_d, SUM(d.total_d) AS total_d,
+    SUM(f.folhas_feitas) AS folhas_feitas, SUM(f.total_folhas) AS total_folhas
   FROM dominio d
   JOIN raiz_materia rm ON rm.raizId = d.raizId AND rm.usuarioId = d.usuarioId
-  LEFT JOIN progresso p ON p.usuarioId = d.usuarioId AND p.raizId = d.raizId
+  LEFT JOIN folhas f ON f.usuarioId = d.usuarioId AND f.raizId = d.raizId
   WHERE rm.materia IS NOT NULL
   GROUP BY d.usuarioId, rm.materia
 ),
@@ -172,11 +186,11 @@ SELECT a.email,
   ROUND(MAX(IF(m.materia='FIS', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_FIS,
   ROUND(MAX(IF(m.materia='MAT', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_MAT,
   ROUND(SAFE_DIVIDE(SUM(m.right_d), SUM(m.total_d)), 2) AS dom_TOTAL,
-  ROUND(MAX(IF(m.materia='BIO', m.prog, NULL)), 2) AS prog_BIO,
-  ROUND(MAX(IF(m.materia='QUI', m.prog, NULL)), 2) AS prog_QUI,
-  ROUND(MAX(IF(m.materia='FIS', m.prog, NULL)), 2) AS prog_FIS,
-  ROUND(MAX(IF(m.materia='MAT', m.prog, NULL)), 2) AS prog_MAT,
-  ROUND(AVG(m.prog), 2) AS prog_TOTAL,
+  ROUND(MAX(IF(m.materia='BIO', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_BIO,
+  ROUND(MAX(IF(m.materia='QUI', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_QUI,
+  ROUND(MAX(IF(m.materia='FIS', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_FIS,
+  ROUND(MAX(IF(m.materia='MAT', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_MAT,
+  ROUND(SAFE_DIVIDE(SUM(m.folhas_feitas), SUM(m.total_folhas)), 2) AS prog_TOTAL,
   COALESCE(sh.horas, 0) AS horas,
   sc.estresse, sc.ansiedade, sc.motivacao, sc.sono,
   COALESCE(ra.revisoes_atrasadas, 0) AS revisoes_atrasadas
