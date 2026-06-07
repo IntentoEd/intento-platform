@@ -135,7 +135,11 @@ const COL_LEAD = {
   PLANO:                  23,
   GCAL_EVENT_ID:          24,
   DT_ENTRADA_FASE:        25,
-  OUTCOME_REUNIAO:        26
+  OUTCOME_REUNIAO:        26,
+  MOTIVO_NAO_CONVERTIDO:  27,
+  VALIDADO_SQL:           28,
+  DT_SQL:                 29,
+  REATIVAR_EM:            30
 };
 
 // Eventos_Pipeline (apend-only audit log)
