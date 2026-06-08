@@ -5,9 +5,8 @@
 -- concluídas, ponderado) contra o que o aluno vê no app. Ajuste semana_fim
 -- pra a "foto" que você quer comparar (mesma data que o app reflete hoje).
 --
--- Saída A (por matéria): total_folhas, folhas_feitas, prog_novo.
---   → compare prog_novo com o % do app por matéria.
--- Saída B (por tópico nível-1): drill-down pra achar qual tópico diverge.
+-- Saída A (por matéria): n_topicos, prog_novo (= média das frações dos tópicos).
+-- Saída B (por tópico nível-1): drill-down pra ver folhas/feitas/prog_n1.
 --   Troque o SELECT final no fim do arquivo pra ver uma ou outra.
 -- ============================================================
 DECLARE semana_fim DATE DEFAULT DATE("2026-05-30");  -- ajuste p/ a semana comparada
@@ -75,14 +74,16 @@ nos AS (
 n1 AS (
   SELECT usuarioId, raizId, n1Id,
     COUNTIF(eh_folha) AS folhas,
-    COUNTIF(eh_folha AND (ramo_fin OR n_finished >= 1)) AS folhas_feitas
+    COUNTIF(eh_folha AND (ramo_fin OR n_finished >= 1)) AS folhas_feitas,
+    -- fração de subtópicos concluídos DENTRO do tópico (cada tópico pesa 1/N)
+    SAFE_DIVIDE(COUNTIF(eh_folha AND (ramo_fin OR n_finished >= 1)), COUNTIF(eh_folha)) AS prog_n1
   FROM nos GROUP BY usuarioId, raizId, n1Id
 )
--- ---------- SAÍDA A: por matéria (compare prog_novo com o app) ----------
+-- ---------- SAÍDA A: por matéria ----------
+-- prog_novo = MÉDIA das frações dos tópicos (fórmula em prod desde jun/2026).
 SELECT a.email, rm.materia,
-  SUM(n1.folhas)        AS total_folhas,
-  SUM(n1.folhas_feitas) AS folhas_feitas,
-  ROUND(SAFE_DIVIDE(SUM(n1.folhas_feitas), SUM(n1.folhas)), 2) AS prog_novo
+  COUNT(*)              AS n_topicos,
+  ROUND(AVG(n1.prog_n1), 2) AS prog_novo
 FROM n1
 JOIN alunos a       ON a.uid = n1.usuarioId
 JOIN raiz_materia rm ON rm.raizId = n1.raizId AND rm.usuarioId = n1.usuarioId
