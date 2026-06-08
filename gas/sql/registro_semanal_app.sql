@@ -20,23 +20,27 @@
 --   da disciplina. right/wrong de cada folha vêm da ÚLTIMA atividade (por
 --   activity.date).
 -- · DOMÍNIO total        = SUM(right)/SUM(total) global das matérias.
--- · PROGRESSO por matéria= folhas concluídas / folhas totais (PONDERADO por
---   folha, pooled entre as disciplinas da matéria). Folha = nó sem filhos
---   (subtópico nível 2, ou 3 nas árvores mais fundas). Folha concluída =
---   `finalizada` na própria folha OU em qualquer ancestral (marcar o pai
---   conclui a subárvore, via ramo_fin) OU ≥1 atividade finished até semana_fim.
---   NÃO usa MAX(finalizada): um subtópico marcado não fecha o tópico inteiro;
---   o tópico só fica 100% quando todas as folhas dele estão concluídas.
--- · PROGRESSO total      = folhas concluídas / folhas totais (todas as matérias).
+-- · PROGRESSO por disciplina = MÉDIA, entre os tópicos nível-1, da fração de
+--   subtópicos concluídos de cada tópico. Cada tópico pesa 1/N (igual),
+--   independente de quantos subtópicos tem — assim um tópico com 4 subtópicos
+--   não pesa mais que um com 1 (evita superestimar quando só os tópicos sendo
+--   estudados têm subtópicos listados). Ex: disciplina com 5 tópicos, cada um
+--   vale 20%; tópico com 2 subtópicos → cada sub vale 10%; com 4 → cada vale 5%.
+--   Subtópico (folha) concluído = `finalizada` na própria folha OU em qualquer
+--   ancestral (ramo_fin) OU ≥1 atividade finished até semana_fim. Tópico sem
+--   subtópicos = ele mesmo é a folha.
+-- · PROGRESSO por matéria= média simples das disciplinas da matéria (em geral 1).
+-- · PROGRESSO total      = MÉDIA SIMPLES das matérias (cada matéria pesa igual).
 -- · HORAS                = SUM(app.atividade.duration)/3600 na semana.
 -- · CHECK-IN             = AVG(app.checkin.*) na semana.
 -- · REVISÕES ATRASADAS   = replica activity_service.dueReviews (app.topico.reviews).
 --
--- ATENÇÃO: a lógica de PROGRESSO mudou (jun/2026) — passou de "% de tópicos
--- nível-1 finished, por atividade + MAX(finalizada)" para "% de folhas
--- concluídas, ponderado". Os baselines de progresso (prog_*) abaixo são
--- ANTERIORES e NÃO valem mais; re-validar contra o app. Domínio/horas/check-in
--- não foram afetados.
+-- ATENÇÃO: a lógica de PROGRESSO mudou 2× em jun/2026 — (1) de "% tópicos
+-- nível-1 + MAX(finalizada)" para "% folhas ponderado por folha"; (2) desta
+-- para "média das frações dos tópicos" (cada tópico nível-1 pesa 1/N), porque
+-- a ponderação por folha superestimava quem só tinha subtópicos listados nos
+-- tópicos em estudo. Os baselines de progresso (prog_*) abaixo são ANTIGOS e
+-- NÃO valem mais. Domínio/horas/check-in não foram afetados.
 -- Validado mai/2026 (semana 10-16/05) [progresso pré-mudança]:
 --   betina  B=0.92 Q=0.88 F=0.85 M=0.89 T=0.89
 --   gabriel B=0.89 Q=0.89 F=0.88 M=0.94 T=0.89
@@ -116,24 +120,33 @@ dominio AS (
   SELECT usuarioId, raizId, SUM(right_a) AS right_d, SUM(total_a) AS total_d
   FROM nos GROUP BY usuarioId, raizId
 ),
--- folhas concluídas por disciplina. Só folhas (eh_folha) entram na conta.
--- Concluída = ramo_fin (finalizada própria ou de ancestral) OU ≥1 atividade.
-folhas AS (
-  SELECT usuarioId, raizId,
-    COUNT(*) AS total_folhas,
-    COUNTIF(ramo_fin OR n_finished >= 1) AS folhas_feitas
-  FROM nos WHERE eh_folha
-  GROUP BY usuarioId, raizId
+-- progresso por TÓPICO nível-1: fração de folhas (subtópicos) concluídas
+-- DENTRO do tópico. Folha concluída = ramo_fin (finalizada própria ou de
+-- ancestral) OU ≥1 atividade finished. Tópico sem subtópicos = 1 folha (ele
+-- mesmo). SAFE_DIVIDE: tópico sem folha vira NULL e é ignorado no AVG.
+n1_prog AS (
+  SELECT usuarioId, raizId, n1Id,
+    SAFE_DIVIDE(
+      COUNTIF(eh_folha AND (ramo_fin OR n_finished >= 1)),
+      COUNTIF(eh_folha)
+    ) AS prog_n1
+  FROM nos GROUP BY usuarioId, raizId, n1Id
 ),
--- agrega disciplinas pela matéria canônica. Progresso ponderado por folha:
--- soma folhas feitas / soma folhas totais (disciplina maior pesa mais).
+-- progresso da disciplina = MÉDIA entre os tópicos nível-1 (cada tópico pesa
+-- 1/N, independente de quantos subtópicos tem). Evita superestimar quando só
+-- os tópicos sendo estudados têm subtópicos listados e os demais não.
+prog_disc AS (
+  SELECT usuarioId, raizId, AVG(prog_n1) AS prog
+  FROM n1_prog GROUP BY usuarioId, raizId
+),
+-- agrega disciplinas pela matéria canônica (média simples se houver +1 disc).
 metrica AS (
   SELECT d.usuarioId, rm.materia,
     SUM(d.right_d) AS right_d, SUM(d.total_d) AS total_d,
-    SUM(f.folhas_feitas) AS folhas_feitas, SUM(f.total_folhas) AS total_folhas
+    AVG(pd.prog) AS prog
   FROM dominio d
   JOIN raiz_materia rm ON rm.raizId = d.raizId AND rm.usuarioId = d.usuarioId
-  LEFT JOIN folhas f ON f.usuarioId = d.usuarioId AND f.raizId = d.raizId
+  LEFT JOIN prog_disc pd ON pd.usuarioId = d.usuarioId AND pd.raizId = d.raizId
   WHERE rm.materia IS NOT NULL
   GROUP BY d.usuarioId, rm.materia
 ),
@@ -191,11 +204,11 @@ SELECT a.email,
   ROUND(MAX(IF(m.materia='FIS', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_FIS,
   ROUND(MAX(IF(m.materia='MAT', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_MAT,
   ROUND(SAFE_DIVIDE(SUM(m.right_d), SUM(m.total_d)), 2) AS dom_TOTAL,
-  ROUND(MAX(IF(m.materia='BIO', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_BIO,
-  ROUND(MAX(IF(m.materia='QUI', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_QUI,
-  ROUND(MAX(IF(m.materia='FIS', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_FIS,
-  ROUND(MAX(IF(m.materia='MAT', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_MAT,
-  ROUND(SAFE_DIVIDE(SUM(m.folhas_feitas), SUM(m.total_folhas)), 2) AS prog_TOTAL,
+  ROUND(MAX(IF(m.materia='BIO', m.prog, NULL)), 2) AS prog_BIO,
+  ROUND(MAX(IF(m.materia='QUI', m.prog, NULL)), 2) AS prog_QUI,
+  ROUND(MAX(IF(m.materia='FIS', m.prog, NULL)), 2) AS prog_FIS,
+  ROUND(MAX(IF(m.materia='MAT', m.prog, NULL)), 2) AS prog_MAT,
+  ROUND(AVG(m.prog), 2) AS prog_TOTAL,
   COALESCE(sh.horas, 0) AS horas,
   sc.estresse, sc.ansiedade, sc.motivacao, sc.sono,
   COALESCE(ra.revisoes_atrasadas, 0) AS revisoes_atrasadas

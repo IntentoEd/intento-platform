@@ -280,25 +280,32 @@ var _SQL_REGISTRO_APP = [
   '  SELECT usuarioId, raizId, SUM(right_a) AS right_d, SUM(total_a) AS total_d',
   '  FROM nos GROUP BY usuarioId, raizId',
   '),',
-  // folhas — concluídas por disciplina. Só folhas (eh_folha) entram. Concluída
-  // = ramo_fin (finalizada própria ou de ancestral) OU ≥1 atividade finished.
-  // SEM MAX(finalizada): um subtópico marcado não fecha o tópico inteiro.
-  'folhas AS (',
-  '  SELECT usuarioId, raizId,',
-  '    COUNT(*) AS total_folhas,',
-  '    COUNTIF(ramo_fin OR n_finished >= 1) AS folhas_feitas',
-  '  FROM nos WHERE eh_folha',
-  '  GROUP BY usuarioId, raizId',
+  // n1_prog — progresso por TÓPICO nível-1: fração de subtópicos (folhas)
+  // concluídos dentro do tópico. Folha concluída = ramo_fin OU ≥1 atividade.
+  'n1_prog AS (',
+  '  SELECT usuarioId, raizId, n1Id,',
+  '    SAFE_DIVIDE(',
+  '      COUNTIF(eh_folha AND (ramo_fin OR n_finished >= 1)),',
+  '      COUNTIF(eh_folha)',
+  '    ) AS prog_n1',
+  '  FROM nos GROUP BY usuarioId, raizId, n1Id',
+  '),',
+  // prog_disc — progresso da disciplina = MÉDIA entre os tópicos nível-1 (cada
+  // tópico pesa 1/N, independente de quantos subtópicos tem). Evita superestimar
+  // quando só os tópicos em estudo têm subtópicos listados.
+  'prog_disc AS (',
+  '  SELECT usuarioId, raizId, AVG(prog_n1) AS prog',
+  '  FROM n1_prog GROUP BY usuarioId, raizId',
   '),',
   // metrica — agrega disciplinas pela MATÉRIA canônica (BIO/QUI/FIS/MAT).
-  // Soma domínios; progresso PONDERADO por folha (soma feitas / soma totais).
+  // Soma domínios; progresso = média simples das disciplinas da matéria.
   'metrica AS (',
   '  SELECT d.usuarioId, rm.materia,',
   '    SUM(d.right_d) AS right_d, SUM(d.total_d) AS total_d,',
-  '    SUM(f.folhas_feitas) AS folhas_feitas, SUM(f.total_folhas) AS total_folhas',
+  '    AVG(pd.prog) AS prog',
   '  FROM dominio d',
   '  JOIN raiz_materia rm ON rm.raizId = d.raizId AND rm.usuarioId = d.usuarioId',
-  '  LEFT JOIN folhas f ON f.usuarioId = d.usuarioId AND f.raizId = d.raizId',
+  '  LEFT JOIN prog_disc pd ON pd.usuarioId = d.usuarioId AND pd.raizId = d.raizId',
   '  WHERE rm.materia IS NOT NULL',
   '  GROUP BY d.usuarioId, rm.materia',
   '),',
@@ -368,11 +375,11 @@ var _SQL_REGISTRO_APP = [
   '  ROUND(MAX(IF(m.materia=\'FIS\', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_FIS,',
   '  ROUND(MAX(IF(m.materia=\'MAT\', SAFE_DIVIDE(m.right_d,m.total_d), NULL)), 2) AS dom_MAT,',
   '  ROUND(SAFE_DIVIDE(SUM(m.right_d), SUM(m.total_d)), 2) AS dom_TOTAL,',
-  '  ROUND(MAX(IF(m.materia=\'BIO\', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_BIO,',
-  '  ROUND(MAX(IF(m.materia=\'QUI\', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_QUI,',
-  '  ROUND(MAX(IF(m.materia=\'FIS\', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_FIS,',
-  '  ROUND(MAX(IF(m.materia=\'MAT\', SAFE_DIVIDE(m.folhas_feitas, m.total_folhas), NULL)), 2) AS prog_MAT,',
-  '  ROUND(SAFE_DIVIDE(SUM(m.folhas_feitas), SUM(m.total_folhas)), 2) AS prog_TOTAL,',
+  '  ROUND(MAX(IF(m.materia=\'BIO\', m.prog, NULL)), 2) AS prog_BIO,',
+  '  ROUND(MAX(IF(m.materia=\'QUI\', m.prog, NULL)), 2) AS prog_QUI,',
+  '  ROUND(MAX(IF(m.materia=\'FIS\', m.prog, NULL)), 2) AS prog_FIS,',
+  '  ROUND(MAX(IF(m.materia=\'MAT\', m.prog, NULL)), 2) AS prog_MAT,',
+  '  ROUND(AVG(m.prog), 2) AS prog_TOTAL,',
   '  COALESCE(sh.horas, 0) AS horas,',
   '  sc.estresse, sc.ansiedade, sc.motivacao, sc.sono,',
   '  COALESCE(ra.revisoes_atrasadas, 0) AS revisoes_atrasadas',
