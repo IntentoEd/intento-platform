@@ -571,9 +571,23 @@ export default function PainelDoAluno() {
   const dados = sessao.dadosPainel || {};
   const nomeAluno = String(dados.aluno?.nome || sessao.email || "Aluno Intento");
   const alunoNameKey = "Intento_" + nomeAluno.replace(/\s+/g, '_') + "_";
-  const snapshot = dados.snapshot || { dom: [0, 0, 0, 0], prog: [0, 0, 0, 0] };
+  // Domínio e progresso chegam do backend como FRAÇÃO (0..1) — tanto do cron do
+  // app (SAFE_DIVIDE/AVG, arredondado a 2 casas) quanto do registro manual do
+  // mentor (inputs com step 0.01). A UI exibe em %, então normalizamos para
+  // 0..100 aqui, na fronteira dos dados. Defensivo contra linhas legadas que já
+  // possam ter sido gravadas em escala percentual: só multiplica quando v <= 1.
+  const fracParaPct = (v) => {
+    const n = parseFloat(v) || 0;
+    return Math.round(n <= 1 ? n * 100 : n);
+  };
+  const snapshotRaw = dados.snapshot || { dom: [0, 0, 0, 0], prog: [0, 0, 0, 0] };
+  const snapshot = {
+    dom:  (snapshotRaw.dom  || []).map(fracParaPct),
+    prog: (snapshotRaw.prog || []).map(fracParaPct),
+  };
   const progressoGeral = snapshot.prog?.length ? Math.round(snapshot.prog.reduce((a, b) => a + b, 0) / snapshot.prog.length) : 0;
-  const mensal = dados.mensal || { labels: [], meta: [], horas: [], domTot: [], progTot: [], estresse: [], ansiedade: [], motivacao: [], sono: [] };
+  const mensalRaw = dados.mensal || { labels: [], meta: [], horas: [], domTot: [], progTot: [], estresse: [], ansiedade: [], motivacao: [], sono: [] };
+  const mensal = { ...mensalRaw, domTot: (mensalRaw.domTot || []).map(fracParaPct), progTot: (mensalRaw.progTot || []).map(fracParaPct) };
   const semanal = dados.semanal || { isFirstWeek: true, streak: [], geral: [], estilo: [], desempenho: [] };
   const plano = dados.plano || { data: '--', meta: 'Nenhuma meta', acao: [] };
   const ultimoEncontro = dados.ultimoEncontro || null;
