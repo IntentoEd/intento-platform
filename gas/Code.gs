@@ -182,8 +182,16 @@ const COL_SIM = {
   ID: 0, STATUS: 1, DATA: 2, ESPECIFICACAO: 3,
   LG: 4, CH: 5, CN: 6, MAT: 7, REDACAO: 8, ERROS_JSON: 9,
   KOLB_EXP: 10, KOLB_REF: 11, KOLB_CON: 12, KOLB_ACAO: 13, KOLB_REDACAO: 14,
-  MODELO: 15, MATERIAS_JSON: 16, AAR_JSON: 17
+  MODELO: 15, MATERIAS_JSON: 16, AAR_JSON: 17, ESCOPO: 18
 };
+
+// Áreas objetivas (lg/ch/cn/mat) de um escopo ENEM. Espelha areasDoEscopo()
+// em lib/simuladoData.js. Escopo ausente/desconhecido = 'completo' (legado).
+function _areasDoEscopoSim(escopo) {
+  if (escopo === "dia1") return ["lg", "ch"];
+  if (escopo === "dia2") return ["cn", "mat"];
+  return ["lg", "ch", "cn", "mat"];
+}
 
 // Ano mínimo aceito p/ data de simulado. Espelha SIMULADO_ANO_MIN em
 // lib/simuladoData.js (front) — se mudar um, mude o outro.
@@ -326,6 +334,8 @@ function doPost(e) {
     if (acao === "avaliarEncontroPassado")  return handleAvaliarEncontroPassado(dados);
     if (acao === "salvarNovoEncontro")      return handleSalvarNovoEncontro(dados);
     if (acao === "salvarSimulado")          return handleSalvarSimulado(dados);
+    if (acao === "editarSimulado")          return handleEditarSimulado(dados);
+    if (acao === "excluirSimulado")         return handleExcluirSimulado(dados);
     if (acao === "buscarTopicosGlobais")    return handleBuscarTopicosGlobais();
     if (acao === "salvarAutopsia")          return handleSalvarAutopsia(dados);
     if (acao === "listarCaderno")           return handleListarCaderno(dados);
@@ -1410,20 +1420,27 @@ function lerSimulados(ss) {
       }
     } catch (e) {}
 
-    // Aproveitamento por simulado (uniforme p/ ENEM e Custom)
+    // Escopo do simulado ENEM (dia1/dia2/completo). Legado sem coluna = completo.
+    const escopoSim = txt(row[COL_SIM.ESCOPO]) || "completo";
+
+    // Aproveitamento por simulado (uniforme p/ ENEM e Custom). No ENEM, só as
+    // áreas do escopo entram (1 dia = /90, completo = /180).
     let aprov = 0;
     if (modeloSim === "Custom") {
       let q = 0, ac = 0;
       materiasArr.forEach(function(m) { q += num(m.questoes); ac += num(m.acertos); });
       aprov = q > 0 ? Math.round((ac / q) * 100) : 0;
     } else {
-      const totEnem = num(row[COL_SIM.LG]) + num(row[COL_SIM.CH]) + num(row[COL_SIM.CN]) + num(row[COL_SIM.MAT]);
-      aprov = Math.round((totEnem / 180) * 100);
+      const areasSim = _areasDoEscopoSim(escopoSim);
+      const colKey = { lg: COL_SIM.LG, ch: COL_SIM.CH, cn: COL_SIM.CN, mat: COL_SIM.MAT };
+      let totEnem = 0;
+      areasSim.forEach(function(k) { totEnem += num(row[colKey[k]]); });
+      aprov = areasSim.length ? Math.round((totEnem / (45 * areasSim.length)) * 100) : 0;
     }
 
     const sim = {
       id: String(row[COL_SIM.ID]), status: txt(row[COL_SIM.STATUS]) || "Pendente",
-      data: dataStr, modelo: modeloSim, especificacao: txt(row[COL_SIM.ESPECIFICACAO]),
+      data: dataStr, modelo: modeloSim, escopo: escopoSim, especificacao: txt(row[COL_SIM.ESPECIFICACAO]),
       lg: num(row[COL_SIM.LG]), ch: num(row[COL_SIM.CH]), cn: num(row[COL_SIM.CN]),
       mat: num(row[COL_SIM.MAT]), redacao: num(row[COL_SIM.REDACAO]),
       materias: materiasArr, aproveitamento: aprov,
@@ -1638,12 +1655,16 @@ function _validarDataSimulado(raw) {
 }
 
 function _garantirColunasSim(aba) {
-  const precisa = COL_SIM.AAR_JSON + 1; // 18
+  const precisa = COL_SIM.ESCOPO + 1; // 19
   const atual   = aba.getMaxColumns();
   if (atual < precisa) aba.insertColumnsAfter(atual, precisa - atual);
   const headers = aba.getRange(1, COL_SIM.MODELO + 1, 1, 3).getValues()[0];
   if (!headers[0] && !headers[1] && !headers[2]) {
     aba.getRange(1, COL_SIM.MODELO + 1, 1, 3).setValues([["MODELO", "MATERIAS_JSON", "AAR_JSON"]]);
+  }
+  // ESCOPO pode faltar em planilhas que já tinham as colunas anteriores.
+  if (!aba.getRange(1, COL_SIM.ESCOPO + 1).getValue()) {
+    aba.getRange(1, COL_SIM.ESCOPO + 1).setValue("ESCOPO");
   }
   return aba;
 }
@@ -1672,18 +1693,27 @@ function handleSalvarSimulado(dados) {
     }
     const modelo = txt(dados.modelo) === "Custom" ? "Custom" : "ENEM";
     let materiasJson = "";
-    let cLG = "", cCH = "", cCN = "", cMAT = "";
+    let cLG = "", cCH = "", cCN = "", cMAT = "", cRedacao = "", escopo = "";
     if (modelo === "Custom") {
       const mats = Array.isArray(dados.materias) ? dados.materias.map(function(m) {
         return { materia: txt(m.materia), questoes: num(m.questoes), acertos: num(m.acertos) };
       }).filter(function(m) { return m.materia; }) : [];
       materiasJson = JSON.stringify(mats);
+      cRedacao = dados.redacao === "" || dados.redacao == null ? "" : num(dados.redacao);
     } else {
-      cLG = num(dados.lg); cCH = num(dados.ch); cCN = num(dados.cn); cMAT = num(dados.mat);
+      // ENEM: escopo do dia (default dia1). Só as áreas do escopo são gravadas;
+      // as demais ficam em branco ("não fez"). Redação só existe no 1º dia.
+      escopo = ["dia1", "dia2", "completo"].indexOf(txt(dados.escopo)) !== -1 ? txt(dados.escopo) : "dia1";
+      const areas = _areasDoEscopoSim(escopo);
+      cLG  = areas.indexOf("lg")  !== -1 ? num(dados.lg)  : "";
+      cCH  = areas.indexOf("ch")  !== -1 ? num(dados.ch)  : "";
+      cCN  = areas.indexOf("cn")  !== -1 ? num(dados.cn)  : "";
+      cMAT = areas.indexOf("mat") !== -1 ? num(dados.mat) : "";
+      cRedacao = escopo === "dia2" ? "" : (dados.redacao === "" || dados.redacao == null ? "" : num(dados.redacao));
     }
     aba.appendRow([idSimulado, "Pendente", dataFormatada, txt(dados.especificacao),
-      cLG, cCH, cCN, cMAT, num(dados.redacao),
-      "", "", "", "", "", "", modelo, materiasJson, ""]);
+      cLG, cCH, cCN, cMAT, cRedacao,
+      "", "", "", "", "", "", modelo, materiasJson, "", escopo]);
     return responderJSON({ status: "sucesso", id: idSimulado });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
   finally     { lock.releaseLock(); }
@@ -1728,6 +1758,111 @@ function handleSalvarAutopsia(dados) {
       aba.getRange(linhaAlvo, COL_SIM.KOLB_ACAO    + 1).setValue(txt(kolb.acao));
       aba.getRange(linhaAlvo, COL_SIM.KOLB_REDACAO + 1).setValue(txt(kolb.redacao));
     }
+    return responderJSON({ status: "sucesso" });
+  } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
+  finally     { lock.releaseLock(); }
+}
+
+// Edita os dados de REGISTRO de um simulado (data, título, escopo, acertos,
+// redação, matérias). Se os dados objetivos mudarem (escopo ou acertos no ENEM,
+// matérias no Custom), a análise de erros salva não bate mais com os números —
+// nesse caso a análise objetiva é resetada (status volta a "Pendente" e os erros
+// são limpos). A análise subjetiva (AAR) é preservada.
+function handleEditarSimulado(dados) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const idPlanilha = exigirIdPlanilha(dados);
+    _exigirAcessoAluno(dados.email, idPlanilha);
+    const ssAluno    = SpreadsheetApp.openById(idPlanilha);
+    const aba        = ssAluno.getSheetByName(ABA.SIMULADOS);
+    if (!aba) throw new Error("Aba '" + ABA.SIMULADOS + "' não encontrada.");
+    _garantirColunasSim(aba);
+    const idProcurado = txt(dados.idSimulado);
+    if (!idProcurado) throw new Error("idSimulado ausente.");
+    if (!_validarTituloSimulado(dados.especificacao)) {
+      return responderJSON({ status: "erro", mensagem: "Nome do simulado inválido (mínimo " + SIM_TITULO_MIN + " caracteres significativos)." });
+    }
+    if (!_validarDataSimulado(dados.data)) {
+      return responderJSON({ status: "erro", mensagem: "Data do simulado inválida (informe uma data entre " + SIM_ANO_MIN + " e hoje)." });
+    }
+    const matriz  = aba.getDataRange().getValues();
+    let linhaAlvo = -1;
+    for (let i = 1; i < matriz.length; i++) {
+      if (String(matriz[i][COL_SIM.ID]) === idProcurado) { linhaAlvo = i + 1; break; }
+    }
+    if (linhaAlvo === -1) throw new Error("Simulado não encontrado.");
+    const rowAtual = matriz[linhaAlvo - 1];
+
+    let dataFormatada = txt(dados.data);
+    if (dataFormatada && dataFormatada.indexOf("-") !== -1) {
+      const partes = dataFormatada.split("-");
+      dataFormatada = partes[2] + "/" + partes[1] + "/" + partes[0];
+    }
+    const modelo = txt(dados.modelo) === "Custom" ? "Custom" : "ENEM";
+
+    let cLG = "", cCH = "", cCN = "", cMAT = "", cRedacao = "", escopo = "", materiasJson = "";
+    let objetivaMudou = false;
+    if (modelo === "Custom") {
+      const mats = Array.isArray(dados.materias) ? dados.materias.map(function(m) {
+        return { materia: txt(m.materia), questoes: num(m.questoes), acertos: num(m.acertos) };
+      }).filter(function(m) { return m.materia; }) : [];
+      materiasJson = JSON.stringify(mats);
+      cRedacao = dados.redacao === "" || dados.redacao == null ? "" : num(dados.redacao);
+      objetivaMudou = materiasJson !== String(rowAtual[COL_SIM.MATERIAS_JSON] || "");
+    } else {
+      escopo = ["dia1", "dia2", "completo"].indexOf(txt(dados.escopo)) !== -1 ? txt(dados.escopo) : "dia1";
+      const areas = _areasDoEscopoSim(escopo);
+      cLG  = areas.indexOf("lg")  !== -1 ? num(dados.lg)  : "";
+      cCH  = areas.indexOf("ch")  !== -1 ? num(dados.ch)  : "";
+      cCN  = areas.indexOf("cn")  !== -1 ? num(dados.cn)  : "";
+      cMAT = areas.indexOf("mat") !== -1 ? num(dados.mat) : "";
+      cRedacao = escopo === "dia2" ? "" : (dados.redacao === "" || dados.redacao == null ? "" : num(dados.redacao));
+      const escopoAtual = txt(rowAtual[COL_SIM.ESCOPO]) || "completo";
+      objetivaMudou = escopoAtual !== escopo ||
+        String(cLG)  !== String(rowAtual[COL_SIM.LG]  || "") ||
+        String(cCH)  !== String(rowAtual[COL_SIM.CH]  || "") ||
+        String(cCN)  !== String(rowAtual[COL_SIM.CN]  || "") ||
+        String(cMAT) !== String(rowAtual[COL_SIM.MAT] || "");
+    }
+
+    aba.getRange(linhaAlvo, COL_SIM.DATA + 1).setValue(dataFormatada);
+    aba.getRange(linhaAlvo, COL_SIM.ESPECIFICACAO + 1).setValue(txt(dados.especificacao));
+    aba.getRange(linhaAlvo, COL_SIM.LG + 1, 1, 5).setValues([[cLG, cCH, cCN, cMAT, cRedacao]]);
+    aba.getRange(linhaAlvo, COL_SIM.MODELO + 1).setValue(modelo);
+    aba.getRange(linhaAlvo, COL_SIM.MATERIAS_JSON + 1).setValue(materiasJson);
+    aba.getRange(linhaAlvo, COL_SIM.ESCOPO + 1).setValue(escopo);
+
+    // Dados objetivos mudaram → a classificação de erros salva não corresponde
+    // mais aos novos números. Reseta a análise objetiva (preserva o AAR).
+    if (objetivaMudou) {
+      aba.getRange(linhaAlvo, COL_SIM.STATUS + 1).setValue("Pendente");
+      aba.getRange(linhaAlvo, COL_SIM.ERROS_JSON + 1).setValue("");
+    }
+    return responderJSON({ status: "sucesso", analiseResetada: objetivaMudou });
+  } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
+  finally     { lock.releaseLock(); }
+}
+
+// Exclui um simulado (a linha inteira da aba BD_Sim_ENEM).
+function handleExcluirSimulado(dados) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const idPlanilha = exigirIdPlanilha(dados);
+    _exigirAcessoAluno(dados.email, idPlanilha);
+    const ssAluno    = SpreadsheetApp.openById(idPlanilha);
+    const aba        = ssAluno.getSheetByName(ABA.SIMULADOS);
+    if (!aba) throw new Error("Aba '" + ABA.SIMULADOS + "' não encontrada.");
+    const idProcurado = txt(dados.idSimulado);
+    if (!idProcurado) throw new Error("idSimulado ausente.");
+    const matriz  = aba.getDataRange().getValues();
+    let linhaAlvo = -1;
+    for (let i = 1; i < matriz.length; i++) {
+      if (String(matriz[i][COL_SIM.ID]) === idProcurado) { linhaAlvo = i + 1; break; }
+    }
+    if (linhaAlvo === -1) throw new Error("Simulado não encontrado.");
+    aba.deleteRow(linhaAlvo);
     return responderJSON({ status: "sucesso" });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
   finally     { lock.releaseLock(); }

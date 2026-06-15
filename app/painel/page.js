@@ -11,11 +11,12 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 import { Bar, Line } from '@/components/Charts';
 import { getCache, setCache } from '@/lib/cacheClient';
-import { SIMULADO_ANO_MIN, SIMULADO_TITULO_MIN, ENEM_AREA_MAX, isSimuladoDateValid, formatSimuladoDate, histSimulado, metricasSimulado, tituloSimuladoValido, simuladoDataMinISO, simuladoDataMaxISO } from '@/lib/simuladoData';
+import { SIMULADO_ANO_MIN, SIMULADO_TITULO_MIN, ENEM_AREA_MAX, isSimuladoDateValid, formatSimuladoDate, histSimulado, metricasSimulado, tituloSimuladoValido, simuladoDataMinISO, simuladoDataMaxISO, ENEM_ESCOPO_DEFAULT, areasDoEscopo, escopoDoSimulado, escopoTemRedacao } from '@/lib/simuladoData';
 import { agregarMensalPorMes } from '@/lib/semanaLabel';
 import PushToggle from '@/components/PushToggle';
 import ProvasAluno from '@/components/ProvasAluno';
 import BoletimAluno from '@/components/BoletimAluno';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 const cardClass = "bg-white rounded-xl border border-slate-200 p-6 shadow-sm transition-colors";
 const inputClass = "w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue transition-all font-medium text-intento-blue";
@@ -49,16 +50,24 @@ const resumoDesempenho = (sim) => {
       pct: parseInt(m.questoes || 0) > 0 ? Math.round((parseInt(m.acertos || 0) / parseInt(m.questoes)) * 100) : 0
     }));
   } else {
+    // Só as áreas do escopo (1º/2º dia, ou as 4 no legado 'completo').
+    const areasEscopo = areasDoEscopo(escopoDoSimulado(sim));
     itens = [
-      { nome: 'Linguagens', pct: Math.round((parseInt(sim.lg || 0) / 45) * 100) },
-      { nome: 'Humanas',    pct: Math.round((parseInt(sim.ch || 0) / 45) * 100) },
-      { nome: 'Natureza',   pct: Math.round((parseInt(sim.cn || 0) / 45) * 100) },
-      { nome: 'Matemática', pct: Math.round((parseInt(sim.mat || 0) / 45) * 100) },
-    ];
+      { nome: 'Linguagens', key: 'lg',  pct: Math.round((parseInt(sim.lg || 0) / 45) * 100) },
+      { nome: 'Humanas',    key: 'ch',  pct: Math.round((parseInt(sim.ch || 0) / 45) * 100) },
+      { nome: 'Natureza',   key: 'cn',  pct: Math.round((parseInt(sim.cn || 0) / 45) * 100) },
+      { nome: 'Matemática', key: 'mat', pct: Math.round((parseInt(sim.mat || 0) / 45) * 100) },
+    ].filter(it => areasEscopo.includes(it.key));
   }
-  const aprov = sim.modelo === 'Custom'
-    ? (sim.aproveitamento ?? 0)
-    : Math.round(((parseInt(sim.lg || 0) + parseInt(sim.ch || 0) + parseInt(sim.cn || 0) + parseInt(sim.mat || 0)) / 180) * 100);
+  let aprov;
+  if (sim.modelo === 'Custom') {
+    aprov = sim.aproveitamento ?? 0;
+  } else {
+    // Aproveitamento relativo só às áreas feitas (1 dia = /90, completo = /180).
+    const areasEscopo = areasDoEscopo(escopoDoSimulado(sim));
+    const acertos = areasEscopo.reduce((a, k) => a + parseInt(sim[k] || 0), 0);
+    aprov = areasEscopo.length ? Math.round((acertos / (45 * areasEscopo.length)) * 100) : 0;
+  }
   let forte = null, fraca = null;
   itens.forEach(it => {
     if (!forte || it.pct > forte.pct) forte = it;
@@ -153,6 +162,9 @@ export default function PainelDoAluno() {
   // ESTADOS DO SIMULADO 
   const [modalRegistroAberto, setModalRegistroAberto] = useState(false);
   const [tipoModelo, setTipoModelo] = useState("ENEM");
+  const [escopoSimulado, setEscopoSimulado] = useState(ENEM_ESCOPO_DEFAULT); // 'dia1' | 'dia2' | 'completo' (legado, só em edição)
+  const [editandoSimuladoId, setEditandoSimuladoId] = useState(null); // null = novo registro; id = editando
+  const [excluindoSimulado, setExcluindoSimulado] = useState(null); // sim alvo do confirm de exclusão
   const [formRegistro, setFormRegistro] = useState({ data: '', especificacao: '', lg: '', ch: '', cn: '', mat: '', redacao: '' });
   const [materiasCustom, setMateriasCustom] = useState([]); // [{materia, questoes, acertos}]
   const [erroDataSimulado, setErroDataSimulado] = useState(''); // erro inline da data no registro
@@ -297,12 +309,15 @@ export default function PainelDoAluno() {
         }
       });
     } else {
+      // Só as áreas do escopo do simulado geram caixas de erro. Sem isso, um
+      // simulado de 1 dia geraria 90 erros-fantasma das áreas não feitas.
+      const areasEscopo = areasDoEscopo(escopoDoSimulado(sim));
       const areas = [
-        { nome: 'Linguagens', acertos: parseInt(sim.lg || 0), total: 45 },
-        { nome: 'Humanas', acertos: parseInt(sim.ch || 0), total: 45 },
-        { nome: 'Natureza', acertos: parseInt(sim.cn || 0), total: 45 },
-        { nome: 'Matemática', acertos: parseInt(sim.mat || 0), total: 45 }
-      ];
+        { nome: 'Linguagens', key: 'lg',  acertos: parseInt(sim.lg || 0), total: 45 },
+        { nome: 'Humanas',    key: 'ch',  acertos: parseInt(sim.ch || 0), total: 45 },
+        { nome: 'Natureza',   key: 'cn',  acertos: parseInt(sim.cn || 0), total: 45 },
+        { nome: 'Matemática', key: 'mat', acertos: parseInt(sim.mat || 0), total: 45 }
+      ].filter(a => areasEscopo.includes(a.key));
       areas.forEach(a => {
         const qtdErros = a.total - a.acertos;
         if (qtdErros > 0 && !primeiraAreaComErro) primeiraAreaComErro = a.nome;
@@ -360,6 +375,71 @@ export default function PainelDoAluno() {
     return sessao?.idPlanilha || sessao?.idPlanilhaAluno || sessao?.dadosPainel?.idPlanilha;
   };
 
+  // Abre o modal em branco para um NOVO registro.
+  const abrirNovoSimulado = () => {
+    setEditandoSimuladoId(null);
+    setTipoModelo('ENEM');
+    setEscopoSimulado(ENEM_ESCOPO_DEFAULT);
+    setFormRegistro({ data: '', especificacao: '', lg: '', ch: '', cn: '', mat: '', redacao: '' });
+    setMateriasCustom([]);
+    setErroDataSimulado(''); setErroTituloSimulado('');
+    setModalRegistroAberto(true);
+  };
+
+  // Abre o modal pré-preenchido para EDITAR um simulado existente.
+  const abrirEdicaoSimulado = (sim) => {
+    const isCustom = sim.modelo === 'Custom';
+    setEditandoSimuladoId(sim.id);
+    setTipoModelo(isCustom ? 'Custom' : 'ENEM');
+    setEscopoSimulado(isCustom ? ENEM_ESCOPO_DEFAULT : escopoDoSimulado(sim));
+    setFormRegistro({
+      data: sim.data || '',
+      especificacao: sim.especificacao || '',
+      lg: sim.lg != null ? String(sim.lg) : '',
+      ch: sim.ch != null ? String(sim.ch) : '',
+      cn: sim.cn != null ? String(sim.cn) : '',
+      mat: sim.mat != null ? String(sim.mat) : '',
+      redacao: sim.redacao ? String(sim.redacao) : '',
+    });
+    setMateriasCustom(isCustom ? (sim.materias || []).map(m => ({ materia: m.materia, questoes: String(m.questoes ?? ''), acertos: String(m.acertos ?? '') })) : []);
+    setErroDataSimulado(''); setErroTituloSimulado('');
+    setModalRegistroAberto(true);
+  };
+
+  const fecharModalSimulado = () => {
+    setModalRegistroAberto(false);
+    setEditandoSimuladoId(null);
+    setMateriasCustom([]);
+    setErroDataSimulado(''); setErroTituloSimulado('');
+  };
+
+  // Exclui o simulado confirmado no diálogo.
+  const confirmarExclusaoSimulado = async () => {
+    const sim = excluindoSimulado;
+    if (!sim) return;
+    const idPlanilha = getSpreadsheetId();
+    if (!idPlanilha) { mostrarToast('Erro: ID da planilha não encontrado na sessão.', 'error'); return; }
+    setExcluindoSimulado(null);
+    mostrarToast('Excluindo simulado...', 'success');
+    try {
+      const res = await apiFetch('/api/mentor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'excluirSimulado', idPlanilha, idSimulado: sim.id }),
+      });
+      const data = await res.json();
+      if (data.status === 'sucesso') {
+        mostrarToast('Simulado excluído. A página será atualizada.', 'success');
+        sessionStorage.setItem('_painelAba', String(abaAtiva));
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        mostrarToast('Erro no servidor: ' + data.mensagem, 'error');
+      }
+    } catch (e) {
+      mostrarToast('Erro de conexão ao excluir.', 'error');
+    }
+  };
+
   const salvarSimulado = async () => {
     if (salvandoSimulado) return;
     const idPlanilha = getSpreadsheetId();
@@ -388,8 +468,12 @@ export default function PainelDoAluno() {
     setErroDataSimulado('');
     // TODO: validation also in backend
     const isCustom = tipoModelo !== 'ENEM';
+    // Só as áreas do escopo (1º/2º dia) são validadas e gravadas; as demais vão
+    // em branco ("não fez") — o `escopo` é a fonte de verdade no resto do app.
+    let payloadEnem = {};
     if (!isCustom) {
-      const invalido = ['lg', 'ch', 'cn', 'mat'].some(k => {
+      const areas = areasDoEscopo(escopoSimulado);
+      const invalido = areas.some(k => {
         const v = parseInt(formRegistro[k]);
         return isNaN(v) || v < 0 || v > ENEM_AREA_MAX;
       });
@@ -397,6 +481,8 @@ export default function PainelDoAluno() {
         mostrarToast(`Acertos por área devem estar entre 0 e ${ENEM_AREA_MAX}.`, "error");
         return;
       }
+      ['lg', 'ch', 'cn', 'mat'].forEach(k => { payloadEnem[k] = areas.includes(k) ? formRegistro[k] : ''; });
+      payloadEnem.redacao = escopoTemRedacao(escopoSimulado) ? formRegistro.redacao : '';
     } else {
       if (materiasCustom.length === 0) {
         mostrarToast("Adicione ao menos uma matéria.", "error");
@@ -412,25 +498,33 @@ export default function PainelDoAluno() {
       }
     }
 
+    const editando = !!editandoSimuladoId;
     setSalvandoSimulado(true);
-    mostrarToast("Registrando Simulado...", "success");
+    mostrarToast(editando ? "Salvando alterações..." : "Registrando Simulado...", "success");
     try {
       const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          acao: 'salvarSimulado',
+          acao: editando ? 'editarSimulado' : 'salvarSimulado',
           idPlanilha: idPlanilha, // Agora garantido!
+          idSimulado: editando ? editandoSimuladoId : undefined,
           modelo: isCustom ? 'Custom' : 'ENEM',
+          escopo: isCustom ? undefined : escopoSimulado,
           materias: isCustom ? materiasCustom : undefined,
-          ...formRegistro
+          ...formRegistro,
+          ...payloadEnem // sobrescreve lg/ch/cn/mat/redacao conforme o escopo
         })
       });
       const data = await res.json();
 
       if (data.status === 'sucesso') {
-        mostrarToast("Registro Salvo! A página será atualizada.", "success");
+        const msg = editando
+          ? (data.analiseResetada ? "Alterações salvas. A análise de erros foi reiniciada (os números mudaram)." : "Alterações salvas. A página será atualizada.")
+          : "Registro Salvo! A página será atualizada.";
+        mostrarToast(msg, "success");
         setModalRegistroAberto(false);
+        setEditandoSimuladoId(null);
         setMateriasCustom([]);
         sessionStorage.setItem('_painelAba', String(abaAtiva));
         setTimeout(() => window.location.reload(), 1500);
@@ -916,12 +1010,13 @@ export default function PainelDoAluno() {
               {/* CARD DE APROVEITAMENTO */}
               {(() => {
                 const isCustom = simuladoAnalise.modelo === 'Custom';
+                const areasEscopoAnalise = isCustom ? [] : areasDoEscopo(escopoDoSimulado(simuladoAnalise));
                 const acertosTotais = isCustom
                   ? (simuladoAnalise.materias || []).reduce((s, m) => s + parseInt(m.acertos || 0), 0)
-                  : parseInt(simuladoAnalise.lg || 0) + parseInt(simuladoAnalise.ch || 0) + parseInt(simuladoAnalise.cn || 0) + parseInt(simuladoAnalise.mat || 0);
+                  : areasEscopoAnalise.reduce((s, k) => s + parseInt(simuladoAnalise[k] || 0), 0);
                 const totalQuestoes = isCustom
                   ? (simuladoAnalise.materias || []).reduce((s, m) => s + parseInt(m.questoes || 0), 0)
-                  : 180;
+                  : 45 * areasEscopoAnalise.length;
                 const aproveitamento = totalQuestoes > 0 ? Math.round((acertosTotais / totalQuestoes) * 100) : 0;
 
                 let corBg = "bg-red-50 border-red-200"; let corText = "text-red-700"; let corLabel = "text-red-600";
@@ -1688,7 +1783,7 @@ export default function PainelDoAluno() {
                 <div className="space-y-8 animate-in fade-in duration-500">
                   <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                     <h1 className="text-2xl font-semibold text-intento-blue">Simulados</h1>
-                    <button onClick={() => setModalRegistroAberto(true)} className={btnCTA}>
+                    <button onClick={abrirNovoSimulado} className={btnCTA}>
                       + Registrar Simulado
                     </button>
                   </div>
@@ -1704,16 +1799,11 @@ export default function PainelDoAluno() {
 
                     {/* Linha 1 — KPIs principais */}
                     {abaMetrica === 'ENEM' ? (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className={`${cardClass} text-center bg-slate-50`}>
                           <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Simulados Realizados</p>
                           <p className="text-3xl font-bold text-intento-blue mt-1">{mEnem.realizados || 0}</p>
                           <p className="text-[10px] font-medium text-slate-400 mt-1">total ENEM</p>
-                        </div>
-                        <div className={`${cardClass} text-center border-b-2 border-b-intento-yellow`}>
-                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Acertos</p>
-                          <p className="text-4xl font-bold text-intento-yellow mt-1">{mEnem.medAcertos || 0}<span className="text-base text-slate-400 font-medium">/180</span></p>
-                          <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
                         </div>
                         <div className={`${cardClass} text-center border-b-2 border-b-intento-blue`}>
                           <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Redação</p>
@@ -1754,7 +1844,11 @@ export default function PainelDoAluno() {
                           ].map(d => (
                             <div key={d.key} className={`${cardClass} text-center py-4`} style={{ borderTop: `3px solid ${d.color}` }}>
                               <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{d.label}</p>
-                              <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{mEnem[d.key] || 0}<span className="text-xs text-slate-400 font-medium">/45</span></p>
+                              {mEnem[d.key] == null ? (
+                                <p className="text-2xl font-bold mt-1 text-slate-300">—</p>
+                              ) : (
+                                <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{mEnem[d.key]}<span className="text-xs text-slate-400 font-medium">/45</span></p>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -1828,10 +1922,12 @@ export default function PainelDoAluno() {
                               data={{
                                 labels: histEnem.labels || [],
                                 datasets: [
-                                  { label: 'LG',   data: histEnem.lg  || [], borderColor: '#0ea5e9', backgroundColor: '#0ea5e9', tension: 0.3 },
-                                  { label: 'CH',   data: histEnem.ch  || [], borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 },
-                                  { label: 'CN',   data: histEnem.cn  || [], borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.3 },
-                                  { label: 'MAT',  data: histEnem.mat || [], borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.3 },
+                                  // spanGaps: simulados de 1 dia deixam a outra área como null (gap);
+                                  // conectamos a linha por cima do gap em vez de derrubá-la a 0.
+                                  { label: 'LG',   data: histEnem.lg  || [], borderColor: '#0ea5e9', backgroundColor: '#0ea5e9', tension: 0.3, spanGaps: true },
+                                  { label: 'CH',   data: histEnem.ch  || [], borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3, spanGaps: true },
+                                  { label: 'CN',   data: histEnem.cn  || [], borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.3, spanGaps: true },
+                                  { label: 'MAT',  data: histEnem.mat || [], borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.3, spanGaps: true },
                                   {
                                     label: 'Meta',
                                     data: (histEnem.labels || []).map(() => 40),
@@ -1881,6 +1977,10 @@ export default function PainelDoAluno() {
                         {simuladosLista.map((sim) => {
                           const concluido = sim.status === 'Concluída';
                           const isCustom = sim.modelo === 'Custom';
+                          const escopoSim = escopoDoSimulado(sim);
+                          const areasSim = isCustom ? [] : areasDoEscopo(escopoSim);
+                          const totalEnem = areasSim.reduce((a, k) => a + (parseInt(sim[k]) || 0), 0);
+                          const escopoLabel = escopoSim === 'dia1' ? '1º dia' : escopoSim === 'dia2' ? '2º dia' : null;
                           return (
                             <div key={sim.id} className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex items-center gap-3 sm:gap-4 hover:border-intento-blue/40 transition-colors">
                               <span className={`shrink-0 w-2.5 h-2.5 rounded-full ${concluido ? 'bg-emerald-500' : 'bg-amber-500'}`} title={concluido ? 'Análise concluída' : 'Análise pendente'} />
@@ -1888,6 +1988,7 @@ export default function PainelDoAluno() {
                                 <div className="flex items-center gap-2">
                                   <h4 className="text-sm font-semibold text-intento-blue truncate">{sim.especificacao}</h4>
                                   <span className="shrink-0 text-[10px] font-medium text-slate-400 uppercase tracking-wide bg-slate-100 px-1.5 py-0.5 rounded">{sim.modelo}</span>
+                                  {escopoLabel && <span className="shrink-0 text-[10px] font-medium text-intento-blue uppercase tracking-wide bg-blue-50 px-1.5 py-0.5 rounded">{escopoLabel}</span>}
                                 </div>
                                 <p className="text-xs text-slate-400 mt-0.5">Realizado em {formatSimuladoDate(sim.data)}</p>
                               </div>
@@ -1895,11 +1996,17 @@ export default function PainelDoAluno() {
                                 {isCustom ? (
                                   <span className="text-sm font-bold text-intento-blue">{sim.aproveitamento ?? 0}%</span>
                                 ) : (
-                                  <span className="text-sm font-bold text-intento-blue">{parseInt(sim.lg) + parseInt(sim.ch) + parseInt(sim.cn) + parseInt(sim.mat)}<span className="text-xs text-slate-400 font-normal">/180</span></span>
+                                  <span className="text-sm font-bold text-intento-blue">{totalEnem}<span className="text-xs text-slate-400 font-normal">/{45 * areasSim.length}</span></span>
                                 )}
                               </div>
                               <button onClick={() => iniciarAutopsia(sim)} className={`shrink-0 ${concluido ? btnGhost : btnPrimary} text-xs py-2 px-4`}>
                                 {concluido ? 'Revisar' : 'Analisar'}
+                              </button>
+                              <button onClick={() => abrirEdicaoSimulado(sim)} aria-label="Editar simulado" title="Editar" className="shrink-0 p-2 text-slate-400 hover:text-intento-blue transition-colors">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                              </button>
+                              <button onClick={() => setExcluindoSimulado(sim)} aria-label="Excluir simulado" title="Excluir" className="shrink-0 p-2 text-slate-400 hover:text-red-500 transition-colors">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                               </button>
                             </div>
                           );
@@ -2122,14 +2229,14 @@ export default function PainelDoAluno() {
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/60 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg flex flex-col overflow-hidden">
             <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center">
-              <h2 className="text-base font-semibold text-intento-blue">Novo Registro de Simulado</h2>
-              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); setErroDataSimulado(''); setErroTituloSimulado(''); }} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+              <h2 className="text-base font-semibold text-intento-blue">{editandoSimuladoId ? 'Editar Simulado' : 'Novo Registro de Simulado'}</h2>
+              <button onClick={fecharModalSimulado} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
 
             <div className="p-7 space-y-5">
               <div className="flex bg-slate-100 p-1 rounded-lg">
-                <button onClick={() => setTipoModelo("ENEM")} className={`flex-1 py-2.5 rounded-md font-medium text-sm transition-all ${tipoModelo === "ENEM" ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'}`}>ENEM</button>
-                <button onClick={() => setTipoModelo("Custom")} className={`flex-1 py-2.5 rounded-md font-medium text-sm transition-all ${tipoModelo === "Custom" ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'}`}>Outros Vestibulares</button>
+                <button onClick={() => !editandoSimuladoId && setTipoModelo("ENEM")} disabled={!!editandoSimuladoId} className={`flex-1 py-2.5 rounded-md font-medium text-sm transition-all disabled:cursor-not-allowed ${tipoModelo === "ENEM" ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'} ${editandoSimuladoId && tipoModelo !== 'ENEM' ? 'opacity-40' : ''}`}>ENEM</button>
+                <button onClick={() => !editandoSimuladoId && setTipoModelo("Custom")} disabled={!!editandoSimuladoId} className={`flex-1 py-2.5 rounded-md font-medium text-sm transition-all disabled:cursor-not-allowed ${tipoModelo === "Custom" ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'} ${editandoSimuladoId && tipoModelo !== 'Custom' ? 'opacity-40' : ''}`}>Outros Vestibulares</button>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -2147,14 +2254,30 @@ export default function PainelDoAluno() {
 
               {tipoModelo === "ENEM" ? (
                 <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                  {/* Dia do ENEM: a maioria dos simulados cobre só um dos dias.
+                      'completo' não é oferecido para registros novos — só aparece
+                      ao editar um simulado legado de 2 dias. */}
+                  {escopoSimulado === 'completo' ? (
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-4 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">Simulado completo · 2 dias <span className="text-slate-400 normal-case">(formato antigo)</span></p>
+                  ) : (
+                    <>
+                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">Dia do simulado</p>
+                      <div className="flex p-1 bg-slate-200/60 rounded-lg mb-4">
+                        <button type="button" onClick={() => setEscopoSimulado('dia1')} className={`flex-1 py-2 rounded-md font-medium text-xs transition-all ${escopoSimulado === 'dia1' ? 'bg-white text-intento-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>1º dia · Ling. + Hum. + Redação</button>
+                        <button type="button" onClick={() => setEscopoSimulado('dia2')} className={`flex-1 py-2 rounded-md font-medium text-xs transition-all ${escopoSimulado === 'dia2' ? 'bg-white text-intento-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>2º dia · Nat. + Matemática</button>
+                      </div>
+                    </>
+                  )}
                   <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-200 pb-3">Acertos por Área (de 45)</p>
-                  <div className="grid grid-cols-4 gap-3">
-                    <div><label className="block text-[10px] font-medium text-blue-500 uppercase mb-1.5 tracking-wide">Linguagens</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-blue-200 rounded-lg font-semibold text-center outline-none focus:border-blue-400 bg-white text-slate-700" value={formRegistro.lg} onChange={e => setFormRegistro({...formRegistro, lg: e.target.value})} /></div>
-                    <div><label className="block text-[10px] font-medium text-orange-500 uppercase mb-1.5 tracking-wide">Humanas</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-orange-200 rounded-lg font-semibold text-center outline-none focus:border-orange-400 bg-white text-slate-700" value={formRegistro.ch} onChange={e => setFormRegistro({...formRegistro, ch: e.target.value})} /></div>
-                    <div><label className="block text-[10px] font-medium text-emerald-500 uppercase mb-1.5 tracking-wide">Natureza</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-emerald-200 rounded-lg font-semibold text-center outline-none focus:border-emerald-400 bg-white text-slate-700" value={formRegistro.cn} onChange={e => setFormRegistro({...formRegistro, cn: e.target.value})} /></div>
-                    <div><label className="block text-[10px] font-medium text-red-400 uppercase mb-1.5 tracking-wide">Matemática</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-red-200 rounded-lg font-semibold text-center outline-none focus:border-red-400 bg-white text-slate-700" value={formRegistro.mat} onChange={e => setFormRegistro({...formRegistro, mat: e.target.value})} /></div>
+                  <div className={`grid ${escopoSimulado === 'completo' ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'} gap-3`}>
+                    {areasDoEscopo(escopoSimulado).includes('lg') && <div><label className="block text-[10px] font-medium text-blue-500 uppercase mb-1.5 tracking-wide">Linguagens</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-blue-200 rounded-lg font-semibold text-center outline-none focus:border-blue-400 bg-white text-slate-700" value={formRegistro.lg} onChange={e => setFormRegistro({...formRegistro, lg: e.target.value})} /></div>}
+                    {areasDoEscopo(escopoSimulado).includes('ch') && <div><label className="block text-[10px] font-medium text-orange-500 uppercase mb-1.5 tracking-wide">Humanas</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-orange-200 rounded-lg font-semibold text-center outline-none focus:border-orange-400 bg-white text-slate-700" value={formRegistro.ch} onChange={e => setFormRegistro({...formRegistro, ch: e.target.value})} /></div>}
+                    {areasDoEscopo(escopoSimulado).includes('cn') && <div><label className="block text-[10px] font-medium text-emerald-500 uppercase mb-1.5 tracking-wide">Natureza</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-emerald-200 rounded-lg font-semibold text-center outline-none focus:border-emerald-400 bg-white text-slate-700" value={formRegistro.cn} onChange={e => setFormRegistro({...formRegistro, cn: e.target.value})} /></div>}
+                    {areasDoEscopo(escopoSimulado).includes('mat') && <div><label className="block text-[10px] font-medium text-red-400 uppercase mb-1.5 tracking-wide">Matemática</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-red-200 rounded-lg font-semibold text-center outline-none focus:border-red-400 bg-white text-slate-700" value={formRegistro.mat} onChange={e => setFormRegistro({...formRegistro, mat: e.target.value})} /></div>}
                   </div>
-                  <div className="mt-4"><label className="block text-[10px] font-medium text-purple-400 uppercase mb-1.5 tracking-wide">Nota Redação <span className="text-slate-300 normal-case">(opcional)</span></label><input type="number" placeholder="Ex: 920" className="w-full p-2 border border-purple-200 rounded-lg font-semibold outline-none focus:border-purple-400 bg-white text-slate-700" value={formRegistro.redacao} onChange={e => setFormRegistro({...formRegistro, redacao: e.target.value})} /></div>
+                  {escopoTemRedacao(escopoSimulado) && (
+                    <div className="mt-4"><label className="block text-[10px] font-medium text-purple-400 uppercase mb-1.5 tracking-wide">Nota Redação <span className="text-slate-300 normal-case">(opcional)</span></label><input type="number" placeholder="Ex: 920" className="w-full p-2 border border-purple-200 rounded-lg font-semibold outline-none focus:border-purple-400 bg-white text-slate-700" value={formRegistro.redacao} onChange={e => setFormRegistro({...formRegistro, redacao: e.target.value})} /></div>
+                  )}
                 </div>
               ) : (
                 <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
@@ -2190,11 +2313,23 @@ export default function PainelDoAluno() {
             </div>
 
             <div className="px-7 py-5 border-t border-slate-100 flex justify-end gap-3">
-              <button onClick={() => { setModalRegistroAberto(false); setMateriasCustom([]); setErroDataSimulado(''); setErroTituloSimulado(''); }} className={btnGhost}>Cancelar</button>
-              <button onClick={salvarSimulado} disabled={salvandoSimulado} className={btnPrimary + ' disabled:opacity-60'}>{salvandoSimulado ? 'Salvando...' : 'Salvar Registro'}</button>            </div>
+              <button onClick={fecharModalSimulado} className={btnGhost}>Cancelar</button>
+              <button onClick={salvarSimulado} disabled={salvandoSimulado} className={btnPrimary + ' disabled:opacity-60'}>{salvandoSimulado ? 'Salvando...' : (editandoSimuladoId ? 'Salvar Alterações' : 'Salvar Registro')}</button>            </div>
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        aberto={!!excluindoSimulado}
+        titulo="Excluir simulado?"
+        descricao={excluindoSimulado
+          ? `"${excluindoSimulado.especificacao}" (${formatSimuladoDate(excluindoSimulado.data)}) será removido, junto com a análise de erros. Não dá pra desfazer.`
+          : ''}
+        textoConfirmar="Excluir"
+        tom="danger"
+        onConfirmar={confirmarExclusaoSimulado}
+        onCancelar={() => setExcluindoSimulado(null)}
+      />
 
       {/* MODAL CADERNO DE ERROS */}
       {modalCadernoAberto && (
