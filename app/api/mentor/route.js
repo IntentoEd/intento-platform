@@ -32,7 +32,7 @@ const ACOES_AUTENTICADAS = new Set([
   'salvarDiario', 'salvarSemanaLote', 'salvarRegistroGlobal', 'deletarRegistro',
   'verificarRegistroSemana', 'editarRegistro', 'salvarStatusApp', 'registrarExportacao',
   'salvarNovoEncontro', 'avaliarEncontroPassado', 'editarEncontro',
-  'salvarSimulado', 'salvarAutopsia',
+  'salvarSimulado', 'editarSimulado', 'excluirSimulado', 'salvarAutopsia',
   // Caderno (aluno/mentor)
   'listarCaderno', 'salvarCardCaderno', 'incrementarRepeticao',
   'deletarCardCaderno', 'registrarRevisaoCaderno',
@@ -71,6 +71,8 @@ function chavesParaInvalidar(acaoEscrita, dados) {
     case 'editarEncontro':
     case 'salvarSemanaLote':
     case 'salvarSimulado':
+    case 'editarSimulado':
+    case 'excluirSimulado':
     case 'salvarAutopsia':
     case 'salvarCardCaderno':
     case 'incrementarRepeticao':
