@@ -619,10 +619,323 @@ const StarRating = ({ rating, setRating, readOnly = false, small = false }) => {
   );
 };
 
+// ── Linha do Tempo (Fase 1): feed unificado de encontros + semanas ────────────
+const CAT_BADGE = {
+  'Codificação': 'bg-blue-50 text-blue-700 border-blue-100',
+  'Revisão':     'bg-emerald-50 text-emerald-700 border-emerald-100',
+  'Hábitos':     'bg-yellow-50 text-yellow-700 border-yellow-200',
+  'Prova':       'bg-red-50 text-red-700 border-red-100',
+};
+const EMO_COLS = [{ c: 8, l: 'Estresse' }, { c: 9, l: 'Ansiedade' }, { c: 10, l: 'Motivação' }, { c: 11, l: 'Sono' }];
+
+function parseDataFlex(v) {
+  if (!v && v !== 0) return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  const s = String(v).trim();
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) { const d = new Date(s); return isNaN(d.getTime()) ? null : d; }
+  const m = s.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+  if (m) {
+    const ano = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : new Date().getFullYear();
+    const d = new Date(ano, Number(m[2]) - 1, Number(m[1]));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+function dataDoRegistro(row) {
+  const d = parseDataFlex(row[2]);
+  if (d) return d;
+  return parseDataFlex(String(row[0] || '').split(/[–-]/).pop());
+}
+const fmtDataBR = (d) => d ? d.toLocaleDateString('pt-BR') : '—';
+
+// Cabeçalho de Visão Geral: quem é + onde está, de relance.
+function VisaoGeral({ registros, diarios, simulados, tipoAluno, escola }) {
+  const ult = registros && registros.length ? registros[registros.length - 1] : null;
+  const ant = registros && registros.length > 1 ? registros[registros.length - 2] : null;
+  const delta = (a, b) => (a != null && b != null) ? a - b : null;
+  const nSimulados = simulados?.lista?.length || simulados?.kpi?.realizados || 0;
+  const stat = (label, valor, d, pct, invertido) => {
+    const bom = d != null && (invertido ? d < 0 : d > 0);
+    const ruim = d != null && (invertido ? d > 0 : d < 0);
+    return (
+      <div className="flex-1 min-w-[90px]">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{label}</p>
+        <div className="flex items-baseline gap-1">
+          <span className="text-lg font-bold text-intento-blue">{valor}</span>
+          {d != null && d !== 0 && (
+            <span className={`text-[11px] font-bold ${bom ? 'text-emerald-600' : ruim ? 'text-red-500' : 'text-slate-400'}`}>{d > 0 ? '▲' : '▼'}{Math.abs(d)}{pct ? '%' : ''}</span>
+          )}
+        </div>
+      </div>
+    );
+  };
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visão geral</p>
+        {tipoAluno === 'EM' && <span className="text-[9px] font-bold bg-intento-yellow/15 text-intento-yellow border border-intento-yellow/30 px-1.5 py-0.5 rounded uppercase tracking-wider">EM{escola ? ` · ${escola}` : ''}</span>}
+      </div>
+      {!ult ? (
+        <p className="text-xs text-slate-400 font-medium">Sem registros semanais ainda.</p>
+      ) : (
+        <div className="flex flex-wrap gap-4">
+          {stat('Última semana', ult[0] || '—')}
+          {stat('Horas', numOrNullDossie(ult[4]) != null ? `${numOrNullDossie(ult[4])}h` : '—', delta(numOrNullDossie(ult[4]), ant ? numOrNullDossie(ant[4]) : null))}
+          {stat('Domínio', toPercent(ult[5]) != null ? `${toPercent(ult[5])}%` : '—', delta(toPercent(ult[5]), ant ? toPercent(ant[5]) : null), true)}
+          {stat('Progresso', toPercent(ult[6]) != null ? `${toPercent(ult[6])}%` : '—')}
+          {stat('Revisões atras.', numOrNullDossie(ult[7]) ?? '—', null, false, true)}
+          {stat('Encontros', (diarios?.length || 0))}
+          {stat('Simulados', nSimulados)}
+        </div>
+      )}
+    </div>
+  );
+}
+const numOrNullDossie = (val) => {
+  const n = parseFloat(String(val ?? '').replace(',', '.'));
+  return isNaN(n) ? null : n;
+};
+
+function LinhaDoTempo({ diarios, registros, onEditarEncontro, idAluno, nomeAluno }) {
+  const [filtro, setFiltro] = useState('tudo');
+  const [aberto, setAberto] = useState(null);
+
+  const encItens = (diarios || []).map((e, i) => ({
+    id: `enc-${i}`, tipo: 'encontro', date: parseDataFlex(e.data), enc: e,
+    statusMetas: (i > 0 ? diarios[i - 1]?.statusMetasAnteriores : null) || ['', '', ''],
+  }));
+  const semItens = (registros || []).map((r, i) => ({ id: `sem-${i}`, tipo: 'semana', date: dataDoRegistro(r), row: r }));
+  let itens = [...encItens, ...semItens];
+  if (filtro !== 'tudo') itens = itens.filter(x => x.tipo === filtro);
+  itens.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+
+  // agrupa por mês/ano
+  const grupos = [];
+  itens.forEach(it => {
+    const chave = it.date ? it.date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : 'Sem data';
+    let g = grupos[grupos.length - 1];
+    if (!g || g.chave !== chave) { g = { chave, itens: [] }; grupos.push(g); }
+    g.itens.push(it);
+  });
+
+  const FILTROS = [
+    { id: 'tudo', label: 'Tudo' },
+    { id: 'encontro', label: 'Diário de Bordo' },
+    { id: 'semana', label: 'Semanas' },
+  ];
+
+  return (
+    <div className="space-y-5 animate-in fade-in duration-500">
+      {/* filtros */}
+      <div className="flex gap-2 flex-wrap">
+        {FILTROS.map(f => (
+          <button key={f.id} onClick={() => setFiltro(f.id)}
+            className={`text-xs font-bold px-3.5 py-1.5 rounded-full border transition-all ${filtro === f.id ? 'bg-intento-blue text-white border-intento-blue' : 'bg-white text-slate-500 border-slate-200 hover:border-intento-blue/40'}`}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {itens.length === 0 ? (
+        <div className="p-8 border-2 border-dashed rounded-xl text-center text-slate-400 font-bold">Nada registrado ainda.</div>
+      ) : grupos.map(g => (
+        <div key={g.chave}>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 capitalize">{g.chave}</p>
+          <div className="space-y-3">
+            {g.itens.map(it => it.tipo === 'encontro'
+              ? <CardEncontro key={it.id} it={it} aberto={aberto === it.id} onToggle={() => setAberto(aberto === it.id ? null : it.id)} onEditar={onEditarEncontro} idAluno={idAluno} nomeAluno={nomeAluno} />
+              : <CardSemana key={it.id} it={it} aberto={aberto === it.id} onToggle={() => setAberto(aberto === it.id ? null : it.id)} />
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CardEncontro({ it, aberto, onToggle, onEditar, idAluno, nomeAluno }) {
+  const enc = it.enc;
+  const metasComStatus = (enc.metas || []).map((m, idx) => ({ meta: m, status: it.statusMetas[idx] || '' })).filter(x => String(x.meta || '').trim());
+  const totalMetas = metasComStatus.length;
+  const totalAval = metasComStatus.filter(x => x.status).length;
+  const totalBatidas = metasComStatus.filter(x => x.status === 'Batida').length;
+  const corStatus = totalAval < totalMetas ? 'bg-slate-100 text-slate-600 border-slate-200'
+    : totalBatidas === totalMetas ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+    : totalBatidas === 0 ? 'bg-red-100 text-red-800 border-red-200'
+    : 'bg-yellow-100 text-yellow-800 border-yellow-200';
+  const acoes = (enc.acoes || []).map((a, idx) => ({ acao: a, resultado: enc.resultados?.[idx] || '' })).filter(x => String(x.acao || '').trim());
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div role="button" tabIndex={0} onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+        className="px-5 py-4 flex items-center justify-between gap-3 hover:bg-slate-50 cursor-pointer">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="shrink-0 text-lg" title="Encontro">🗓️</span>
+          <span className="shrink-0 bg-intento-blue text-white px-2.5 py-1 rounded-lg text-[11px] font-semibold">{fmtDataBR(it.date)}</span>
+          {enc.categoria && <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${CAT_BADGE[enc.categoria] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>{enc.categoria}</span>}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {totalMetas > 0 && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${corStatus}`}>{totalAval < totalMetas ? `${totalMetas} metas` : `${totalBatidas}/${totalMetas} batidas`}</span>}
+          <div className="hidden sm:flex gap-0.5">{[1, 2, 3, 4, 5].map(n => <span key={n} className={`text-xs ${n <= (parseInt(enc.autoavaliacao) || 0) ? 'text-intento-yellow' : 'text-slate-200'}`}>★</span>)}</div>
+          <span className={`text-slate-300 transition-transform ${aberto ? 'rotate-180' : ''}`}>▾</span>
+        </div>
+      </div>
+      {aberto && (
+        <div className="px-5 pb-5 pt-1 border-t border-slate-100 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Vitórias</p><p className="text-sm text-slate-700 whitespace-pre-wrap">{enc.vitorias || '—'}</p></div>
+            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Maiores desafios</p><p className="text-sm text-slate-700 whitespace-pre-wrap">{enc.desafios || '—'}</p></div>
+          </div>
+          {enc.exploracao && <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Exploração</p><p className="text-sm text-slate-700 whitespace-pre-wrap">{enc.exploracao}</p></div>}
+          {totalMetas > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Metas combinadas</p>
+              <div className="space-y-1.5">
+                {metasComStatus.map((m, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-3 py-1.5">
+                    <span className="text-sm text-slate-700 font-medium">{i + 1}. {m.meta}</span>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${m.status === 'Batida' ? 'bg-emerald-100 text-emerald-800' : m.status === 'Parcial' ? 'bg-yellow-100 text-yellow-800' : m.status === 'Não batida' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-400'}`}>{m.status || 'aguardando'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {acoes.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Plano de ação</p>
+              <div className="space-y-1.5">
+                {acoes.map((a, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-3 py-1.5">
+                    <span className="text-sm text-slate-700 font-medium">{i + 1}. {a.acao}</span>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${a.resultado === 'Realizado' ? 'bg-emerald-100 text-emerald-800' : a.resultado === 'Realizado Parcialmente' ? 'bg-yellow-100 text-yellow-800' : a.resultado === 'Não realizado' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-400'}`}>{a.resultado || 'aguardando'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {enc.notasPrivadas && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider mb-1">🔒 Anotação privada</p>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap">{enc.notasPrivadas}</p>
+            </div>
+          )}
+          <div className="flex gap-3 pt-1">
+            <button onClick={(e) => { e.stopPropagation(); onEditar(enc); }} className="text-xs font-bold text-intento-blue hover:underline">Editar encontro</button>
+            <Link href={`/mentor/ig/diario?id=${idAluno}&linha=${enc.linha}&nome=${encodeURIComponent(nomeAluno || '')}`} onClick={(e) => e.stopPropagation()} className="text-xs font-bold text-slate-400 hover:text-intento-blue">Exportar diário →</Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CardSemana({ it, aberto, onToggle }) {
+  const r = it.row;
+  const org = r[COL_ORIGEM];
+  const dom = toPercent(r[5]);
+  const horas = numOrNullDossie(r[4]);
+  const meta = numOrNullDossie(r[3]);
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div role="button" tabIndex={0} onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+        className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50 cursor-pointer">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="shrink-0 text-lg" title="Semana">📊</span>
+          <span className="shrink-0 bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg text-[11px] font-semibold">{r[0] || fmtDataBR(it.date)}</span>
+        </div>
+        <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0 text-xs font-bold">
+          <span className="text-slate-600">{horas != null ? `${horas}h` : '—'}{meta != null && <span className="text-slate-300 font-medium">/{meta}h</span>}<span className="text-slate-400 font-medium hidden sm:inline"> horas</span></span>
+          <span className="text-intento-blue">{dom != null ? `${dom}%` : '—'}<span className="text-slate-400 font-medium hidden sm:inline"> dom.</span></span>
+          <span className="text-emerald-600">{toPercent(r[6]) != null ? `${toPercent(r[6])}%` : '—'}<span className="text-slate-400 font-medium hidden sm:inline"> prog.</span></span>
+          <span className={`text-slate-300 transition-transform ${aberto ? 'rotate-180' : ''}`}>▾</span>
+        </div>
+      </div>
+      {aberto && (
+        <div className="px-5 pb-5 pt-1 border-t border-slate-100 space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Mini label="Horas / meta" valor={`${horas ?? '—'}${meta != null ? ` / ${meta}` : ''}`} />
+            <Mini label="Domínio" valor={dom != null ? `${dom}%` : '—'} />
+            <Mini label="Progresso" valor={toPercent(r[6]) != null ? `${toPercent(r[6])}%` : '—'} />
+            <Mini label="Revisões atras." valor={numOrNullDossie(r[7]) ?? '—'} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Check-in emocional</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {EMO_COLS.map(e => <Mini key={e.c} label={e.l} valor={toPercentCheckin(r[e.c], org) != null ? `${toPercentCheckin(r[e.c], org)}%` : '—'} />)}
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Por disciplina (domínio · progresso)</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {DISCIPLINAS_CONFIG.map(d => (
+                <div key={d.key} className="bg-slate-50 rounded-lg p-2">
+                  <p className="text-[10px] font-bold text-slate-500">{d.label}</p>
+                  <p className="text-sm font-bold text-intento-blue">{toPercent(r[d.dCol]) != null ? `${toPercent(r[d.dCol])}%` : '—'} <span className="text-[10px] font-medium text-slate-400">· {toPercent(r[d.pCol]) != null ? `${toPercent(r[d.pCol])}%` : '—'}</span></p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+function Mini({ label, valor }) {
+  return (
+    <div className="bg-slate-50 rounded-lg p-2">
+      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{label}</p>
+      <p className="text-sm font-bold text-intento-blue">{valor}</p>
+    </div>
+  );
+}
+
+// ── Modo demo (/mentor/demo): dados de exemplo pra revisão offline do dossiê ──
+const _rowD = (semana, data, meta, horas, dom, prog, rev, est, ans, mot, son, disc) => {
+  const r = new Array(21).fill('');
+  r[0] = semana; r[2] = data; r[3] = meta; r[4] = horas; r[5] = dom; r[6] = prog; r[7] = rev;
+  r[8] = est; r[9] = ans; r[10] = mot; r[11] = son;
+  const d = disc || {};
+  r[12] = d.bio?.[0]; r[13] = d.bio?.[1]; r[14] = d.qui?.[0]; r[15] = d.qui?.[1];
+  r[16] = d.fis?.[0]; r[17] = d.fis?.[1]; r[18] = d.mat?.[0]; r[19] = d.mat?.[1];
+  r[20] = 'auto';
+  return r;
+};
+const DOSSIE_DEMO = {
+  status: 'sucesso',
+  tipoAluno: 'ENEM',
+  escola: '',
+  statusApp: '',
+  metaHorasSemanal: '25',
+  simulados: { kpi: null, hist: null, lista: [] },
+  semana: (() => {
+    const g = HORARIOS.map(() => new Array(7).fill(''));
+    const set = (h, dia, cat, txt) => { g[HORARIOS.indexOf(h)][DIAS.indexOf(dia)] = `[${cat}] - ${txt}`; };
+    ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'].forEach(d => {
+      set('08:00', d, 'Revisão', 'Revisão'); set('09:00', d, 'Codificação', 'Matéria principal'); set('10:00', d, 'Codificação', 'Matéria principal');
+    });
+    return g;
+  })(),
+  registros: [
+    _rowD('21/04–27/04', '2026-04-27', 25, 14, 0.50, 0.34, 7, 0.55, 0.50, 0.6, 0.55, { bio: [0.48, 0.33], qui: [0.38, 0.28], fis: [0.52, 0.38], mat: [0.43, 0.30] }),
+    _rowD('05/05–11/05', '2026-05-11', 25, 15, 0.55, 0.40, 5, 0.6, 0.5, 0.7, 0.6, { bio: [0.52, 0.38], qui: [0.42, 0.32], fis: [0.57, 0.42], mat: [0.47, 0.35] }),
+    _rowD('02/06–08/06', '2026-06-08', 25, 18, 0.59, 0.46, 3, 0.65, 0.55, 0.75, 0.65, { bio: [0.56, 0.42], qui: [0.46, 0.36], fis: [0.61, 0.46], mat: [0.51, 0.39] }),
+    _rowD('09/06–15/06', '2026-06-15', 25, 21, 0.62, 0.51, 2, 0.7, 0.6, 0.8, 0.7, { bio: [0.60, 0.45], qui: [0.50, 0.40], fis: [0.65, 0.50], mat: [0.55, 0.42] }),
+  ],
+  diarios: [
+    { linha: 9, data: '2026-06-11', autoavaliacao: 4, categoria: 'Revisão', vitorias: 'Recuperou o ritmo de revisão e fez os 2 simulados.', desafios: 'Sono irregular na semana de prova.', exploracao: 'Reorganizamos a rotina da noite. Ela topou desligar telas 1h antes de dormir.', meta: 'Fechar revisão de Genética\nManter 7h de sono', acoes: ['Cronograma de revisão espaçada', 'Alarme de "desligar telas" às 22h', '', '', ''], resultados: ['', '', '', '', ''], statusMetasAnteriores: 'Batida\nNão batida\n', notasPrivadas: 'Melhorou bastante o humor.' },
+    { linha: 7, data: '2026-05-21', autoavaliacao: 3, categoria: 'Codificação', vitorias: 'Manteve a rotina de manhã a semana toda e fechou Cinemática.', desafios: 'Travou em Química Orgânica.', exploracao: 'Conversamos sobre ansiedade antes dos simulados. Técnica de respiração combinada.', meta: 'Terminar a frente de Cinemática\nFazer 2 simulados de Química\nDormir 7h por noite', acoes: ['Resolver a lista 3 de Física', 'Revisar flashcards de Química', 'Marcar consulta com a nutricionista', '', ''], resultados: ['Realizado', 'Realizado Parcialmente', 'Não realizado', '', ''], statusMetasAnteriores: 'Batida\nParcial\n', notasPrivadas: 'Parece sobrecarregada com a escola.' },
+    { linha: 5, data: '2026-04-30', autoavaliacao: 2, categoria: 'Hábitos', vitorias: 'Começou a registrar as horas no app.', desafios: 'Procrastinação nas tardes.', exploracao: 'Definimos blocos de foco de 50min (pomodoro).', meta: 'Estudar 15h na semana\nUsar o app todo dia', acoes: ['Configurar blocos pomodoro', 'Check-in diário no app', '', '', ''], resultados: ['Realizado', 'Realizado', '', '', ''], statusMetasAnteriores: '', notasPrivadas: '' },
+  ],
+};
+
 export default function GestaoIndividualAluno() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const nomeAluno = searchParams.get('nome');
+  const ehDemo = params.id === 'demo';
+  const nomeAluno = searchParams.get('nome') || (ehDemo ? 'Maria Silva (exemplo)' : null);
   const router = useRouter();
 
   const [carregando, setCarregando] = useState(true);
@@ -631,7 +944,7 @@ export default function GestaoIndividualAluno() {
   const [dadosSimulados, setDadosSimulados] = useState({ kpi: null, hist: null, lista: [] });
   const [simuladoAberto, setSimuladoAberto] = useState(null);
   const [abaMetrica, setAbaMetrica] = useState('ENEM'); // toggle métricas ENEM | Outros
-  const [abaInterna, setAbaInterna] = useState('diario');
+  const [abaInterna, setAbaInterna] = useState('timeline');
   const [statusMsg, setStatusMsg] = useState("");
   const [salvandoEncontro, setSalvandoEncontro] = useState(false);
   const [gradeModificada, setGradeModificada] = useState(false);
@@ -755,13 +1068,18 @@ export default function GestaoIndividualAluno() {
     const carregarDados = async () => {
       setCarregando(true);
       try {
-        const res = await apiFetch('/api/mentor', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ acao: 'buscarDadosAluno', idPlanilhaAluno: params.id })
-        });
-        const data = await res.json();
-        
+        let data;
+        if (ehDemo) {
+          data = DOSSIE_DEMO;
+        } else {
+          const res = await apiFetch('/api/mentor', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ acao: 'buscarDadosAluno', idPlanilhaAluno: params.id })
+          });
+          data = await res.json();
+        }
+
         if (data.status === 'sucesso') {
           setTipoAluno(data.tipoAluno || 'ENEM');
           setEscolaAluno(data.escola || '');
@@ -935,6 +1253,7 @@ export default function GestaoIndividualAluno() {
 
   const carregarOnboarding = async () => {
     if (dadosOnboarding !== null) return;
+    if (ehDemo) { setDadosOnboarding({}); setDadosDiagnostico(null); return; }
     setCarregandoOnboarding(true);
     setErroOnboarding('');
     try {
@@ -1035,6 +1354,7 @@ export default function GestaoIndividualAluno() {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <button onClick={tentarVoltar} className="text-sm font-medium text-slate-400 hover:text-intento-blue transition-colors self-start shrink-0">← Voltar</button>
           <div className="flex gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
+            <button onClick={() => trocarAba('timeline')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'timeline' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Linha do Tempo</button>
             <button onClick={() => trocarAba('diario')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'diario' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Diário de Bordo</button>
             <button onClick={() => trocarAba('semana')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'semana' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Semana Padrão</button>
             {tipoAluno === 'EM' && (
@@ -1064,6 +1384,9 @@ export default function GestaoIndividualAluno() {
           </div>
         </div>
 
+        {/* Cabeçalho de Visão Geral — sempre visível */}
+        <VisaoGeral registros={historicoRegistros} diarios={historicoDiarios} simulados={dadosSimulados} tipoAluno={tipoAluno} escola={escolaAluno} />
+
         {/* Toast de status global */}
         {statusMsg && (
           <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-semibold animate-in fade-in slide-in-from-bottom-2 ${statusMsg.toLowerCase().includes('erro') ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>
@@ -1072,229 +1395,50 @@ export default function GestaoIndividualAluno() {
         )}
 
         {/* ================================================================== */}
+        {/* ABA LINHA DO TEMPO (Fase 1: encontros + semanas) */}
+        {/* ================================================================== */}
+        {abaInterna === 'timeline' && (
+          <LinhaDoTempo
+            diarios={historicoDiarios}
+            registros={historicoRegistros}
+            onEditarEncontro={abrirEdicaoEncontro}
+            idAluno={params.id}
+            nomeAluno={nomeAluno}
+          />
+        )}
+
+        {/* ================================================================== */}
         {/* ABA DIÁRIO DE BORDO */}
         {/* ================================================================== */}
         {abaInterna === 'diario' && (
-          <div className="space-y-8 animate-in fade-in duration-500">
-            
-            {/* BOTÃO NOVO DIÁRIO */}
+          <div className="space-y-5 animate-in fade-in duration-500">
             <div className="flex justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <div>
-                  <h2 className="text-sm font-bold text-intento-blue">Diário de Bordo</h2>
-                  <p className="text-slate-400 text-xs font-medium mt-0.5">Último encontro avaliado.</p>
-                </div>
-                <button onClick={abrirNovoDiario}
-                  className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-all text-sm">
-                  + Novo Diário
-                </button>
+              <div>
+                <h2 className="text-sm font-bold text-intento-blue">Diário de Bordo</h2>
+                <p className="text-slate-400 text-xs font-medium mt-0.5">Histórico de encontros registrados.</p>
               </div>
-
-            {/* O ACORDÃO (SANFONA) DO HISTÓRICO - AGORA COM TUDO! */}
-            <div className="pt-4">
-              <h3 className="text-base font-semibold text-intento-blue mb-5">Histórico Completo de Encontros</h3>
-              
-              {historicoDiarios.length === 0 ? (
-                <div className="p-8 border-2 border-dashed rounded-xl text-center text-slate-400 font-bold">Nenhum encontro registrado.</div>
-              ) : (
-                <div className="space-y-4">
-                  {historicoDiarios.map((enc, i) => {
-                    const expandido = expandidoId === i;
-                    const toggleExpand = () => setExpandidoId(expandido ? null : i);
-                    // Encontro N+1 cronológico (mais novo). No array em ordem reverse, é o de índice i-1.
-                    const proximoEnc = i > 0 ? historicoDiarios[i - 1] : null;
-                    const statusDasMetas = proximoEnc?.statusMetasAnteriores || ['', '', ''];
-                    const metasComStatus = (enc.metas || []).map((m, idx) => ({
-                      meta: m, status: statusDasMetas[idx] || ''
-                    })).filter(x => String(x.meta || '').trim() !== '');
-                    const totalMetas = metasComStatus.length;
-                    const totalAvaliadas = metasComStatus.filter(x => x.status !== '').length;
-                    const totalBatidas = metasComStatus.filter(x => x.status === 'Batida').length;
-                    const temAvaliacao = totalAvaliadas > 0;
-                    const corBadgeStatus = (() => {
-                      if (totalAvaliadas < totalMetas) return 'bg-slate-100 text-slate-600 border-slate-200';
-                      if (totalBatidas === totalMetas) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-                      if (totalBatidas === 0)          return 'bg-red-100 text-red-800 border-red-200';
-                      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-                    })();
-                    return (
-                    <div key={i} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden transition-all">
-                      {/* CABEÇALHO DA SANFONA */}
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        aria-expanded={expandido}
-                        onClick={toggleExpand}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(); } }}
-                        className="w-full text-left px-5 py-4 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus:bg-slate-50"
-                      >
-                        {/* Data */}
-                        <span className="shrink-0 bg-intento-blue text-white px-3 py-1.5 rounded-lg text-xs font-semibold min-w-[100px] text-center">
-                          {new Date(enc.data).toLocaleDateString('pt-BR')}
-                        </span>
-
-                        {/* Badges (categoria + autoavaliação) */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center flex-wrap gap-2">
-                            {/* Tipo de desafio */}
-                            {enc.categoria && (() => {
-                              const cat = {
-                                'Codificação': 'bg-blue-50 text-blue-700 border-blue-100',
-                                'Revisão':     'bg-emerald-50 text-emerald-700 border-emerald-100',
-                                'Hábitos':     'bg-yellow-50 text-yellow-700 border-yellow-200',
-                                'Prova':       'bg-red-50 text-red-700 border-red-100',
-                              }[enc.categoria] || 'bg-slate-50 text-slate-600 border-slate-200';
-                              return (
-                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${cat}`}>
-                                  {enc.categoria}
-                                </span>
-                              );
-                            })()}
-                            {/* Avaliação */}
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400 font-medium">Autoav.:</span>
-                              <StarRating rating={parseInt(enc.autoavaliacao) || 0} readOnly={true} small={true} />
-                            </div>
-                            {/* Status / quantidade de metas */}
-                            {totalMetas > 0 && (
-                              temAvaliacao ? (
-                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${corBadgeStatus}`}>
-                                  {totalBatidas}/{totalMetas} {totalBatidas === 1 ? 'batida' : 'batidas'}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
-                                  {totalMetas} {totalMetas === 1 ? 'meta' : 'metas'}
-                                </span>
-                              )
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Ações discretas (icon-only) */}
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <Link
-                            href={`/mentor/ig/diario?id=${params.id}&linha=${enc.linha}&nome=${encodeURIComponent(nomeAluno || '')}`}
-                            onClick={(e) => e.stopPropagation()}
-                            title="Exportar encontro"
-                            aria-label="Exportar encontro"
-                            className="p-2 rounded-lg text-slate-400 hover:text-intento-blue hover:bg-white transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); abrirEdicaoEncontro(enc); }}
-                            title="Editar encontro"
-                            aria-label="Editar encontro"
-                            className="p-2 rounded-lg text-slate-400 hover:text-intento-blue hover:bg-white transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                          </button>
-                          <span className="w-px h-5 bg-slate-200 mx-1" aria-hidden="true" />
-                          {/* Chevron */}
-                          <svg className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${expandido ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/>
-                          </svg>
-                        </div>
-                      </div>
-
-                      {/* CONTEÚDO EXPANDIDO (TODOS OS CAMPOS) */}
-                      {expandido && (
-                        <div className="p-6 border-t border-slate-100 bg-slate-50 space-y-6 animate-in fade-in">
-
-                          {/* Topo: Categoria */}
-                          <div>
-                            <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                              Desafio: {enc.categoria || 'Não Categorizado'}
-                            </span>
-                          </div>
-
-                          {/* Metas para o Próximo Encontro */}
-                          <div className="bg-white p-5 rounded-xl border border-slate-100">
-                            <div className="flex items-center gap-2 mb-3">
-                              <svg className="w-4 h-4 text-intento-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-                              <h4 className={labelClass + " mb-0"}>Metas para o Próximo Encontro</h4>
-                            </div>
-                            {totalMetas === 0 ? (
-                              <p className="text-sm text-slate-400 font-medium italic">Nenhuma meta registrada.</p>
-                            ) : (
-                              <ul className="space-y-2">
-                                {(enc.metas || []).map((m, idx) => {
-                                  if (!m || String(m).trim() === '') return null;
-                                  const status = statusDasMetas[idx] || '';
-                                  return (
-                                    <li key={idx} className="flex gap-3 items-start">
-                                      <span className="w-6 h-6 shrink-0 bg-intento-blue/10 text-intento-blue rounded-md flex items-center justify-center text-xs font-bold">{idx + 1}</span>
-                                      <span className="text-sm font-semibold text-slate-800 whitespace-pre-wrap leading-relaxed flex-1">{m}</span>
-                                      {proximoEnc && (
-                                        <span className={`text-[10px] font-medium px-3 py-1.5 rounded-md uppercase tracking-wide whitespace-nowrap ${
-                                          status ? COR_STATUS_META[status] : 'bg-slate-100 text-slate-500'
-                                        }`}>
-                                          {status || 'Sem avaliação'}
-                                        </span>
-                                      )}
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            )}
-                          </div>
-
-                          {/* Grid de Vitórias e Desafios */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-5 rounded-xl border border-slate-100">
-                            <div><h4 className={labelClass}>Vitórias da Semana</h4><p className="text-sm font-medium text-slate-700 whitespace-pre-wrap">{enc.vitorias || '-'}</p></div>
-                            <div><h4 className={labelClass}>Maiores Desafios</h4><p className="text-sm font-medium text-slate-700 whitespace-pre-wrap">{enc.desafios || '-'}</p></div>
-                          </div>
-                          
-                          {/* Exploração Longa com Scroll */}
-                          <div className="bg-white p-5 rounded-xl border border-slate-100">
-                            <h4 className={labelClass}>Exploração e Ferramentas</h4>
-                            <div className="max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                              <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap leading-relaxed">
-                                {enc.exploracao || 'Nenhuma nota de exploração registrada.'}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Plano de Ação */}
-                          <div>
-                            <h4 className={labelClass}>Plano de Ação e Execução</h4>
-                            <ul className="space-y-3 mt-3">
-                              {enc.acoes.map((acao, idx) => acao && String(acao).trim() !== "" ? (
-                                <li key={idx} className="bg-white p-4 border border-slate-200 rounded-xl flex flex-col md:flex-row justify-between md:items-center gap-3 shadow-sm">
-                                  <span className="text-sm font-bold text-slate-800 flex-1">{idx + 1}. {acao}</span>
-                                  <span className={`text-[10px] font-medium px-3 py-1.5 rounded-md uppercase tracking-wide text-center ${
-                                    enc.resultados[idx] === 'Realizado' ? 'bg-emerald-100 text-emerald-800' :
-                                    enc.resultados[idx] === 'Realizado Parcialmente' ? 'bg-yellow-100 text-yellow-800' :
-                                    enc.resultados[idx] === 'Não realizado' ? 'bg-red-100 text-red-800' : 'bg-slate-200 text-slate-500'
-                                  }`}>
-                                    {enc.resultados[idx] || 'Aguardando Revisão'}
-                                  </span>
-                                </li>
-                              ) : null)}
-                            </ul>
-                          </div>
-
-                          {/* Anotação Privada — só aparece se tiver conteúdo */}
-                          {enc.notasPrivadas && String(enc.notasPrivadas).trim() !== '' && (
-                            <div className="bg-amber-50 border-2 border-dashed border-amber-300 p-5 rounded-xl">
-                              <div className="flex items-center justify-between mb-2">
-                                <h4 className={labelClass + " text-amber-800"}>Anotação Privada</h4>
-                                <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded uppercase tracking-wider">Só você vê</span>
-                              </div>
-                              <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap leading-relaxed">
-                                {enc.notasPrivadas}
-                              </p>
-                            </div>
-                          )}
-
-                        </div>
-                      )}
-                    </div>
-                    );
-                  })}
-                </div>
-              )}
+              <button onClick={abrirNovoDiario}
+                className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-all text-sm whitespace-nowrap">
+                + Novo Diário
+              </button>
             </div>
+            {historicoDiarios.length === 0 ? (
+              <div className="p-8 border-2 border-dashed rounded-xl text-center text-slate-400 font-bold">Nenhum encontro registrado.</div>
+            ) : (
+              <div className="space-y-3">
+                {historicoDiarios.map((enc, i) => (
+                  <CardEncontro
+                    key={i}
+                    it={{ enc, date: parseDataFlex(enc.data), statusMetas: (i > 0 ? historicoDiarios[i - 1]?.statusMetasAnteriores : null) || ['', '', ''] }}
+                    aberto={expandidoId === i}
+                    onToggle={() => setExpandidoId(expandidoId === i ? null : i)}
+                    onEditar={abrirEdicaoEncontro}
+                    idAluno={params.id}
+                    nomeAluno={nomeAluno}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1721,6 +1865,25 @@ export default function GestaoIndividualAluno() {
             {/* ── Painel lateral ── */}
             <div className="space-y-4 lg:sticky lg:top-8 self-start">
 
+              {/* Meta de horas semanal — MANUAL (vai pro registro do aluno) */}
+              <div className={cardClass}>
+                <label className={labelClass}>Meta de horas semanal</label>
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="number" min="0" placeholder="Ex: 30"
+                    value={metaHorasSemanal}
+                    onChange={e => { setMetaHorasSemanal(e.target.value); setGradeModificada(true); }}
+                    className="w-24 p-2 border border-slate-200 rounded-lg font-bold text-center text-slate-700 outline-none focus:border-intento-yellow bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <span className="text-xs text-slate-400 font-medium">horas/semana</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-2 leading-snug">
+                  {metaHorasSemanal.trim() === ''
+                    ? 'Vazio = calculada automaticamente a partir da grade. Defina um valor para fixar a meta manualmente.'
+                    : 'Meta manual — substitui a contagem da grade no registro do aluno.'}
+                </p>
+              </div>
+
               {/* Paleta de categorias — sempre visível */}
               <div className={cardClass}>
                 <p className={labelClass}>Categoria ativa</p>
@@ -1769,25 +1932,6 @@ export default function GestaoIndividualAluno() {
                 )}
               </div>
 
-              {/* Meta de horas semanal — MANUAL (vai pro registro do aluno) */}
-              <div className={cardClass}>
-                <label className={labelClass}>Meta de horas semanal</label>
-                <div className="flex items-center gap-2 mt-2">
-                  <input
-                    type="number" min="0" placeholder="Ex: 30"
-                    value={metaHorasSemanal}
-                    onChange={e => { setMetaHorasSemanal(e.target.value); setGradeModificada(true); }}
-                    className="w-24 p-2 border border-slate-200 rounded-lg font-bold text-center text-slate-700 outline-none focus:border-intento-yellow bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <span className="text-xs text-slate-400 font-medium">horas/semana</span>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-2 leading-snug">
-                  {metaHorasSemanal.trim() === ''
-                    ? 'Vazio = calculada automaticamente a partir da grade. Defina um valor para fixar a meta manualmente.'
-                    : 'Meta manual — substitui a contagem da grade no registro do aluno.'}
-                </p>
-              </div>
-
               {/* Resumo de horas */}
               {Object.keys(resumoHoras).length > 0 && (
                 <div className={cardClass}>
@@ -1813,8 +1957,9 @@ export default function GestaoIndividualAluno() {
                         </div>
                       );
                     })}
-                    <p className="text-xs text-slate-400 font-medium text-right pt-1">
-                      Total: {Object.values(resumoHoras).reduce((a, b) => a + b, 0)}h
+                    <p className="text-xs font-medium text-right pt-1 text-slate-500">
+                      Planejado: <span className="font-bold text-slate-700">{Object.values(resumoHoras).reduce((a, b) => a + b, 0)}h</span>
+                      {metaHorasSemanal.trim() !== '' && <span className="text-slate-400"> · meta {metaHorasSemanal}h</span>}
                     </p>
                   </div>
                 </div>
