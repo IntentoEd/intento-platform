@@ -302,6 +302,13 @@ export default function PainelGlobalMentor() {
 
                   <div className="flex flex-col gap-2">
                     <button
+                      onClick={() => router.push(`/mentor/${aluno.id}/encontro?nome=${encodeURIComponent(aluno.nome)}`)}
+                      className="w-full bg-intento-blue text-white font-bold py-2 rounded-lg hover:bg-intento-blue/90 transition-all text-xs flex items-center justify-center gap-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.99 1.99 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2.586z" /></svg>
+                      Conduzir encontro
+                    </button>
+                    <button
                       onClick={() => router.push(`/mentor/${aluno.id}?nome=${encodeURIComponent(aluno.nome)}`)}
                       className="w-full bg-white border-2 border-intento-blue text-intento-blue font-bold py-2 rounded-lg hover:bg-intento-blue hover:text-white transition-all text-xs"
                     >
