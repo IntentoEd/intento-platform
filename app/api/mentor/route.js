@@ -31,6 +31,7 @@ const ACOES_AUTENTICADAS = new Set([
   // Mentor — escrita de registros/encontros/simulados
   'salvarDiario', 'salvarSemanaLote', 'salvarRegistroGlobal', 'deletarRegistro',
   'verificarRegistroSemana', 'editarRegistro', 'salvarStatusApp', 'registrarExportacao',
+  'marcarAcompanhamento',
   'salvarNovoEncontro', 'avaliarEncontroPassado', 'editarEncontro',
   'salvarSimulado', 'editarSimulado', 'excluirSimulado', 'salvarAutopsia',
   // Caderno (aluno/mentor)
@@ -87,6 +88,9 @@ function chavesParaInvalidar(acaoEscrita, dados) {
     case 'designarMentor':
     case 'atualizarDadosAluno':
     case 'inativarAluno':
+      return ['listaAlunosMentor|*', 'dashboardLider|*'];
+    case 'marcarAcompanhamento':
+      // muda o sinal "enviado/pendente" exibido na lista do mentor
       return ['listaAlunosMentor|*', 'dashboardLider|*'];
     case 'cadastrarAvaliacoes':
     case 'atualizarAvaliacao':

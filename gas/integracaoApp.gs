@@ -437,6 +437,12 @@ function _calcularMetaHorasDaSemanaPadrao(idPlanilha) {
   try {
     var aba = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.SEMANA);
     if (!aba) return 0;
+    // Meta MANUAL definida pelo mentor (linha 19, col B) tem prioridade.
+    // Espelha onde handleSalvarSemanaLote grava. '' = deriva da grade (legado).
+    var manual = aba.getRange(19, 2).getValue();
+    if (manual !== '' && manual !== null && !isNaN(parseFloat(manual))) {
+      return parseFloat(manual);
+    }
     var matriz = aba.getRange(2, 2, 16, 7).getValues(); // 16 horários × 7 dias
     var horas = 0;
     for (var l = 0; l < matriz.length; l++) {
@@ -733,6 +739,29 @@ function handleRegistrarExportacao(dados) {
     return responderJSON({ status: 'sucesso', ultimaExportacao: hojeISO });
   } catch (e) {
     Logger.log('handleRegistrarExportacao EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
+}
+
+// =====================================================================
+// HANDLER — mentor marca/desmarca manualmente "acompanhamento enviado"
+// =====================================================================
+// dados: { email, idAluno, enviado }
+// Dá ao mentor controle explícito do checklist do /mentor, independente do
+// export. enviado=true grava a data de hoje em ULTIMA_EXPORTACAO (mesmo sinal
+// do download); enviado=false limpa a coluna (volta a "pendente" na semana).
+function handleMarcarAcompanhamento(dados) {
+  try {
+    var idPlanilha = txt(dados.idAluno);
+    if (!idPlanilha) return responderJSON({ status: 'erro', mensagem: 'idAluno obrigatório' });
+    _exigirAcessoAluno(dados.email, idPlanilha);
+
+    var enviado = dados.enviado === true || dados.enviado === 'true';
+    var valor = enviado ? Utilities.formatDate(new Date(), 'GMT-3', 'yyyy-MM-dd') : '';
+    atualizarCacheMestre(idPlanilha, { ULTIMA_EXPORTACAO: valor });
+    return responderJSON({ status: 'sucesso', ultimaExportacao: valor });
+  } catch (e) {
+    Logger.log('handleMarcarAcompanhamento EXCEPTION: ' + e.message);
     return responderJSON({ status: 'erro', mensagem: e.message });
   }
 }

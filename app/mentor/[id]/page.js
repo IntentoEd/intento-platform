@@ -2,7 +2,7 @@
 
 import { apiFetch } from '@/lib/api';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Line } from '@/components/Charts';
@@ -10,6 +10,7 @@ import { formatSimuladoDate, histSimulado, metricasSimulado } from '@/lib/simula
 import { LoadingScreen, LoadingInline } from '@/components/Loading';
 import AbaProvas from '@/components/AbaProvas';
 import StatusAppSelect from '@/components/StatusAppSelect';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 // ── Colunas do histórico (índices da array retornada pelo backend) ──────────
 // [0]Semana [1]Mês [2]Data [3]Meta [4]Horas [5]Domínio [6]Progresso [7]Revisões
@@ -635,6 +636,8 @@ export default function GestaoIndividualAluno() {
   const [salvandoEncontro, setSalvandoEncontro] = useState(false);
   const [gradeModificada, setGradeModificada] = useState(false);
   const [salvandoRotina, setSalvandoRotina] = useState(false);
+  // Meta de horas semanal MANUAL (string no input; '' = ainda derivada da grade no cron)
+  const [metaHorasSemanal, setMetaHorasSemanal] = useState('');
   const [dadosOnboarding, setDadosOnboarding] = useState(null);
   const [dadosDiagnostico, setDadosDiagnostico] = useState(null);
   const [carregandoOnboarding, setCarregandoOnboarding] = useState(false);
@@ -680,6 +683,14 @@ export default function GestaoIndividualAluno() {
   const [encontroEdit, setEncontroEdit] = useState(null);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
 
+  // Guard de não-salvo (Fase 3): snapshots pra detectar conteúdo não salvo
+  // no modal de diário/edição, e confirm genérico ao sair (aba/voltar/fechar).
+  const snapshotNovoDiario = useRef('');
+  const snapshotEdicao = useRef('');
+  const [confirmaSaida, setConfirmaSaida] = useState(null); // { descricao, onConfirmar } | null
+  const diarioDirty = () => modalAberto && JSON.stringify(formDiario) !== snapshotNovoDiario.current;
+  const edicaoDirty = () => !!encontroEdit && JSON.stringify(encontroEdit) !== snapshotEdicao.current;
+
   const [formDiario, setFormDiario] = useState({
     autoavaliacao: 0, vitorias: "", desafios: "", categoriaDesafio: "Codificação",
     metas: ["", "", ""], exploracao: "", planosAcao: ["", "", "", "", ""], notasPrivadas: "",
@@ -692,7 +703,11 @@ export default function GestaoIndividualAluno() {
     const resultadosBase = ultimo
       ? [0,1,2,3,4].map(i => String(ultimo.resultados?.[i] || ''))
       : ['', '', '', '', ''];
-    setFormDiario(prev => ({ ...prev, resultadosAnteriores: resultadosBase }));
+    setFormDiario(prev => {
+      const next = { ...prev, resultadosAnteriores: resultadosBase };
+      snapshotNovoDiario.current = JSON.stringify(next); // baseline pra detectar não-salvo
+      return next;
+    });
     setModalAberto(true);
   };
 
@@ -728,13 +743,13 @@ export default function GestaoIndividualAluno() {
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key !== 'Escape') return;
-      if (simuladoAberto) { setSimuladoAberto(null); return; }
-      if (encontroEdit)   { setEncontroEdit(null);   return; }
-      if (modalAberto)    { setModalAberto(false);   return; }
+      if (simuladoAberto) { setSimuladoAberto(null);  return; }
+      if (encontroEdit)   { fecharEdicaoEncontro();   return; }
+      if (modalAberto)    { fecharModalDiario();       return; }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [modalAberto, encontroEdit, simuladoAberto]);
+  }, [modalAberto, encontroEdit, simuladoAberto, formDiario]);
 
   useEffect(() => {
     const carregarDados = async () => {
@@ -765,6 +780,7 @@ export default function GestaoIndividualAluno() {
             });
           }
           setGrade(novaGrade);
+          setMetaHorasSemanal(data.metaHorasSemanal === '' || data.metaHorasSemanal == null ? '' : String(data.metaHorasSemanal));
           setHistoricoRegistros(data.registros || []);
           setDadosSimulados(data.simulados || { kpi: null, hist: null, lista: [] });
 
@@ -824,7 +840,7 @@ export default function GestaoIndividualAluno() {
     const dataFmt = enc.data instanceof Date
       ? enc.data.toLocaleDateString('pt-BR')
       : (typeof enc.data === 'string' ? new Date(enc.data).toLocaleDateString('pt-BR') : String(enc.data ?? ''));
-    setEncontroEdit({
+    const inicial = {
       linha: enc.linha,
       data: dataFmt,
       autoavaliacao: parseInt(enc.autoavaliacao) || 0,
@@ -839,7 +855,39 @@ export default function GestaoIndividualAluno() {
       statusMetasAnteriores: Array.isArray(enc.statusMetasAnteriores)
         ? [0,1,2].map(i => enc.statusMetasAnteriores[i] || '')
         : parseStatusMetas(enc.statusMetasAnteriores),
-    });
+    };
+    snapshotEdicao.current = JSON.stringify(inicial); // baseline pra detectar não-salvo
+    setEncontroEdit(inicial);
+  };
+
+  // ---- Fase 3: fechar com guarda de não-salvo ----
+  const pedirConfirmacaoSaida = (descricao, onConfirmar) => setConfirmaSaida({ descricao, onConfirmar });
+
+  const fecharModalDiario = () => {
+    if (diarioDirty()) pedirConfirmacaoSaida('Há um diário de bordo não salvo. Descartar o que você escreveu?', () => setModalAberto(false));
+    else setModalAberto(false);
+  };
+  const fecharEdicaoEncontro = () => {
+    if (edicaoDirty()) pedirConfirmacaoSaida('Há alterações não salvas neste encontro. Descartar?', () => setEncontroEdit(null));
+    else setEncontroEdit(null);
+  };
+  // Troca de aba interna com guarda da Semana Padrão (única aba com edição inline).
+  // `apos` roda só depois da troca efetivar (ex: carregar onboarding) — não dispara
+  // se o usuário cancelar a saída.
+  const trocarAba = (nova, apos) => {
+    const fazer = () => { setAbaInterna(nova); if (apos) apos(); };
+    if (abaInterna === 'semana' && gradeModificada) {
+      pedirConfirmacaoSaida('Há alterações não salvas na Semana Padrão. Sair da aba sem salvar?', () => { setGradeModificada(false); fazer(); });
+    } else {
+      fazer();
+    }
+  };
+  const tentarVoltar = () => {
+    if (abaInterna === 'semana' && gradeModificada) {
+      pedirConfirmacaoSaida('Há alterações não salvas na Semana Padrão. Sair sem salvar?', () => router.push('/mentor'));
+    } else {
+      router.push('/mentor');
+    }
   };
 
   const salvarEdicaoEncontro = async () => {
@@ -948,17 +996,19 @@ export default function GestaoIndividualAluno() {
     return () => window.removeEventListener('keydown', handler);
   }, [abaInterna, gradeHistorico]);
 
-  // Aviso ao tentar sair com alterações não salvas na Semana Padrão
+  // Aviso ao fechar/recarregar a aba do navegador com algo não salvo
+  // (Semana Padrão, novo diário ou edição de encontro).
   useEffect(() => {
     const handler = (e) => {
-      if (abaInterna === 'semana' && gradeModificada) {
+      const temNaoSalvo = (abaInterna === 'semana' && gradeModificada) || diarioDirty() || edicaoDirty();
+      if (temNaoSalvo) {
         e.preventDefault();
         e.returnValue = '';
       }
     };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [abaInterna, gradeModificada]);
+  }, [abaInterna, gradeModificada, modalAberto, encontroEdit, formDiario]);
 
   const salvarSemana = async () => {
     setSalvandoRotina(true);
@@ -967,7 +1017,7 @@ export default function GestaoIndividualAluno() {
       return { dia, hora, atividade: item ? item.label : '' };
     });
     try {
-      await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'salvarSemanaLote', idPlanilhaAluno: params.id, rotina }) });
+      await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'salvarSemanaLote', idPlanilhaAluno: params.id, rotina, metaHoras: metaHorasSemanal.trim() }) });
       setStatusMsg("Rotina salva com sucesso!");
       setGradeModificada(false);
       setTimeout(() => setStatusMsg(""), 3000);
@@ -983,16 +1033,16 @@ export default function GestaoIndividualAluno() {
         
         {/* HEADER GERAL */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-          <button onClick={() => router.push('/mentor')} className="text-sm font-medium text-slate-400 hover:text-intento-blue transition-colors self-start shrink-0">← Voltar</button>
+          <button onClick={tentarVoltar} className="text-sm font-medium text-slate-400 hover:text-intento-blue transition-colors self-start shrink-0">← Voltar</button>
           <div className="flex gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
-            <button onClick={() => setAbaInterna('diario')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'diario' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Diário de Bordo</button>
-            <button onClick={() => setAbaInterna('semana')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'semana' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Semana Padrão</button>
+            <button onClick={() => trocarAba('diario')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'diario' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Diário de Bordo</button>
+            <button onClick={() => trocarAba('semana')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'semana' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Semana Padrão</button>
             {tipoAluno === 'EM' && (
-              <button onClick={() => setAbaInterna('provas')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'provas' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Provas</button>
+              <button onClick={() => trocarAba('provas')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'provas' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Provas</button>
             )}
-            <button onClick={() => setAbaInterna('registros')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'registros' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Histórico Analítico</button>
-            <button onClick={() => setAbaInterna('simulados')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'simulados' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Simulados</button>
-            <button onClick={() => { setAbaInterna('onboarding'); carregarOnboarding(); }} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'onboarding' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Onboarding</button>
+            <button onClick={() => trocarAba('registros')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'registros' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Histórico Analítico</button>
+            <button onClick={() => trocarAba('simulados')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'simulados' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Simulados</button>
+            <button onClick={() => trocarAba('onboarding', carregarOnboarding)} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'onboarding' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Onboarding</button>
           </div>
         </div>
 
@@ -1249,7 +1299,7 @@ export default function GestaoIndividualAluno() {
               {/* Header do Modal */}
               <div className="bg-white px-8 py-5 border-b border-slate-200 flex justify-between items-center">
                 <h2 className="text-base font-semibold text-intento-blue">Novo Encontro</h2>
-                <button onClick={() => setModalAberto(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                <button onClick={fecharModalDiario} className="text-slate-400 hover:text-red-500 transition-colors">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
               </div>
@@ -1450,7 +1500,7 @@ export default function GestaoIndividualAluno() {
 
               {/* Footer do Modal */}
               <div className="bg-white p-6 border-t border-slate-200 flex justify-end gap-4">
-                <button onClick={() => setModalAberto(false)} className="px-6 py-2.5 font-medium text-slate-400 hover:text-slate-700 transition-colors text-sm">
+                <button onClick={fecharModalDiario} className="px-6 py-2.5 font-medium text-slate-400 hover:text-slate-700 transition-colors text-sm">
                   Minimizar
                 </button>
                 <button onClick={salvarNovoEncontro} disabled={salvandoEncontro} className="bg-intento-yellow hover:bg-yellow-500 text-white font-semibold px-8 py-2.5 rounded-lg shadow-sm transition-all text-sm disabled:opacity-60">
@@ -1469,7 +1519,7 @@ export default function GestaoIndividualAluno() {
 
               <div className="bg-white px-8 py-5 border-b border-slate-200 flex justify-between items-center">
                 <h2 className="text-base font-semibold text-intento-blue">Editar Encontro — {encontroEdit.data}</h2>
-                <button onClick={() => setEncontroEdit(null)} className="text-slate-400 hover:text-red-500 transition-colors">
+                <button onClick={fecharEdicaoEncontro} className="text-slate-400 hover:text-red-500 transition-colors">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </div>
@@ -1638,7 +1688,7 @@ export default function GestaoIndividualAluno() {
               </div>
 
               <div className="bg-white p-6 border-t border-slate-200 flex justify-end gap-4">
-                <button onClick={() => setEncontroEdit(null)} className="px-6 py-2.5 font-medium text-slate-400 hover:text-slate-700 transition-colors text-sm">
+                <button onClick={fecharEdicaoEncontro} className="px-6 py-2.5 font-medium text-slate-400 hover:text-slate-700 transition-colors text-sm">
                   Cancelar
                 </button>
                 <button onClick={salvarEdicaoEncontro} disabled={salvandoEdicao} className="bg-intento-blue hover:bg-blue-900 text-white font-semibold px-8 py-2.5 rounded-lg shadow-sm transition-all text-sm disabled:opacity-60">
@@ -1710,6 +1760,25 @@ export default function GestaoIndividualAluno() {
                     Arraste na grade para selecionar →
                   </p>
                 )}
+              </div>
+
+              {/* Meta de horas semanal — MANUAL (vai pro registro do aluno) */}
+              <div className={cardClass}>
+                <label className={labelClass}>Meta de horas semanal</label>
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="number" min="0" placeholder="Ex: 30"
+                    value={metaHorasSemanal}
+                    onChange={e => { setMetaHorasSemanal(e.target.value); setGradeModificada(true); }}
+                    className="w-24 p-2 border border-slate-200 rounded-lg font-bold text-center text-slate-700 outline-none focus:border-intento-yellow bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <span className="text-xs text-slate-400 font-medium">horas/semana</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-2 leading-snug">
+                  {metaHorasSemanal.trim() === ''
+                    ? 'Vazio = calculada automaticamente a partir da grade. Defina um valor para fixar a meta manualmente.'
+                    : 'Meta manual — substitui a contagem da grade no registro do aluno.'}
+                </p>
               </div>
 
               {/* Resumo de horas */}
@@ -2524,6 +2593,17 @@ export default function GestaoIndividualAluno() {
           />
         )}
       </div>
+
+      {/* Guard de não-salvo (Fase 3): confirmação ao sair com algo pendente */}
+      <ConfirmDialog
+        aberto={!!confirmaSaida}
+        titulo="Sair sem salvar?"
+        descricao={confirmaSaida?.descricao || ''}
+        textoConfirmar="Descartar"
+        tom="danger"
+        onConfirmar={() => { const fn = confirmaSaida?.onConfirmar; setConfirmaSaida(null); if (fn) fn(); }}
+        onCancelar={() => setConfirmaSaida(null)}
+      />
 
       {/* Estilo embutido para scrollbar bonita dentro do Modal e do Histórico */}
       <style dangerouslySetInnerHTML={{__html: `

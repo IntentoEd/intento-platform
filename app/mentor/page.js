@@ -50,17 +50,25 @@ function rotaExportacao(aluno) {
 
 export default function PainelGlobalMentor() {
   const router = useRouter();
-  const { emailMentor, primeiroNome: mentorLogado, alunos, carregandoAlunos: carregando, prefetchAluno, atualizarStatusApp } = useMentor();
+  const { emailMentor, primeiroNome: mentorLogado, alunos, carregandoAlunos: carregando, prefetchAluno, atualizarStatusApp, marcarAcompanhamento } = useMentor();
   const ehLider = emailMentor === 'filippe@metodointento.com.br';
 
   const [busca, setBusca] = useState('');
   const [salvandoStatus, setSalvandoStatus] = useState({});
+  const [marcandoEnvio, setMarcandoEnvio] = useState({});
 
   const handleStatusAppChange = useCallback(async (idAluno, novoStatus) => {
     setSalvandoStatus(prev => ({ ...prev, [idAluno]: true }));
     await atualizarStatusApp(idAluno, novoStatus);
     setSalvandoStatus(prev => ({ ...prev, [idAluno]: false }));
   }, [atualizarStatusApp]);
+
+  // Toggle manual do checklist: marca/desmarca "enviado" pra um aluno na semana.
+  const handleToggleEnvio = useCallback(async (idAluno, enviado) => {
+    setMarcandoEnvio(prev => ({ ...prev, [idAluno]: true }));
+    await marcarAcompanhamento(idAluno, enviado);
+    setMarcandoEnvio(prev => ({ ...prev, [idAluno]: false }));
+  }, [marcarAcompanhamento]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [alunoPreSelecionado, setAlunoPreSelecionado] = useState(null);
@@ -181,31 +189,20 @@ export default function PainelGlobalMentor() {
           </div>
         )}
 
-        {/* Barra de busca + botão novo registro */}
+        {/* Barra de busca (registro é automático — entrada manual fica discreta no card) */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <h2 className="text-sm font-bold text-intento-blue">Todos os Mentorados ({alunos.length})</h2>
-          <div className="flex gap-3 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
-              <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Buscar aluno..."
-                value={busca}
-                onChange={e => setBusca(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue placeholder:text-slate-400 bg-white transition-all"
-              />
-            </div>
-            <button
-              onClick={() => abrirModal(null)}
-              className="shrink-0 bg-intento-yellow hover:bg-yellow-500 text-white font-bold py-2.5 px-5 rounded-lg shadow-sm transition-all text-sm flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-              </svg>
-              Novo Registro
-            </button>
+          <div className="relative w-full sm:w-64">
+            <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Buscar aluno..."
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue placeholder:text-slate-400 bg-white transition-all"
+            />
           </div>
         </div>
 
@@ -231,6 +228,11 @@ export default function PainelGlobalMentor() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {alunosFiltrados.map(aluno => {
               const jaEnviou = exportouNessaSemana(aluno);
+              // Encontros do mês (só quando o plano tem meta calculável).
+              const temMetaEncontros = aluno.encontrosEsperados != null;
+              const encFeitos = aluno.encontrosMes || 0;
+              const encEsperados = aluno.encontrosEsperados || 0;
+              const encFaltam = Math.max(0, encEsperados - encFeitos);
               return (
                 <div key={aluno.id}
                   onMouseEnter={() => prefetchAluno(aluno.id)}
@@ -246,21 +248,29 @@ export default function PainelGlobalMentor() {
                       <div className="w-10 h-10 rounded-full bg-intento-blue/10 flex items-center justify-center shrink-0">
                         <span className="text-intento-blue font-black text-sm">{aluno.nome?.charAt(0)?.toUpperCase() || '?'}</span>
                       </div>
-                      {/* Badge de acompanhamento da semana (sinal: exportou .png) */}
-                      {jaEnviou ? (
-                        <span title="Acompanhamento exportado nesta semana"
-                          className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1 shrink-0">
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-                          </svg>
-                          Enviado
-                        </span>
-                      ) : (
-                        <span title="Acompanhamento ainda não exportado nesta semana"
-                          className="text-[10px] font-bold bg-amber-50 text-amber-600 px-2.5 py-1 rounded-full border border-amber-200 shrink-0">
-                          Pendente
-                        </span>
-                      )}
+                      {/* Toggle do checklist: marca/desmarca "enviado" na semana.
+                          Marca automaticamente ao exportar o .png; aqui o mentor
+                          controla manualmente (clica pra alternar). */}
+                      <button
+                        type="button"
+                        disabled={!!marcandoEnvio[aluno.id]}
+                        onClick={() => handleToggleEnvio(aluno.id, !jaEnviou)}
+                        title={jaEnviou ? 'Enviado nesta semana — clique para marcar como pendente' : 'Clique para marcar como enviado nesta semana'}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1 shrink-0 transition-colors disabled:opacity-50
+                          ${jaEnviou
+                            ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'
+                            : 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100'
+                          }`}
+                      >
+                        {marcandoEnvio[aluno.id] ? (
+                          <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                        ) : jaEnviou ? (
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                        ) : (
+                          <span className="w-2 h-2 rounded-full bg-amber-400" />
+                        )}
+                        {jaEnviou ? 'Enviado' : 'Pendente'}
+                      </button>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h3 className="text-sm font-bold text-intento-blue leading-tight">{aluno.nome}</h3>
@@ -272,6 +282,13 @@ export default function PainelGlobalMentor() {
                     {aluno.proximaProva && aluno.proximaProva.dias <= 10 && (
                       <p className={`text-[11px] font-bold mt-1.5 ${aluno.proximaProva.dias <= 3 ? 'text-red-600' : aluno.proximaProva.dias <= 7 ? 'text-amber-700' : 'text-slate-500'}`}>
                         📅 {aluno.proximaProva.materia} {aluno.proximaProva.dias === 0 ? 'hoje' : aluno.proximaProva.dias === 1 ? 'amanhã' : `em ${aluno.proximaProva.dias}d`}
+                      </p>
+                    )}
+                    {temMetaEncontros && (
+                      <p className={`text-[11px] font-bold mt-1.5 flex items-center gap-1 ${encFaltam === 0 ? 'text-emerald-600' : 'text-amber-700'}`}
+                        title={`Plano ${aluno.plano}: ${encEsperados} encontro(s)/mês · ${encFeitos} feito(s) este mês`}>
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        Encontros do mês: {encFeitos}/{encEsperados}{encFaltam > 0 ? ` · faltam ${encFaltam}` : ' · em dia'}
                       </p>
                     )}
                     <div className="mt-2.5">
@@ -302,9 +319,10 @@ export default function PainelGlobalMentor() {
                     </Link>
                     <button
                       onClick={() => abrirModal(aluno)}
-                      className="w-full text-center text-xs text-slate-400 hover:text-intento-blue font-semibold py-1.5 transition"
+                      title="Adicionar um registro manualmente (o registro semanal já é automático)"
+                      className="w-full text-center text-[11px] text-slate-300 hover:text-intento-blue font-semibold py-1 transition"
                     >
-                      + Novo Registro Manual
+                      registro manual
                     </button>
                   </div>
                 </div>
