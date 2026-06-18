@@ -326,6 +326,7 @@ function doPost(e) {
     if (acao === "salvarRegistroGlobal")    return handleSalvarRegistroGlobal(dados);
     if (acao === "salvarStatusApp")         return handleSalvarStatusApp(dados);
     if (acao === "registrarExportacao")     return handleRegistrarExportacao(dados);
+    if (acao === "marcarAcompanhamento")    return handleMarcarAcompanhamento(dados);
     if (acao === "deletarRegistro")         return handleDeletarRegistro(dados);
     if (acao === "verificarRegistroSemana") return handleVerificarRegistroSemana(dados);
     if (acao === "buscarDadosAluno")        return handleBuscarDadosAluno(dados);

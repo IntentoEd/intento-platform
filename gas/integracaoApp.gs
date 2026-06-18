@@ -737,6 +737,29 @@ function handleRegistrarExportacao(dados) {
   }
 }
 
+// =====================================================================
+// HANDLER — mentor marca/desmarca manualmente "acompanhamento enviado"
+// =====================================================================
+// dados: { email, idAluno, enviado }
+// Dá ao mentor controle explícito do checklist do /mentor, independente do
+// export. enviado=true grava a data de hoje em ULTIMA_EXPORTACAO (mesmo sinal
+// do download); enviado=false limpa a coluna (volta a "pendente" na semana).
+function handleMarcarAcompanhamento(dados) {
+  try {
+    var idPlanilha = txt(dados.idAluno);
+    if (!idPlanilha) return responderJSON({ status: 'erro', mensagem: 'idAluno obrigatório' });
+    _exigirAcessoAluno(dados.email, idPlanilha);
+
+    var enviado = dados.enviado === true || dados.enviado === 'true';
+    var valor = enviado ? Utilities.formatDate(new Date(), 'GMT-3', 'yyyy-MM-dd') : '';
+    atualizarCacheMestre(idPlanilha, { ULTIMA_EXPORTACAO: valor });
+    return responderJSON({ status: 'sucesso', ultimaExportacao: valor });
+  } catch (e) {
+    Logger.log('handleMarcarAcompanhamento EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
+}
+
 
 // =====================================================================
 // ONE-SHOT — apaga linhas com origem='auto' de uma semana específica
