@@ -4,6 +4,8 @@ import { apiFetch } from '@/lib/api';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import questoesData from '../dados/questoes.json';
 
 
@@ -22,6 +24,7 @@ export default function DiagnosticoTeorico() {
   const [concluidas, setConcluidas] = useState([]);
   const [resultadoFinal, setResultadoFinal] = useState(null);
   const [emailBlindado, setEmailBlindado] = useState('');
+  const [emailTravado, setEmailTravado] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [enviadoComSucesso, setEnviadoComSucesso] = useState(false);
 
@@ -29,12 +32,24 @@ export default function DiagnosticoTeorico() {
   const questoesDaVez = questoesData.filter(q => q.disciplina === disciplinaAtual);
 
   useEffect(() => {
-    const emailLogado = sessionStorage.getItem('emailLogado');
-    if (emailLogado) setEmailBlindado(emailLogado);
     const respostasSalvas = localStorage.getItem('intento_diagnostico_respostas');
     if (respostasSalvas) setRespostas(JSON.parse(respostasSalvas));
     const concluidasSalvas = localStorage.getItem('intento_diagnostico_concluidas');
     if (concluidasSalvas) setConcluidas(JSON.parse(concluidasSalvas));
+  }, []);
+
+  // Deriva o e-mail do aluno da sessão autenticada (Firebase) — mesmo padrão do /painel.
+  // O sessionStorage some quando a aba/navegador fecha, mas o login do Firebase persiste;
+  // confiar só no sessionStorage deixava o campo vazio E travado (aluno sem saída).
+  // Se nem o Firebase nem o sessionStorage têm o e-mail, libera o campo pra digitação.
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      const email = user?.email?.toLowerCase()
+        || (typeof window !== 'undefined' ? sessionStorage.getItem('emailLogado') : null);
+      if (email) { setEmailBlindado(email); setEmailTravado(true); }
+      else setEmailTravado(false);
+    });
+    return () => unsub();
   }, []);
 
   const selecionarOpcao = (id, opcao) => {
@@ -74,6 +89,11 @@ export default function DiagnosticoTeorico() {
   };
 
   const enviarParaGoogle = async () => {
+    const email = (emailBlindado || '').trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      alert('Informe um e-mail válido — o mesmo que você usou no Questionário de Onboarding.');
+      return;
+    }
     setEnviando(true);
     try {
       const res = await apiFetch('/api/mentor', {
@@ -81,7 +101,7 @@ export default function DiagnosticoTeorico() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipo: 'diagnostico',
-          email: emailBlindado,
+          email,
           acertosBiologia:   resultadoFinal.detalhe.Biologia,
           acertosQuimica:    resultadoFinal.detalhe.Química,
           acertosFisica:     resultadoFinal.detalhe.Física,
@@ -99,8 +119,7 @@ export default function DiagnosticoTeorico() {
       setEnviadoComSucesso(true);
       localStorage.removeItem('intento_diagnostico_respostas');
       localStorage.removeItem('intento_diagnostico_concluidas');
-      const email = sessionStorage.getItem('emailLogado') || 'anonimo';
-      const chave = `intento_checklist_${email}`;
+      const chave = `intento_checklist_${email || 'anonimo'}`;
       const checklist = JSON.parse(localStorage.getItem(chave) || '{}');
       localStorage.setItem(chave, JSON.stringify({ ...checklist, diagnostico: true }));
     } catch (e) {
@@ -339,11 +358,23 @@ export default function DiagnosticoTeorico() {
 
           {!enviadoComSucesso ? (
             <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
-              <p className="text-sm font-semibold text-intento-blue mb-1">Confirme seu e-mail para enviar ao seu mentor.</p>
+              <p className="text-sm font-semibold text-intento-blue mb-1">
+                {emailTravado ? 'Confirme seu e-mail para enviar ao seu mentor.' : 'Digite seu e-mail para enviar ao seu mentor.'}
+              </p>
               <p className="text-xs text-slate-400 mb-4">Use o mesmo e-mail do Questionário de Onboarding.</p>
-              <input type="email" value={emailBlindado} disabled
-                className="w-full p-3 bg-slate-100 border border-slate-200 rounded-lg text-slate-400 font-medium text-sm mb-3" />
-              <button onClick={enviarParaGoogle} disabled={enviando}
+              <input
+                type="email"
+                value={emailBlindado}
+                disabled={emailTravado}
+                onChange={emailTravado ? undefined : (e) => setEmailBlindado(e.target.value)}
+                placeholder="seu@email.com"
+                className={`w-full p-3 border rounded-lg font-medium text-sm mb-3 ${
+                  emailTravado
+                    ? 'bg-slate-100 border-slate-200 text-slate-400'
+                    : 'bg-white border-slate-300 text-intento-blue focus:border-intento-blue focus:outline-none'
+                }`}
+              />
+              <button onClick={enviarParaGoogle} disabled={enviando || !emailBlindado.trim()}
                 className="w-full py-3 bg-intento-yellow hover:bg-yellow-500 text-white rounded-lg font-bold transition-all text-sm disabled:opacity-50">
                 {enviando ? 'Enviando...' : 'Enviar Resultados'}
               </button>
