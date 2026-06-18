@@ -1046,9 +1046,16 @@ export default function GestaoIndividualAluno() {
           </div>
         </div>
 
-        <div className="bg-intento-blue text-white p-6 rounded-xl flex justify-between items-center gap-4 shadow-sm">
+        <div className="bg-intento-blue text-white p-6 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 shadow-sm">
           <h1 className="text-2xl font-semibold">{nomeAluno || "Gestão Individual"}</h1>
-          <div className="shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => router.push(`/mentor/${params.id}/encontro?nome=${encodeURIComponent(nomeAluno || '')}`)}
+              className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold px-4 py-2 rounded-lg transition-all text-sm flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.99 1.99 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2.586z" /></svg>
+              Conduzir encontro
+            </button>
             <StatusAppSelect
               valor={statusApp}
               salvando={salvandoStatusApp}
