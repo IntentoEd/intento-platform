@@ -228,6 +228,11 @@ export default function PainelGlobalMentor() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {alunosFiltrados.map(aluno => {
               const jaEnviou = exportouNessaSemana(aluno);
+              // Encontros do mês (só quando o plano tem meta calculável).
+              const temMetaEncontros = aluno.encontrosEsperados != null;
+              const encFeitos = aluno.encontrosMes || 0;
+              const encEsperados = aluno.encontrosEsperados || 0;
+              const encFaltam = Math.max(0, encEsperados - encFeitos);
               return (
                 <div key={aluno.id}
                   onMouseEnter={() => prefetchAluno(aluno.id)}
@@ -277,6 +282,13 @@ export default function PainelGlobalMentor() {
                     {aluno.proximaProva && aluno.proximaProva.dias <= 10 && (
                       <p className={`text-[11px] font-bold mt-1.5 ${aluno.proximaProva.dias <= 3 ? 'text-red-600' : aluno.proximaProva.dias <= 7 ? 'text-amber-700' : 'text-slate-500'}`}>
                         📅 {aluno.proximaProva.materia} {aluno.proximaProva.dias === 0 ? 'hoje' : aluno.proximaProva.dias === 1 ? 'amanhã' : `em ${aluno.proximaProva.dias}d`}
+                      </p>
+                    )}
+                    {temMetaEncontros && (
+                      <p className={`text-[11px] font-bold mt-1.5 flex items-center gap-1 ${encFaltam === 0 ? 'text-emerald-600' : 'text-amber-700'}`}
+                        title={`Plano ${aluno.plano}: ${encEsperados} encontro(s)/mês · ${encFeitos} feito(s) este mês`}>
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        Encontros do mês: {encFeitos}/{encEsperados}{encFaltam > 0 ? ` · faltam ${encFaltam}` : ' · em dia'}
                       </p>
                     )}
                     <div className="mt-2.5">

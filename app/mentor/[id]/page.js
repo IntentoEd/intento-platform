@@ -635,6 +635,8 @@ export default function GestaoIndividualAluno() {
   const [salvandoEncontro, setSalvandoEncontro] = useState(false);
   const [gradeModificada, setGradeModificada] = useState(false);
   const [salvandoRotina, setSalvandoRotina] = useState(false);
+  // Meta de horas semanal MANUAL (string no input; '' = ainda derivada da grade no cron)
+  const [metaHorasSemanal, setMetaHorasSemanal] = useState('');
   const [dadosOnboarding, setDadosOnboarding] = useState(null);
   const [dadosDiagnostico, setDadosDiagnostico] = useState(null);
   const [carregandoOnboarding, setCarregandoOnboarding] = useState(false);
@@ -765,6 +767,7 @@ export default function GestaoIndividualAluno() {
             });
           }
           setGrade(novaGrade);
+          setMetaHorasSemanal(data.metaHorasSemanal === '' || data.metaHorasSemanal == null ? '' : String(data.metaHorasSemanal));
           setHistoricoRegistros(data.registros || []);
           setDadosSimulados(data.simulados || { kpi: null, hist: null, lista: [] });
 
@@ -967,7 +970,7 @@ export default function GestaoIndividualAluno() {
       return { dia, hora, atividade: item ? item.label : '' };
     });
     try {
-      await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'salvarSemanaLote', idPlanilhaAluno: params.id, rotina }) });
+      await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'salvarSemanaLote', idPlanilhaAluno: params.id, rotina, metaHoras: metaHorasSemanal.trim() }) });
       setStatusMsg("Rotina salva com sucesso!");
       setGradeModificada(false);
       setTimeout(() => setStatusMsg(""), 3000);
@@ -1710,6 +1713,25 @@ export default function GestaoIndividualAluno() {
                     Arraste na grade para selecionar →
                   </p>
                 )}
+              </div>
+
+              {/* Meta de horas semanal — MANUAL (vai pro registro do aluno) */}
+              <div className={cardClass}>
+                <label className={labelClass}>Meta de horas semanal</label>
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="number" min="0" placeholder="Ex: 30"
+                    value={metaHorasSemanal}
+                    onChange={e => { setMetaHorasSemanal(e.target.value); setGradeModificada(true); }}
+                    className="w-24 p-2 border border-slate-200 rounded-lg font-bold text-center text-slate-700 outline-none focus:border-intento-yellow bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <span className="text-xs text-slate-400 font-medium">horas/semana</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-2 leading-snug">
+                  {metaHorasSemanal.trim() === ''
+                    ? 'Vazio = calculada automaticamente a partir da grade. Defina um valor para fixar a meta manualmente.'
+                    : 'Meta manual — substitui a contagem da grade no registro do aluno.'}
+                </p>
               </div>
 
               {/* Resumo de horas */}

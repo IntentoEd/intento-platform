@@ -437,6 +437,12 @@ function _calcularMetaHorasDaSemanaPadrao(idPlanilha) {
   try {
     var aba = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.SEMANA);
     if (!aba) return 0;
+    // Meta MANUAL definida pelo mentor (linha 19, col B) tem prioridade.
+    // Espelha onde handleSalvarSemanaLote grava. '' = deriva da grade (legado).
+    var manual = aba.getRange(19, 2).getValue();
+    if (manual !== '' && manual !== null && !isNaN(parseFloat(manual))) {
+      return parseFloat(manual);
+    }
     var matriz = aba.getRange(2, 2, 16, 7).getValues(); // 16 horários × 7 dias
     var horas = 0;
     for (var l = 0; l < matriz.length; l++) {

@@ -997,6 +997,38 @@ function removerAcentos(str) {
 // SALA DO MENTOR
 // =====================================================================
 
+// Conta encontros (diário de bordo) de um aluno no mês corrente (GMT-3).
+// Abre a planilha do aluno — usado na lista do mentor, que é pequena (por mentor).
+// Falha silenciosa → 0 (não derruba a lista inteira por causa de um aluno).
+function _contarEncontrosMes_(idPlanilha) {
+  try {
+    const sh = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.ENCONTROS);
+    if (!sh) return 0;
+    const tz = 'GMT-3';
+    const anoMes = Utilities.formatDate(new Date(), tz, 'yyyy-MM');
+    const dados = sh.getDataRange().getValues();
+    let n = 0;
+    for (let i = 1; i < dados.length; i++) {
+      const raw = dados[i][COL_ENC.DATA];
+      if (!raw) continue;
+      let d;
+      if (raw instanceof Date) {
+        d = raw;
+      } else {
+        const s = String(raw).trim().split(' ')[0];
+        const p = s.indexOf('/') !== -1 ? s.split('/') : null; // dd/MM/yyyy
+        d = (p && p.length === 3) ? new Date(parseInt(p[2], 10), parseInt(p[1], 10) - 1, parseInt(p[0], 10)) : new Date(s);
+      }
+      if (!d || isNaN(d.getTime())) continue;
+      if (Utilities.formatDate(d, tz, 'yyyy-MM') === anoMes) n++;
+    }
+    return n;
+  } catch (e) {
+    Logger.log('_contarEncontrosMes_ falhou p/ ' + idPlanilha + ': ' + e.message);
+    return 0;
+  }
+}
+
 function handleListaAlunosMentor(dados) {
   const emailMentor = emailNorm(dados.email);
   if (!emailMentor) throw new Error("E-mail do mentor não fornecido.");
@@ -1016,6 +1048,12 @@ function handleListaAlunosMentor(dados) {
     if (emailNorm(matriz[i][colMentor]) === emailMentor) {
       const idPlan = txt(matriz[i][COL_MESTRE.ID_PLANILHA]);
       const c = cache[idPlan] || {};
+      // Encontros do mês: esperados pelo plano (a partir da matrícula) vs feitos
+      // (diário de bordo no mês corrente). encontrosEsperados=null → plano sem
+      // meta calculável (Custom/desconhecido) → o front esconde o indicador.
+      const plano = txt(matriz[i][COL_MESTRE.PLANO]);
+      const encontrosEsperados = calcularEncontrosEsperados_(plano, matriz[i][COL_MESTRE.TIMESTAMP]);
+      const encontrosMes = encontrosEsperados == null ? 0 : _contarEncontrosMes_(idPlan);
       listaFiltrada.push({
         id:     matriz[i][COL_MESTRE.ID_PLANILHA],
         nome:   matriz[i][COL_MESTRE.NOME],
@@ -1024,7 +1062,10 @@ function handleListaAlunosMentor(dados) {
         tipoAluno: txt(matriz[i][COL_MESTRE.TIPO_ALUNO]) || "ENEM",
         statusApp: txt(matriz[i][COL_MESTRE.STATUS_APP]) || "",
         // Data ISO da última exportação .png (sinal de "acompanhamento enviado").
-        ultimaExportacao: c.ultimaExportacao || ""
+        ultimaExportacao: c.ultimaExportacao || "",
+        plano: plano,
+        encontrosEsperados: encontrosEsperados,
+        encontrosMes: encontrosMes
       });
     }
   }
@@ -1164,6 +1205,16 @@ function handleSalvarSemanaLote(dados) {
     });
 
     abaDB.getRange(2, 2, 16, 7).setValues(matrizParaGravar);
+
+    // Meta de horas semanal MANUAL (definida pelo mentor). Guardada fora da
+    // grade (linha 19) pra não colidir com o range 2..17 lido/escrito acima.
+    // Tem prioridade sobre a contagem de slots em _calcularMetaHorasDaSemanaPadrao.
+    // '' / ausente = mantém o comportamento legado (deriva da grade).
+    if (dados.metaHoras !== undefined) {
+      const metaVal = (dados.metaHoras === '' || dados.metaHoras === null) ? '' : (parseFloat(dados.metaHoras) || 0);
+      abaDB.getRange(19, 1).setValue('meta_horas_semanal');
+      abaDB.getRange(19, 2).setValue(metaVal);
+    }
     return responderJSON({ status: "sucesso", atualizadas: contadorSucesso });
   } catch (erro) { return responderJSON({ status: "erro", mensagem: erro.message }); }
   finally        { lock.releaseLock(); }
@@ -1523,7 +1574,12 @@ function handleBuscarDadosAluno(dados) {
     } catch (eMestre) { Logger.log('handleBuscarDadosAluno: leitura do mestre falhou (não-bloqueante): ' + eMestre.message); }
 
     const abaSemana = ssAluno.getSheetByName(ABA.SEMANA);
-    if (abaSemana) pacoteDeDados.semana = abaSemana.getRange(2, 2, 16, 7).getValues();
+    if (abaSemana) {
+      pacoteDeDados.semana = abaSemana.getRange(2, 2, 16, 7).getValues();
+      // Meta de horas semanal manual (linha 19, col B); '' se nunca definida.
+      const metaManual = abaSemana.getRange(19, 2).getValue();
+      pacoteDeDados.metaHorasSemanal = (metaManual === '' || metaManual === null || isNaN(parseFloat(metaManual))) ? '' : parseFloat(metaManual);
+    }
 
     const abaRegistro = ssAluno.getSheetByName(ABA.REGISTROS);
     if (abaRegistro) {
