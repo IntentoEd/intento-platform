@@ -643,10 +643,18 @@ function parseDataFlex(v) {
   const d = new Date(s);
   return isNaN(d.getTime()) ? null : d;
 }
+// Mês do registro = mês com MAIS dias na semana (usa o ponto médio do intervalo).
+// Ex.: 31/05 a 06/06 → junho (6 dias de junho vs 1 de maio); 25/05 a 01/06 → maio.
 function dataDoRegistro(row) {
-  const d = parseDataFlex(row[2]);
-  if (d) return d;
-  return parseDataFlex(String(row[0] || '').split(/[–-]/).pop());
+  const label = String(row[0] || '');
+  const partes = label.replace(/\s+a\s+/gi, '|').split(/[|–—-]/).map(s => s.trim()).filter(Boolean);
+  let ini = parseDataFlex(partes[0]);
+  let fim = parseDataFlex(partes[1] || partes[0]);
+  if (!ini && !fim) { const d = parseDataFlex(row[2]); ini = d; fim = d; }
+  ini = ini || fim;
+  fim = fim || ini;
+  if (!ini) return null;
+  return new Date((ini.getTime() + fim.getTime()) / 2);
 }
 const fmtDataBR = (d) => d ? d.toLocaleDateString('pt-BR') : '—';
 
@@ -666,7 +674,7 @@ function VisaoGeral({ registros, diarios, simulados, tipoAluno, escola }) {
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
       <div className="flex items-center gap-2 mb-3">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visão geral · desde o início</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visão geral</p>
         {tipoAluno === 'EM' && <span className="text-[9px] font-bold bg-intento-yellow/15 text-intento-yellow border border-intento-yellow/30 px-1.5 py-0.5 rounded uppercase tracking-wider">EM{escola ? ` · ${escola}` : ''}</span>}
       </div>
       {!ult ? (
@@ -1429,21 +1437,38 @@ export default function GestaoIndividualAluno() {
           <div className="space-y-5 animate-in fade-in duration-500">
             {historicoDiarios.length === 0 ? (
               <div className="p-8 border-2 border-dashed rounded-xl text-center text-slate-400 font-bold">Nenhum encontro registrado.</div>
-            ) : (
-              <div className="space-y-3">
-                {historicoDiarios.map((enc, i) => (
-                  <CardEncontro
-                    key={i}
-                    it={{ enc, date: parseDataFlex(enc.data), statusMetas: (i > 0 ? historicoDiarios[i - 1]?.statusMetasAnteriores : null) || ['', '', ''] }}
-                    aberto={expandidoId === i}
-                    onToggle={() => setExpandidoId(expandidoId === i ? null : i)}
-                    onEditar={abrirEdicaoEncontro}
-                    idAluno={params.id}
-                    nomeAluno={nomeAluno}
-                  />
-                ))}
-              </div>
-            )}
+            ) : (() => {
+              const itens = historicoDiarios.map((enc, i) => ({
+                enc, i,
+                date: parseDataFlex(enc.data),
+                statusMetas: (i > 0 ? historicoDiarios[i - 1]?.statusMetasAnteriores : null) || ['', '', ''],
+              }));
+              const grupos = [];
+              itens.forEach(it => {
+                const chave = it.date ? it.date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : 'Sem data';
+                let g = grupos[grupos.length - 1];
+                if (!g || g.chave !== chave) { g = { chave, itens: [] }; grupos.push(g); }
+                g.itens.push(it);
+              });
+              return grupos.map(g => (
+                <div key={g.chave}>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 capitalize">{g.chave}</p>
+                  <div className="space-y-3">
+                    {g.itens.map(it => (
+                      <CardEncontro
+                        key={it.i}
+                        it={{ enc: it.enc, date: it.date, statusMetas: it.statusMetas }}
+                        aberto={expandidoId === it.i}
+                        onToggle={() => setExpandidoId(expandidoId === it.i ? null : it.i)}
+                        onEditar={abrirEdicaoEncontro}
+                        idAluno={params.id}
+                        nomeAluno={nomeAluno}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         )}
 
@@ -1668,13 +1693,6 @@ export default function GestaoIndividualAluno() {
                 </p>
               </div>
 
-              {/* Como montar a semana */}
-              <div className={cardClass}>
-                <p className={labelClass}>Montar a semana</p>
-                <p className="mt-2 text-xs text-slate-500 font-medium leading-relaxed">
-                  Arraste na grade para selecionar os horários — um balão abre pra escolher a atividade.
-                </p>
-              </div>
 
               {/* Resumo de horas */}
               {Object.keys(resumoHoras).length > 0 && (
