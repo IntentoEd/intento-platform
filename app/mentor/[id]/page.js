@@ -723,7 +723,7 @@ function LinhaDoTempo({ diarios, registros, onEditarEncontro, idAluno, nomeAluno
   const FILTROS = [
     { id: 'tudo', label: 'Tudo' },
     { id: 'encontro', label: 'Diário de Bordo' },
-    { id: 'semana', label: 'Semanas' },
+    { id: 'semana', label: 'Registros' },
   ];
 
   return (
