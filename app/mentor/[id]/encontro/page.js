@@ -360,7 +360,7 @@ export default function ModoEncontro() {
             <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
           </div>
           <div>
-            <h1 className="text-lg font-bold text-intento-blue">Encontro registrado</h1>
+            <h1 className="text-lg font-bold text-intento-blue">Diário de Bordo registrado</h1>
             <p className="text-sm text-slate-500 font-medium mt-1">O diário de {nomeAluno || 'do aluno'} já aparece no painel dele e alimenta o acompanhamento da semana.</p>
           </div>
           <div className="flex flex-col gap-2 pt-2">
@@ -384,7 +384,7 @@ export default function ModoEncontro() {
           <div className="flex items-center gap-3 min-w-0">
             <button onClick={tentarSair} className="text-sm font-medium text-slate-400 hover:text-intento-blue transition-colors shrink-0">← Sair</button>
             <div className="min-w-0">
-              <p className="text-[10px] font-bold text-intento-yellow uppercase tracking-wider">Conduzindo encontro</p>
+              <p className="text-[10px] font-bold text-intento-yellow uppercase tracking-wider">Novo Diário de Bordo</p>
               <h1 className="text-base font-bold text-intento-blue truncate">{nomeAluno || 'Aluno'}</h1>
             </div>
           </div>
@@ -401,7 +401,7 @@ export default function ModoEncontro() {
             </button>
             <button onClick={finalizarEncontro} disabled={salvando}
               className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition-all text-sm disabled:opacity-60">
-              {salvando ? 'Salvando...' : 'Finalizar encontro'}
+              {salvando ? 'Salvando...' : 'Salvar Diário'}
             </button>
           </div>
         </div>
@@ -439,7 +439,7 @@ export default function ModoEncontro() {
               {idxAtivo < stepsVisiveis.length - 1 ? (
                 <button onClick={() => irPara(1)} className="text-sm font-semibold text-intento-blue hover:text-intento-blue/70 transition-colors">Próximo →</button>
               ) : (
-                <button onClick={finalizarEncontro} disabled={salvando} className="text-sm font-bold text-intento-yellow hover:text-yellow-600 transition-colors disabled:opacity-50">Finalizar ✓</button>
+                <button onClick={finalizarEncontro} disabled={salvando} className="text-sm font-bold text-intento-yellow hover:text-yellow-600 transition-colors disabled:opacity-50">Salvar Diário ✓</button>
               )}
             </div>
           </div>
@@ -752,7 +752,7 @@ function RegistrosModal({ registros, onClose }) {
   const primeiro = registros[0];
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="bg-white w-full max-w-5xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+      <div className="bg-white w-full max-w-6xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-intento-blue">Registros — mês e tendência</h2>
@@ -792,29 +792,53 @@ function RegistrosModal({ registros, onClose }) {
           {/* Tabela completa de semanas */}
           <div>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Histórico semanal</p>
+            <p className="text-[10px] text-slate-400 font-medium mb-2">Domínio e progresso por disciplina, semana a semana — role pro lado pra ver tudo.</p>
             <div className="overflow-x-auto border border-slate-200 rounded-xl">
-              <table className="w-full text-sm">
+              <table className="text-sm whitespace-nowrap">
                 <thead className="bg-slate-50">
+                  <tr className="text-[9px] text-slate-400 uppercase tracking-wide border-b border-slate-100">
+                    <th className="p-2"></th>
+                    <th className="p-2 font-bold border-l border-slate-100" colSpan={3}>Geral</th>
+                    {DISCIPLINAS.map(d => <th key={d.key} className="p-2 font-bold border-l border-slate-100" colSpan={2}>{d.label}</th>)}
+                    <th className="p-2 font-bold border-l border-slate-100" colSpan={4}>Check-in</th>
+                  </tr>
                   <tr className="text-[10px] text-slate-500 uppercase tracking-wide">
                     <th className="text-left font-bold p-2.5">Semana</th>
-                    <th className="font-bold p-2.5">Horas</th>
-                    <th className="font-bold p-2.5">Meta</th>
-                    <th className="font-bold p-2.5">Domínio</th>
-                    <th className="font-bold p-2.5">Progresso</th>
-                    <th className="font-bold p-2.5">Revisões</th>
+                    <th className="font-bold p-2 border-l border-slate-100">Horas</th>
+                    <th className="font-bold p-2">Dom</th>
+                    <th className="font-bold p-2">Prog</th>
+                    {DISCIPLINAS.flatMap(d => [
+                      <th key={d.key + 'd'} className="font-bold p-2 border-l border-slate-100">Dom</th>,
+                      <th key={d.key + 'p'} className="font-bold p-2">Prog</th>,
+                    ])}
+                    <th className="font-bold p-2 border-l border-slate-100">Estr</th>
+                    <th className="font-bold p-2">Ansi</th>
+                    <th className="font-bold p-2">Motiv</th>
+                    <th className="font-bold p-2">Sono</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {registros.map((r, i) => (
-                    <tr key={i} className="border-t border-slate-100">
-                      <td className="text-left p-2.5 font-semibold text-slate-700 whitespace-nowrap">{r[0] || '—'}</td>
-                      <td className="text-center p-2.5 text-slate-600">{numOrNull(r[4]) ?? '—'}h</td>
-                      <td className="text-center p-2.5 text-slate-400">{numOrNull(r[3]) ?? '—'}h</td>
-                      <td className="text-center p-2.5 font-bold text-intento-blue">{toPercent(r[5]) != null ? `${toPercent(r[5])}%` : '—'}</td>
-                      <td className="text-center p-2.5 font-bold text-emerald-600">{toPercent(r[6]) != null ? `${toPercent(r[6])}%` : '—'}</td>
-                      <td className="text-center p-2.5 text-slate-600">{numOrNull(r[7]) ?? '—'}</td>
-                    </tr>
-                  ))}
+                  {registros.map((r, i) => {
+                    const org = r[COL_ORIGEM];
+                    const pct = (v) => toPercent(v) != null ? `${toPercent(v)}%` : '—';
+                    const chk = (c) => toPercentCheckin(r[c], org) != null ? `${toPercentCheckin(r[c], org)}%` : '—';
+                    return (
+                      <tr key={i} className="border-t border-slate-100">
+                        <td className="text-left p-2.5 font-semibold text-slate-700">{r[0] || '—'}</td>
+                        <td className="text-center p-2 text-slate-600 border-l border-slate-100">{numOrNull(r[4]) ?? '—'}h</td>
+                        <td className="text-center p-2 font-bold text-intento-blue">{pct(r[5])}</td>
+                        <td className="text-center p-2 font-bold text-emerald-600">{pct(r[6])}</td>
+                        {DISCIPLINAS.flatMap(d => [
+                          <td key={d.key + 'd'} className="text-center p-2 font-semibold text-slate-700 border-l border-slate-100">{pct(r[d.dCol])}</td>,
+                          <td key={d.key + 'p'} className="text-center p-2 text-slate-400">{pct(r[d.pCol])}</td>,
+                        ])}
+                        <td className="text-center p-2 text-slate-500 border-l border-slate-100">{chk(8)}</td>
+                        <td className="text-center p-2 text-slate-500">{chk(9)}</td>
+                        <td className="text-center p-2 text-slate-500">{chk(10)}</td>
+                        <td className="text-center p-2 text-slate-500">{chk(11)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
