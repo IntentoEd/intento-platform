@@ -194,6 +194,7 @@ export default function ModoEncontro() {
   const [finalizado, setFinalizado] = useState(false);
   const [confirma, setConfirma] = useState(null);
   const [explorExpandida, setExplorExpandida] = useState(false);
+  const [mostrarPreview, setMostrarPreview] = useState(false);
   const [modalSemana, setModalSemana] = useState(false);
   const [modalRegistros, setModalRegistros] = useState(false);
   const [salvandoSemana, setSalvandoSemana] = useState(false);
@@ -359,7 +360,7 @@ export default function ModoEncontro() {
             <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
           </div>
           <div>
-            <h1 className="text-lg font-bold text-intento-blue">Encontro registrado</h1>
+            <h1 className="text-lg font-bold text-intento-blue">Diário de Bordo registrado</h1>
             <p className="text-sm text-slate-500 font-medium mt-1">O diário de {nomeAluno || 'do aluno'} já aparece no painel dele e alimenta o acompanhamento da semana.</p>
           </div>
           <div className="flex flex-col gap-2 pt-2">
@@ -383,7 +384,7 @@ export default function ModoEncontro() {
           <div className="flex items-center gap-3 min-w-0">
             <button onClick={tentarSair} className="text-sm font-medium text-slate-400 hover:text-intento-blue transition-colors shrink-0">← Sair</button>
             <div className="min-w-0">
-              <p className="text-[10px] font-bold text-intento-yellow uppercase tracking-wider">Conduzindo encontro</p>
+              <p className="text-[10px] font-bold text-intento-yellow uppercase tracking-wider">Novo Diário de Bordo</p>
               <h1 className="text-base font-bold text-intento-blue truncate">{nomeAluno || 'Aluno'}</h1>
             </div>
           </div>
@@ -393,13 +394,14 @@ export default function ModoEncontro() {
                 ? <><svg className="w-3 h-3 animate-spin text-slate-300" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg> rascunho salvo localmente</>
                 : <>✓ tudo em rascunho</>}
             </span>
-            <span title="Em breve: tela limpa pra compartilhar com o aluno"
-              className="hidden md:inline text-[11px] font-semibold text-slate-300 border border-slate-200 rounded-lg px-2.5 py-1 cursor-not-allowed">
-              Pré-visualizar (em breve)
-            </span>
+            <button onClick={() => setMostrarPreview(true)} title="Tela limpa pra compartilhar com o aluno"
+              className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold text-intento-blue border border-intento-blue/30 rounded-lg px-2.5 py-1 hover:bg-intento-blue/5 transition-all">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+              Vista do aluno
+            </button>
             <button onClick={finalizarEncontro} disabled={salvando}
               className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition-all text-sm disabled:opacity-60">
-              {salvando ? 'Salvando...' : 'Finalizar encontro'}
+              {salvando ? 'Salvando...' : 'Salvar Diário'}
             </button>
           </div>
         </div>
@@ -437,7 +439,7 @@ export default function ModoEncontro() {
               {idxAtivo < stepsVisiveis.length - 1 ? (
                 <button onClick={() => irPara(1)} className="text-sm font-semibold text-intento-blue hover:text-intento-blue/70 transition-colors">Próximo →</button>
               ) : (
-                <button onClick={finalizarEncontro} disabled={salvando} className="text-sm font-bold text-intento-yellow hover:text-yellow-600 transition-colors disabled:opacity-50">Finalizar ✓</button>
+                <button onClick={finalizarEncontro} disabled={salvando} className="text-sm font-bold text-intento-yellow hover:text-yellow-600 transition-colors disabled:opacity-50">Salvar Diário ✓</button>
               )}
             </div>
           </div>
@@ -538,6 +540,10 @@ export default function ModoEncontro() {
             placeholder="Espaço livre pra desenvolver os focos do encontro..."
             value={form.exploracao} onChange={e => upd({ exploracao: e.target.value })} />
         </div>
+      )}
+
+      {mostrarPreview && (
+        <PreviewAluno form={form} registros={registros} snapshot={snapshot} nomeAluno={nomeAluno} onClose={() => setMostrarPreview(false)} />
       )}
 
       {modalSemana && (
@@ -746,7 +752,7 @@ function RegistrosModal({ registros, onClose }) {
   const primeiro = registros[0];
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="bg-white w-full max-w-5xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+      <div className="bg-white w-full max-w-6xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-intento-blue">Registros — mês e tendência</h2>
@@ -786,29 +792,53 @@ function RegistrosModal({ registros, onClose }) {
           {/* Tabela completa de semanas */}
           <div>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Histórico semanal</p>
+            <p className="text-[10px] text-slate-400 font-medium mb-2">Domínio e progresso por disciplina, semana a semana — role pro lado pra ver tudo.</p>
             <div className="overflow-x-auto border border-slate-200 rounded-xl">
-              <table className="w-full text-sm">
+              <table className="text-sm whitespace-nowrap">
                 <thead className="bg-slate-50">
+                  <tr className="text-[9px] text-slate-400 uppercase tracking-wide border-b border-slate-100">
+                    <th className="p-2"></th>
+                    <th className="p-2 font-bold border-l border-slate-100" colSpan={3}>Geral</th>
+                    {DISCIPLINAS.map(d => <th key={d.key} className="p-2 font-bold border-l border-slate-100" colSpan={2}>{d.label}</th>)}
+                    <th className="p-2 font-bold border-l border-slate-100" colSpan={4}>Check-in</th>
+                  </tr>
                   <tr className="text-[10px] text-slate-500 uppercase tracking-wide">
                     <th className="text-left font-bold p-2.5">Semana</th>
-                    <th className="font-bold p-2.5">Horas</th>
-                    <th className="font-bold p-2.5">Meta</th>
-                    <th className="font-bold p-2.5">Domínio</th>
-                    <th className="font-bold p-2.5">Progresso</th>
-                    <th className="font-bold p-2.5">Revisões</th>
+                    <th className="font-bold p-2 border-l border-slate-100">Horas</th>
+                    <th className="font-bold p-2">Dom</th>
+                    <th className="font-bold p-2">Prog</th>
+                    {DISCIPLINAS.flatMap(d => [
+                      <th key={d.key + 'd'} className="font-bold p-2 border-l border-slate-100">Dom</th>,
+                      <th key={d.key + 'p'} className="font-bold p-2">Prog</th>,
+                    ])}
+                    <th className="font-bold p-2 border-l border-slate-100">Estr</th>
+                    <th className="font-bold p-2">Ansi</th>
+                    <th className="font-bold p-2">Motiv</th>
+                    <th className="font-bold p-2">Sono</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {registros.map((r, i) => (
-                    <tr key={i} className="border-t border-slate-100">
-                      <td className="text-left p-2.5 font-semibold text-slate-700 whitespace-nowrap">{r[0] || '—'}</td>
-                      <td className="text-center p-2.5 text-slate-600">{numOrNull(r[4]) ?? '—'}h</td>
-                      <td className="text-center p-2.5 text-slate-400">{numOrNull(r[3]) ?? '—'}h</td>
-                      <td className="text-center p-2.5 font-bold text-intento-blue">{toPercent(r[5]) != null ? `${toPercent(r[5])}%` : '—'}</td>
-                      <td className="text-center p-2.5 font-bold text-emerald-600">{toPercent(r[6]) != null ? `${toPercent(r[6])}%` : '—'}</td>
-                      <td className="text-center p-2.5 text-slate-600">{numOrNull(r[7]) ?? '—'}</td>
-                    </tr>
-                  ))}
+                  {registros.map((r, i) => {
+                    const org = r[COL_ORIGEM];
+                    const pct = (v) => toPercent(v) != null ? `${toPercent(v)}%` : '—';
+                    const chk = (c) => toPercentCheckin(r[c], org) != null ? `${toPercentCheckin(r[c], org)}%` : '—';
+                    return (
+                      <tr key={i} className="border-t border-slate-100">
+                        <td className="text-left p-2.5 font-semibold text-slate-700">{r[0] || '—'}</td>
+                        <td className="text-center p-2 text-slate-600 border-l border-slate-100">{numOrNull(r[4]) ?? '—'}h</td>
+                        <td className="text-center p-2 font-bold text-intento-blue">{pct(r[5])}</td>
+                        <td className="text-center p-2 font-bold text-emerald-600">{pct(r[6])}</td>
+                        {DISCIPLINAS.flatMap(d => [
+                          <td key={d.key + 'd'} className="text-center p-2 font-semibold text-slate-700 border-l border-slate-100">{pct(r[d.dCol])}</td>,
+                          <td key={d.key + 'p'} className="text-center p-2 text-slate-400">{pct(r[d.pCol])}</td>,
+                        ])}
+                        <td className="text-center p-2 text-slate-500 border-l border-slate-100">{chk(8)}</td>
+                        <td className="text-center p-2 text-slate-500">{chk(9)}</td>
+                        <td className="text-center p-2 text-slate-500">{chk(10)}</td>
+                        <td className="text-center p-2 text-slate-500">{chk(11)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -828,6 +858,108 @@ function Barra({ label, valor, cor }) {
       </div>
       <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${cor}`} style={{ width: `${valor || 0}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Vista do aluno: prévia ao vivo do que vai pro /painel (sem nota privada) ──
+function BigStat({ label, valor }) {
+  return (
+    <div className="bg-slate-50 rounded-xl p-3 text-center">
+      <p className="text-xl font-bold text-intento-blue">{valor}</p>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5">{label}</p>
+    </div>
+  );
+}
+function PreviewBloco({ titulo, texto }) {
+  return (
+    <div className="bg-slate-50 border border-slate-100 rounded-lg p-4">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{titulo}</p>
+      <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{String(texto || '').trim() || '—'}</p>
+    </div>
+  );
+}
+function PreviewAluno({ form, registros, snapshot, nomeAluno, onClose }) {
+  const metas = (form.metas || []).filter(m => String(m || '').trim());
+  const metaPrincipal = metas[0] || null;
+  const planos = (form.planosAcao || []).filter(p => String(p || '').trim());
+  const ult = registros[registros.length - 1];
+  return (
+    <div className="fixed inset-0 z-40 bg-slate-50 flex flex-col animate-in fade-in">
+      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[10px] font-bold text-intento-yellow uppercase tracking-wider shrink-0">Vista do aluno</span>
+          <span className="text-xs text-slate-400 font-medium truncate">· {nomeAluno || 'Aluno'} · prévia ao vivo (ainda não salvo)</span>
+        </div>
+        <button onClick={onClose} className="text-sm font-bold text-intento-blue border border-intento-blue/30 rounded-lg px-3 py-1.5 hover:bg-intento-blue/5 transition-all shrink-0">fechar prévia ✕</button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto p-6 space-y-6">
+          {/* Meta principal */}
+          <div className="bg-intento-blue rounded-2xl p-8 text-center text-white">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/80 mb-3">Meta Principal</p>
+            <p className="text-2xl md:text-4xl font-bold leading-tight">{metaPrincipal || 'A definir neste encontro'}</p>
+          </div>
+
+          {/* Números */}
+          {snapshot && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-6">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Sua semana · {snapshot.semanaLabel}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                <BigStat label="Horas" valor={snapshot.horas != null ? `${snapshot.horas}h` : '—'} />
+                <BigStat label="Domínio" valor={snapshot.dominio != null ? `${snapshot.dominio}%` : '—'} />
+                <BigStat label="Progresso" valor={snapshot.progresso != null ? `${snapshot.progresso}%` : '—'} />
+                <BigStat label="Revisões atras." valor={snapshot.revisoes != null ? snapshot.revisoes : '—'} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {DISCIPLINAS.map(d => (
+                  <div key={d.key}>
+                    <p className="text-xs font-bold text-slate-600 mb-1.5">{d.label}</p>
+                    <Barra label="Domínio" valor={ult ? toPercent(ult[d.dCol]) : null} cor={d.cor} />
+                    <Barra label="Progresso" valor={ult ? toPercent(ult[d.pCol]) : null} cor="bg-slate-300" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Card do encontro */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-intento-blue">Resumo do encontro</h3>
+              <div className="flex gap-0.5">{[1, 2, 3, 4, 5].map(n => <span key={n} className={`text-base ${n <= form.autoavaliacao ? 'text-intento-yellow' : 'text-slate-200'}`}>★</span>)}</div>
+            </div>
+            {form.categoriaDesafio && (
+              <span className={`inline-flex text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${CAT_COR[form.categoriaDesafio] || 'bg-slate-100 text-slate-700'}`}>Foco: {form.categoriaDesafio}</span>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <PreviewBloco titulo="Vitórias" texto={form.vitorias} />
+              <PreviewBloco titulo="Maiores desafios" texto={form.desafios} />
+            </div>
+            {String(form.exploracao || '').trim() && <PreviewBloco titulo="Exploração" texto={form.exploracao} />}
+            {metas.length > 0 && (
+              <div className="bg-amber-50 border border-amber-100 border-l-4 border-l-intento-yellow rounded-lg p-4">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Metas para o próximo encontro</p>
+                {metas.map((m, i) => <p key={i} className="text-sm font-semibold text-slate-700 leading-relaxed">• {m}</p>)}
+              </div>
+            )}
+            {planos.length > 0 && (
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Plano de Ação</p>
+                <div className="space-y-2">
+                  {planos.map((p, i) => (
+                    <div key={i} className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 flex items-center gap-3">
+                      <span className="w-5 h-5 rounded-full bg-intento-blue text-white text-[10px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                      <span className="text-sm text-slate-700 font-medium">{p}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
