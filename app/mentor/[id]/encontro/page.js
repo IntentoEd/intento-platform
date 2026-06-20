@@ -615,36 +615,59 @@ function SemanaHeatmap({ grade }) {
 
 // ── Modal: editar a Semana Padrão ─────────────────────────────────────────────
 function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salvando, onClose }) {
-  const [sel, setSel] = useState(() => new Set()); // chaves `${dia}_${hora}` selecionadas
-  const [cat, setCat] = useState('Codificação');
+  const [sel, setSel] = useState(() => new Set());   // chaves selecionadas no arrasto
+  const [arrastando, setArrastando] = useState(false);
+  const [popover, setPopover] = useState(null);      // { x, y } | null
   const [txt, setTxt] = useState('');
 
-  const toggle = (key) => setSel(prev => {
-    const n = new Set(prev);
-    if (n.has(key)) n.delete(key); else n.add(key);
-    return n;
-  });
-  const aplicar = () => {
+  const iniciar = (key) => { setPopover(null); setSel(new Set([key])); setArrastando(true); };
+  const estender = (key) => { if (arrastando) setSel(prev => new Set(prev).add(key)); };
+  const finalizar = (e) => {
+    if (!arrastando) return;
+    setArrastando(false);
+    setSel(prev => {
+      if (prev.size > 0) { setPopover({ x: e?.clientX ?? 0, y: e?.clientY ?? 0 }); setTxt(''); }
+      return prev;
+    });
+  };
+
+  const fechar = () => { setPopover(null); setSel(new Set()); setTxt(''); };
+  const aplicar = (categoria) => {
     if (sel.size === 0) return;
-    const label = `[${cat}] - ${txt.trim() || cat}`;
-    setGrade(prev => { const n = { ...prev }; sel.forEach(k => { n[k] = { categoria: cat, label }; }); return n; });
-    setSel(new Set()); setTxt('');
+    const label = `[${categoria}] - ${txt.trim() || categoria}`;
+    setGrade(prev => { const n = { ...prev }; sel.forEach(k => { n[k] = { categoria, label }; }); return n; });
+    fechar();
   };
   const limpar = () => {
-    if (sel.size === 0) return;
     setGrade(prev => { const n = { ...prev }; sel.forEach(k => delete n[k]); return n; });
-    setSel(new Set());
+    fechar();
   };
+
+  useEffect(() => {
+    if (!popover) return;
+    const onKey = (e) => { if (e.key === 'Escape') fechar(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [popover]);
 
   const resumo = Object.values(grade).reduce((acc, v) => { acc[v.categoria] = (acc[v.categoria] || 0) + 1; return acc; }, {});
 
+  const popStyle = popover ? (() => {
+    const W = 260, H = 230, m = 8;
+    let left = popover.x + 12, top = popover.y + 12;
+    if (left + W > window.innerWidth - m) left = popover.x - W - 12;
+    if (top + H > window.innerHeight - m) top = window.innerHeight - H - m;
+    return { left: Math.max(m, left), top: Math.max(m, top) };
+  })() : null;
+
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div role="dialog" aria-modal="true" onMouseUp={finalizar}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden select-none">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-intento-blue">Editar Semana Padrão</h2>
-            <p className="text-[11px] text-slate-400 font-medium">Clique pra selecionar vários horários e aplicar a atividade de uma vez</p>
+            <p className="text-[11px] text-slate-400 font-medium">Arraste pra selecionar os horários e escolha a atividade no balão</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-red-500 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -667,8 +690,11 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
                     const selecionado = sel.has(key);
                     return (
                       <td key={key} className="p-0.5">
-                        <button onClick={() => toggle(key)} title={cel?.label || ''}
-                          className={`w-full h-7 rounded text-[8px] font-bold border transition-all ${selecionado ? 'ring-2 ring-intento-blue ring-offset-1' : ''} ${cel ? CAT_COR[cel.categoria] : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); iniciar(key); }}
+                          onMouseEnter={() => estender(key)}
+                          title={cel?.label || ''}
+                          className={`w-full h-7 rounded text-[8px] font-bold border transition-all ${selecionado ? 'ring-2 ring-intento-blue ring-offset-1 bg-intento-blue/10' : ''} ${cel ? CAT_COR[cel.categoria] : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}>
                           {cel ? cel.categoria.slice(0, 3) : ''}
                         </button>
                       </td>
@@ -678,34 +704,6 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
               ))}
             </tbody>
           </table>
-        </div>
-
-        {/* Editor dos horários selecionados */}
-        <div className="border-t border-slate-200 px-6 py-4 bg-slate-50">
-          {sel.size === 0 ? (
-            <p className="text-xs text-slate-400 font-medium text-center">Clique numa ou mais células acima pra selecionar os horários.</p>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-bold text-intento-blue">{sel.size} horário{sel.size !== 1 ? 's' : ''} selecionado{sel.size !== 1 ? 's' : ''}</p>
-                <button onClick={() => setSel(new Set())} className="text-[10px] font-semibold text-slate-400 hover:text-slate-600">deselecionar</button>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {EDIT_CATEGORIAS.map(c => (
-                  <button key={c} onClick={() => setCat(c)}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded-md border transition-all ${cat === c ? CAT_COR[c] + ' ring-1 ring-intento-blue/40' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-100'}`}>
-                    {c}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input type="text" value={txt} onChange={e => setTxt(e.target.value)} placeholder="Descrição (ex: Matéria principal)"
-                  className="flex-1 p-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue" />
-                <button onClick={aplicar} className="bg-intento-blue text-white font-bold text-xs px-4 rounded-lg hover:bg-intento-blue/90 transition-all">Aplicar ({sel.size})</button>
-                <button onClick={limpar} className="bg-white border border-slate-200 text-slate-500 font-bold text-xs px-3 rounded-lg hover:bg-red-50 hover:text-red-500 transition-all">Limpar</button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Meta de horas estudadas (manual) */}
@@ -734,11 +732,34 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
           </div>
         </div>
       </div>
+
+      {/* Popover ancorado na seleção (estilo Google Calendar) */}
+      {popover && (
+        <>
+          <div className="fixed inset-0 z-[60]" onMouseDown={fechar} />
+          <div className="fixed z-[61] w-[260px] bg-white rounded-xl shadow-2xl border border-slate-200 p-3 animate-in fade-in zoom-in-95"
+            style={popStyle} onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()}>
+            <p className="text-[11px] font-bold text-intento-blue mb-2">{sel.size} horário{sel.size !== 1 ? 's' : ''} selecionado{sel.size !== 1 ? 's' : ''}</p>
+            <input autoFocus type="text" value={txt} onChange={e => setTxt(e.target.value)}
+              placeholder="Descrição (opcional)"
+              className="w-full p-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue mb-2" />
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Atividade</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {EDIT_CATEGORIAS.map(c => (
+                <button key={c} onClick={() => aplicar(c)}
+                  className={`text-[11px] font-bold px-2 py-1.5 rounded-md border text-left transition-all hover:ring-1 hover:ring-intento-blue/40 ${CAT_COR[c]}`}>
+                  {c}
+                </button>
+              ))}
+            </div>
+            <button onClick={limpar} className="w-full mt-2 text-[11px] font-semibold text-slate-400 hover:text-red-500 py-1">Limpar horários</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-// ── Modal: consulta de registros (mês, tendência, disciplinas) ────────────────
 function RegistrosModal({ registros, onClose }) {
   const n = registros.length;
   const ult = registros[n - 1];
