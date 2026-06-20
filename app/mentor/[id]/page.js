@@ -653,40 +653,31 @@ const fmtDataBR = (d) => d ? d.toLocaleDateString('pt-BR') : '—';
 // Cabeçalho de Visão Geral: quem é + onde está, de relance.
 function VisaoGeral({ registros, diarios, simulados, tipoAluno, escola }) {
   const ult = registros && registros.length ? registros[registros.length - 1] : null;
-  const ant = registros && registros.length > 1 ? registros[registros.length - 2] : null;
-  const delta = (a, b) => (a != null && b != null) ? a - b : null;
   const nSimulados = simulados?.lista?.length || simulados?.kpi?.realizados || 0;
-  const stat = (label, valor, d, pct, invertido) => {
-    const bom = d != null && (invertido ? d < 0 : d > 0);
-    const ruim = d != null && (invertido ? d > 0 : d < 0);
-    return (
-      <div className="flex-1 min-w-[90px]">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{label}</p>
-        <div className="flex items-baseline gap-1">
-          <span className="text-lg font-bold text-intento-blue">{valor}</span>
-          {d != null && d !== 0 && (
-            <span className={`text-[11px] font-bold ${bom ? 'text-emerald-600' : ruim ? 'text-red-500' : 'text-slate-400'}`}>{d > 0 ? '▲' : '▼'}{Math.abs(d)}{pct ? '%' : ''}</span>
-          )}
-        </div>
-      </div>
-    );
-  };
+  const somaHoras = (registros || []).reduce((acc, r) => acc + (numOrNullDossie(r[4]) || 0), 0);
+  const horasTotal = Math.round(somaHoras * 10) / 10; // evita lixo de ponto flutuante
+  const stat = (label, valor, sub) => (
+    <div className="flex-1 min-w-[90px]">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{label}</p>
+      <span className="text-lg font-bold text-intento-blue">{valor}</span>
+      {sub && <span className="ml-1 text-[10px] text-slate-400 font-medium">{sub}</span>}
+    </div>
+  );
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
       <div className="flex items-center gap-2 mb-3">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visão geral</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visão geral · desde o início</p>
         {tipoAluno === 'EM' && <span className="text-[9px] font-bold bg-intento-yellow/15 text-intento-yellow border border-intento-yellow/30 px-1.5 py-0.5 rounded uppercase tracking-wider">EM{escola ? ` · ${escola}` : ''}</span>}
       </div>
       {!ult ? (
         <p className="text-xs text-slate-400 font-medium">Sem registros semanais ainda.</p>
       ) : (
         <div className="flex flex-wrap gap-4">
-          {stat('Última semana', ult[0] || '—')}
-          {stat('Horas', numOrNullDossie(ult[4]) != null ? `${numOrNullDossie(ult[4])}h` : '—', delta(numOrNullDossie(ult[4]), ant ? numOrNullDossie(ant[4]) : null))}
-          {stat('Domínio', toPercent(ult[5]) != null ? `${toPercent(ult[5])}%` : '—', delta(toPercent(ult[5]), ant ? toPercent(ant[5]) : null), true)}
-          {stat('Progresso', toPercent(ult[6]) != null ? `${toPercent(ult[6])}%` : '—')}
-          {stat('Revisões atras.', numOrNullDossie(ult[7]) ?? '—', null, false, true)}
-          {stat('Encontros', (diarios?.length || 0))}
+          {stat('Horas totais', `${horasTotal}h`)}
+          {stat('Domínio', toPercent(ult[5]) != null ? `${toPercent(ult[5])}%` : '—', 'atual')}
+          {stat('Progresso', toPercent(ult[6]) != null ? `${toPercent(ult[6])}%` : '—', 'atual')}
+          {stat('Revisões atras.', numOrNullDossie(ult[7]) ?? '—', 'atual')}
+          {stat('Encontros', diarios?.length || 0)}
           {stat('Simulados', nSimulados)}
         </div>
       )}
@@ -846,11 +837,11 @@ function CardSemana({ it, aberto, onToggle }) {
           <span className="shrink-0 text-lg" title="Semana">📊</span>
           <span className="shrink-0 bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg text-[11px] font-semibold">{r[0] || fmtDataBR(it.date)}</span>
         </div>
-        <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0 text-xs font-bold">
-          <span className="text-slate-600">{horas != null ? `${horas}h` : '—'}{meta != null && <span className="text-slate-300 font-medium">/{meta}h</span>}<span className="text-slate-400 font-medium hidden sm:inline"> horas</span></span>
-          <span className="text-intento-blue">{dom != null ? `${dom}%` : '—'}<span className="text-slate-400 font-medium hidden sm:inline"> dom.</span></span>
-          <span className="text-emerald-600">{toPercent(r[6]) != null ? `${toPercent(r[6])}%` : '—'}<span className="text-slate-400 font-medium hidden sm:inline"> prog.</span></span>
-          <span className={`text-slate-300 transition-transform ${aberto ? 'rotate-180' : ''}`}>▾</span>
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0 text-xs font-bold tabular-nums">
+          <span className="w-[80px] text-right text-slate-600">{horas != null ? `${horas}h` : '—'}{meta != null && <span className="text-slate-300 font-medium">/{meta}h</span>}</span>
+          <span className="w-[60px] text-right text-intento-blue">{dom != null ? `${dom}%` : '—'}<span className="text-slate-400 font-medium"> dom</span></span>
+          <span className="w-[60px] text-right text-emerald-600">{toPercent(r[6]) != null ? `${toPercent(r[6])}%` : '—'}<span className="text-slate-400 font-medium"> prog</span></span>
+          <span className={`w-3 text-center text-slate-300 transition-transform ${aberto ? 'rotate-180' : ''}`}>▾</span>
         </div>
       </div>
       {aberto && (
