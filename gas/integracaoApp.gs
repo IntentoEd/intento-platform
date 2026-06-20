@@ -489,9 +489,31 @@ function _semanaInicioTs(semanaStr) {
 // só consideramos dry run quando o chamador passa `true` LITERAL (smoke).
 // semanaStrOverride (opcional): 'DD/MM/YYYY a DD/MM/YYYY' pra regenerar uma
 // semana específica (recomposição). Ausente = semana anterior (uso do trigger).
+// Zera ULTIMA_EXPORTACAO de todos os alunos no Cache_Alunos. Roda no início do
+// cron semanal pra que o checklist de "Enviado" comece a nova semana limpo —
+// assim reflete fielmente se o mentor exportou o acompanhamento NAQUELA semana.
+function resetarAcompanhamentosCache_() {
+  try {
+    var abaCache = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ABA.CACHE);
+    if (!abaCache) { Logger.log('resetarAcompanhamentosCache_: aba ' + ABA.CACHE + ' ausente'); return; }
+    var lastRow = abaCache.getLastRow();
+    if (lastRow < 2) { Logger.log('resetarAcompanhamentosCache_: cache vazio'); return; }
+    abaCache.getRange(2, COL_CACHE.ULTIMA_EXPORTACAO + 1, lastRow - 1, 1).clearContent();
+    Logger.log('resetarAcompanhamentosCache_: ' + (lastRow - 1) + ' acompanhamentos zerados');
+  } catch (e) {
+    Logger.log('resetarAcompanhamentosCache_ EXCEPTION: ' + e.message);
+    try { registrarErro(e, 'resetarAcompanhamentosCache_'); } catch (_) {}
+  }
+}
+
 function cronGerarRegistrosApp(dryRun, semanaStrOverride) {
   var ehDryRun = dryRun === true;
   Logger.log('===== cronGerarRegistrosApp ' + (ehDryRun ? '(DRY RUN)' : '') + ' =====');
+
+  // Reset semanal dos "Enviado" ANTES de gerar os registros — só no run real e
+  // automático (sem override de semana), pra não zerar flags ao reprocessar
+  // uma semana antiga via recomporSemanasAuto/apagarLinhasAutoDaSemana.
+  if (!ehDryRun && !semanaStrOverride) resetarAcompanhamentosCache_();
 
   var semanaStr = (typeof semanaStrOverride === 'string' && semanaStrOverride)
     ? semanaStrOverride

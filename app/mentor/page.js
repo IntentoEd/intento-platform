@@ -240,7 +240,7 @@ export default function PainelGlobalMentor() {
                         {jaEnviou ? 'Exportar de novo' : 'Exportar →'}
                       </Link>
                     )}
-                    <span className="text-xs font-semibold text-slate-400 group-hover:text-intento-blue transition-colors">abrir perfil →</span>
+                    <span className="text-xs font-semibold text-slate-400 group-hover:text-intento-blue transition-colors">Perfil →</span>
                   </div>
                 </div>
               );
