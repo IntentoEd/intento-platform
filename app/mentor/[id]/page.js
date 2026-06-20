@@ -1029,10 +1029,33 @@ export default function GestaoIndividualAluno() {
   const [selecaoAtual, setSelecaoAtual] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [configSemana, setConfigSemana] = useState({ categoria: 'Codificação', detalhe: '', foco: false });
+  const [semPopover, setSemPopover] = useState(null); // balão de atividade { x, y }
+  const [semDetalhe, setSemDetalhe] = useState('');
 
-  const iniciarSelecao = (id) => { setIsDragging(true); setSelecaoAtual([id]); };
+  const iniciarSelecao = (id) => { setSemPopover(null); setIsDragging(true); setSelecaoAtual([id]); };
   const passarMouse = (id) => { if (isDragging && !selecaoAtual.includes(id)) setSelecaoAtual(prev => [...prev, id]); };
-  const finalizarSelecao = () => setIsDragging(false);
+  const finalizarSelecao = (e) => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    setSelecaoAtual(prev => {
+      if (prev.length > 0) { setSemPopover({ x: e?.clientX ?? 0, y: e?.clientY ?? 0 }); setSemDetalhe(''); }
+      return prev;
+    });
+  };
+  const calcPopStyle = (p) => {
+    if (!p) return undefined;
+    const W = 260, H = 230, m = 8;
+    let left = p.x + 12, top = p.y + 12;
+    if (left + W > window.innerWidth - m) left = p.x - W - 12;
+    if (top + H > window.innerHeight - m) top = window.innerHeight - H - m;
+    return { left: Math.max(m, left), top: Math.max(m, top) };
+  };
+  useEffect(() => {
+    if (!semPopover) return;
+    const onKey = (e) => { if (e.key === 'Escape') { setSemPopover(null); setSelecaoAtual([]); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [semPopover]);
 
   // Undo: salva estado anterior e reverte
   const pushHistorico = (g) => setGradeHistorico(prev => [...prev.slice(-19), g]);
@@ -1275,14 +1298,15 @@ export default function GestaoIndividualAluno() {
     finally { setCarregandoOnboarding(false); }
   };
 
-  const aplicarCarimbo = () => {
+  const aplicarSemana = (categoria) => {
     pushHistorico({ ...grade });
-    const label = `[${configSemana.categoria}]${configSemana.detalhe ? ' - ' + configSemana.detalhe : ''}`;
+    const label = `[${categoria}]${semDetalhe.trim() ? ' - ' + semDetalhe.trim() : ''}`;
     const novaGrade = { ...grade };
-    selecaoAtual.forEach(id => { novaGrade[id] = { categoria: configSemana.categoria, label }; });
+    selecaoAtual.forEach(id => { novaGrade[id] = { categoria, label }; });
     setGrade(novaGrade);
     setSelecaoAtual([]);
-    setConfigSemana(prev => ({ ...prev, detalhe: '' }));
+    setSemPopover(null);
+    setSemDetalhe('');
     setGradeModificada(true);
   };
 
@@ -1292,6 +1316,7 @@ export default function GestaoIndividualAluno() {
     selecaoAtual.forEach(id => { novaGrade[id] = null; });
     setGrade(novaGrade);
     setSelecaoAtual([]);
+    setSemPopover(null);
     setGradeModificada(true);
   };
 
@@ -1652,52 +1677,12 @@ export default function GestaoIndividualAluno() {
                 </p>
               </div>
 
-              {/* Paleta de categorias — sempre visível */}
+              {/* Como montar a semana */}
               <div className={cardClass}>
-                <p className={labelClass}>Categoria ativa</p>
-                <div className="grid grid-cols-1 gap-2 mt-1">
-                  {Object.entries(CATEGORIAS).map(([cat, cfg]) => (
-                    <button key={cat} onClick={() => setConfigSemana(prev => ({ ...prev, categoria: cat }))}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-2 ${
-                        configSemana.categoria === cat
-                          ? `${cfg.btn} border-transparent shadow-md scale-[1.02]`
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                      }`}>
-                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dot}`} />
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Detalhe / descrição da atividade */}
-                <div className="mt-4">
-                  <label className={labelClass}>Detalhe <span className="text-slate-300 normal-case font-normal">(opcional)</span></label>
-                  <input type="text" placeholder="Ex: Funções, Redação, Pomodoro..."
-                    className={inputClass + ' text-sm mt-1'}
-                    value={configSemana.detalhe}
-                    onChange={e => setConfigSemana(prev => ({ ...prev, detalhe: e.target.value }))}
-                    onKeyDown={e => { if (e.key === 'Enter' && selecaoAtual.length > 0) aplicarCarimbo(); }}
-                  />
-                </div>
-
-                {/* Botões de ação */}
-                {selecaoAtual.length > 0 ? (
-                  <div className="mt-4 space-y-2">
-                    <p className="text-xs font-semibold text-intento-blue">{selecaoAtual.length} célula{selecaoAtual.length !== 1 ? 's' : ''} selecionada{selecaoAtual.length !== 1 ? 's' : ''}</p>
-                    <button onClick={aplicarCarimbo}
-                      className="w-full bg-intento-blue text-white font-bold py-2.5 rounded-lg hover:bg-blue-900 transition-all text-sm">
-                      Aplicar ({selecaoAtual.length}h)
-                    </button>
-                    <button onClick={limparHorarios}
-                      className="w-full border border-red-300 text-red-500 font-semibold py-2 rounded-lg hover:bg-red-50 transition-all text-sm">
-                      Limpar seleção
-                    </button>
-                  </div>
-                ) : (
-                  <p className="mt-4 text-xs text-slate-400 font-medium text-center py-2 bg-slate-50 rounded-lg">
-                    Arraste na grade para selecionar →
-                  </p>
-                )}
+                <p className={labelClass}>Montar a semana</p>
+                <p className="mt-2 text-xs text-slate-500 font-medium leading-relaxed">
+                  Arraste na grade para selecionar os horários — um balão abre pra escolher a atividade.
+                </p>
               </div>
 
               {/* Resumo de horas */}
@@ -1820,6 +1805,30 @@ export default function GestaoIndividualAluno() {
                 </tbody>
               </table>
             </div>
+
+            {/* Balão de atividade (estilo Google Calendar) */}
+            {semPopover && (
+              <>
+                <div className="fixed inset-0 z-[60]" onMouseDown={() => { setSemPopover(null); setSelecaoAtual([]); }} />
+                <div className="fixed z-[61] w-[260px] bg-white rounded-xl shadow-2xl border border-slate-200 p-3 animate-in fade-in zoom-in-95"
+                  style={calcPopStyle(semPopover)} onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()}>
+                  <p className="text-[11px] font-bold text-intento-blue mb-2">{selecaoAtual.length} horário{selecaoAtual.length !== 1 ? 's' : ''} selecionado{selecaoAtual.length !== 1 ? 's' : ''}</p>
+                  <input autoFocus type="text" value={semDetalhe} onChange={e => setSemDetalhe(e.target.value)}
+                    placeholder="Descrição (opcional)"
+                    className="w-full p-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue mb-2" />
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Atividade</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {Object.entries(CATEGORIAS).map(([c, cfg]) => (
+                      <button key={c} onClick={() => aplicarSemana(c)}
+                        className={`text-[11px] font-bold px-2 py-1.5 rounded-md border text-left transition-all hover:ring-1 hover:ring-intento-blue/40 ${cfg.cor}`}>
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={limparHorarios} className="w-full mt-2 text-[11px] font-semibold text-slate-400 hover:text-red-500 py-1">Limpar horários</button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
