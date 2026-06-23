@@ -159,6 +159,65 @@ function Pilula({ v, a, r }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Diagnóstico Fases e Ciclos (camada-SOMBRA, só líder · ?diagnostico=1)
+// Carimbos dimensionais do Método Intento computados do payload do dashboardLider.
+// INVISÍVEL aos mentores (rollout de vocabulário planejado pro 2º semestre).
+//   Domínio   = acerto por matéria (metricas.materias.dom*) — faixas <70/70-80/>80
+//   Cobertura = progresso VALIDADO pelo mentor (metricas.materias.prog*) — 0-30/30-70/70-100
+//   Comportamento = só Aproveitamento (horas/meta); Presença vem na Fase 2 (BigQuery do app)
+//   Simulado  = Fase 2 (aba de simulados da planilha do aluno)
+//   Perfil agregado = elo mais fraco entre as dimensões já computáveis (preliminar)
+// ─────────────────────────────────────────────────────────────────────────────
+const DISC_DIAG = ['Bio', 'Qui', 'Fis', 'Mat'];
+function mediasPorDisc(materias, base) { // base: 'dom' | 'prog'
+  const cap = base.charAt(0).toUpperCase() + base.slice(1);
+  const out = [];
+  DISC_DIAG.forEach(d => {
+    const soma = materias?.[base + d], cont = materias?.['c' + cap + d];
+    if (cont > 0) out.push(soma / cont);
+  });
+  return out;
+}
+const mediaArr = (arr) => arr.length ? arr.reduce((s, n) => s + n, 0) / arr.length : null;
+const CARIMBOS = ['aprendiz', 'veterano', 'mestre'];
+const ORD_CAR = { aprendiz: 0, veterano: 1, mestre: 2 };
+function carimboPorFaixa(v, limVet, limMes) {
+  if (v == null) return null;
+  if (v < limVet) return 'aprendiz';
+  if (v < limMes) return 'veterano';
+  return 'mestre';
+}
+function cicloAtual() {
+  const m = new Date().getMonth(); // 0 = janeiro
+  return m <= 2 ? 'C1 · Fundação' : m <= 5 ? 'C2 · Aprofundamento' : m <= 8 ? 'C3 · Lapidação' : 'C4 · Refinamento';
+}
+function diagnosticoDimensional(a) {
+  const mx = a.metricas || {}, m = mx.materias || {};
+  const domVals = mediasPorDisc(m, 'dom');
+  const domMed = mediaArr(domVals);
+  let dominio = carimboPorFaixa(domMed, 70, 80);
+  if (dominio === 'mestre' && domVals.some(v => v < 70)) dominio = 'veterano'; // Mestre exige nenhuma matéria <70
+  const cobMed = mediaArr(mediasPorDisc(m, 'prog'));
+  const cobertura = carimboPorFaixa(cobMed, 30, 70);
+  const u = ultimaSemanaHist(mx.historico);
+  const aprov = (u && u.meta > 0) ? Math.round((u.horas / u.meta) * 100) : null;
+  const comportamento = carimboPorFaixa(aprov, 70, 95);
+  const overstudying = aprov != null && aprov > 105;
+  const presentes = [comportamento, cobertura, dominio].filter(Boolean);
+  const perfil = presentes.length ? CARIMBOS[Math.min(...presentes.map(c => ORD_CAR[c]))] : null;
+  const chk = sinalCheckin(a);
+  const alerta = chk?.nivel === 'vermelho' || overstudying;
+  return { comportamento, cobertura, dominio, simulado: null, perfil, alerta, overstudying, domMed, cobMed, aprov };
+}
+function CarimboBadge({ nivel, sufixo }) {
+  if (!nivel) return <span className="text-slate-300 text-xs">—</span>;
+  const cor = nivel === 'mestre' ? 'bg-emerald-100 text-emerald-700'
+    : nivel === 'veterano' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700';
+  const label = nivel === 'mestre' ? 'Mestre' : nivel === 'veterano' ? 'Veterano' : 'Aprendiz';
+  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cor}`}>{label}{sufixo || ''}</span>;
+}
+
 // ── Demo (/lider?demo=1) ─────────────────────────────────────────────────────
 function _hist(...semanas) { // semanas: [label, horas, meta]
   const m = {};
@@ -219,6 +278,7 @@ const DEMO_LIDER = {
 export default function PainelLider() {
   const router = useRouter();
   const [ehDemo, setEhDemo] = useState(false);
+  const [ehDiagnostico, setEhDiagnostico] = useState(false);
   const [autorizado, setAutorizado] = useState(false);
   const [emailLogado, setEmailLogado] = useState('');
   const [aba, setAba] = useState('mentoria');
@@ -252,8 +312,12 @@ export default function PainelLider() {
   const [mensagemSucesso, setMensagemSucesso] = useState('');
   const PLANOS_DISPONIVEIS = ['Mensal', 'Quinzenal', 'Semanal', 'Padrão', 'Custom'];
 
-  // Detecta ?demo=1 (client-side, evita Suspense de useSearchParams em página estática)
-  useEffect(() => { setEhDemo(new URLSearchParams(window.location.search).get('demo') === '1'); }, []);
+  // Detecta ?demo=1 e ?diagnostico=1 (client-side, evita Suspense de useSearchParams)
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    setEhDemo(p.get('demo') === '1');
+    setEhDiagnostico(p.get('diagnostico') === '1');
+  }, []);
 
   // Auth
   useEffect(() => {
@@ -336,6 +400,12 @@ export default function PainelLider() {
 
   // Status de 2 eixos por aluno (só app-adopters)
   const comStatus = useMemo(() => ativos.map(a => ({ a, st: statusDoAluno(a) })), [ativos]);
+
+  // Diagnóstico dimensional (camada-sombra) — só computa quando ?diagnostico=1
+  const diagnostico = useMemo(
+    () => ehDiagnostico ? ativos.map(a => ({ a, d: diagnosticoDimensional(a) })) : [],
+    [ehDiagnostico, ativos]
+  );
 
   // Contagens pro herói (rollup + drill por eixo)
   const resumoStatus = useMemo(() => {
@@ -771,6 +841,55 @@ export default function PainelLider() {
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* ── DIAGNÓSTICO FASES E CICLOS (sombra · só líder · ?diagnostico=1) ── */}
+        {ehDiagnostico && (
+          <div className="bg-white rounded-xl border-2 border-dashed border-intento-yellow/50 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-semibold text-intento-blue">Diagnóstico Fases e Ciclos</h2>
+                <span className="text-[10px] font-bold bg-intento-yellow/15 text-intento-yellow border border-intento-yellow/30 px-2 py-0.5 rounded uppercase tracking-wider">sombra · só você vê</span>
+                <span className="text-[11px] text-slate-400 font-medium">Ciclo atual: {cicloAtual()}</span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium mt-1 leading-relaxed">
+                Carimbos preliminares do Método Intento, invisíveis aos mentores. <b>Domínio</b> = acerto por matéria; <b>Cobertura</b> = progresso validado pelo mentor; <b>Comportamento</b> = só Aproveitamento (Presença vem na Fase 2/BigQuery); <b>Simulado</b> pendente (Fase 2/planilha). <b>Perfil</b> = elo mais fraco entre as dimensões já computáveis.
+              </p>
+            </div>
+            {diagnostico.length === 0 ? (
+              <p className="text-sm text-slate-400 font-medium text-center py-8">Nenhum aluno (no app) nos filtros atuais.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm whitespace-nowrap">
+                  <thead className="text-[10px] text-slate-400 uppercase tracking-wide border-b border-slate-100">
+                    <tr>
+                      <th className="text-left font-bold p-2.5">Aluno</th>
+                      <th className="text-left font-bold p-2.5">Mentor</th>
+                      <th className="font-bold p-2.5">Comportamento</th>
+                      <th className="font-bold p-2.5">Cobertura</th>
+                      <th className="font-bold p-2.5">Domínio</th>
+                      <th className="font-bold p-2.5">Simulado</th>
+                      <th className="font-bold p-2.5 border-l border-slate-100">Perfil (elo)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {diagnostico.slice().sort((x, y) => (ORD_CAR[x.d.perfil] ?? 9) - (ORD_CAR[y.d.perfil] ?? 9)).map(({ a, d }) => (
+                      <tr key={a.idAluno + a.nome} className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer" onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')}>
+                        <td className="text-left p-2.5 font-semibold text-intento-blue">{a.nome}{d.alerta && <span className="ml-1.5 text-red-500" title="Alerta clínico (check-in/overstudying)">⚠</span>}</td>
+                        <td className="text-left p-2.5 text-slate-500">{a.mentorNome || a.mentor}</td>
+                        <td className="text-center p-2.5"><CarimboBadge nivel={d.comportamento} sufixo={d.overstudying ? ' ⚠' : ''} /></td>
+                        <td className="text-center p-2.5"><CarimboBadge nivel={d.cobertura} /></td>
+                        <td className="text-center p-2.5"><CarimboBadge nivel={d.dominio} /></td>
+                        <td className="text-center p-2.5"><span className="text-[10px] text-slate-300 font-semibold" title="Fase 2 — aba de simulados da planilha">Fase 2</span></td>
+                        <td className="text-center p-2.5 border-l border-slate-100"><CarimboBadge nivel={d.perfil} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-[10px] text-slate-400 font-medium mt-3 px-1 leading-relaxed">⚠ no nome = alerta clínico transversal (check-in ≤40 em 2+ semanas, ou overstudying). Comportamento ainda sem o sinal de Presença — pode sair mais otimista do que o manual prevê. Carimbos preliminares (regra do elo mais fraco); promoção/regressão formal é decisão de Marco de Ciclo, não automática.</p>
+              </div>
+            )}
           </div>
         )}
 
