@@ -2337,6 +2337,7 @@ function agregarMetricasBase_(alunos) {
     var alunoHist     = {}; // { 'sem-label': { horas, meta, count } }
     var alunoFaixa    = -1;
     var alunoSim4W    = 0;
+    var alunoCheckin4w = []; // [{est, mot}] últimas semanas — pro sinal de tendência do líder
 
     try {
       var ss = SpreadsheetApp.openById(alunos[a].idAluno);
@@ -2388,6 +2389,11 @@ function agregarMetricasBase_(alunos) {
           accDual(normPct(r[COL_REG.PROG_QUI]), 'progQui', 'cProgQui', somas, alunoMaterias);
           accDual(normPct(r[COL_REG.PROG_FIS]), 'progFis', 'cProgFis', somas, alunoMaterias);
           accDual(normPct(r[COL_REG.PROG_MAT]), 'progMat', 'cProgMat', somas, alunoMaterias);
+          var rawEst = r[COL_REG.ESTRESSE], rawMot = r[COL_REG.MOTIVACAO], orig4 = r[COL_REG.ORIGEM];
+          alunoCheckin4w.push({
+            est: (rawEst === '' || rawEst == null) ? null : _checkinPct(rawEst, orig4),
+            mot: (rawMot === '' || rawMot == null) ? null : _checkinPct(rawMot, orig4)
+          });
         }
       }
 
@@ -2439,7 +2445,8 @@ function agregarMetricasBase_(alunos) {
       bem: alunoBem,
       materias: alunoMaterias,
       historico: alunoHist,
-      simulados4w: alunoSim4W
+      simulados4w: alunoSim4W,
+      checkin4w: alunoCheckin4w
     };
   }
 
@@ -2546,7 +2553,8 @@ function handleDashboardLider(dados) {
         encontrosMesCorrente: 0,
         tipoAluno: txt(row[COL_MESTRE.TIPO_ALUNO]) || 'ENEM',
         escola: txt(row[COL_MESTRE.ESCOLA]),
-        statusApp: txt(row[COL_MESTRE.STATUS_APP]) || ''
+        statusApp: txt(row[COL_MESTRE.STATUS_APP]) || '',
+        ultimaExportacao: c.ultimaExportacao || ''
       });
     }
 
