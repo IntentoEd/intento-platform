@@ -392,6 +392,7 @@ export default function PainelLider() {
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [mensagemEdicao, setMensagemEdicao] = useState('');
   const [alunoDiag, setAlunoDiag] = useState(null); // {a, d} aberto no card dimensional
+  const [explorar, setExplorar] = useState(false);  // drill da base (analytics) sob demanda
 
   const [seccoesAbertas, setSeccoesAbertas] = useState({ mentores: true, analitica: false });
   const toggleSeccao = (key) => setSeccoesAbertas(prev => ({ ...prev, [key]: !prev[key] }));
@@ -492,11 +493,8 @@ export default function PainelLider() {
   // Status de 2 eixos por aluno (só app-adopters)
   const comStatus = useMemo(() => ativos.map(a => ({ a, st: statusDoAluno(a) })), [ativos]);
 
-  // Diagnóstico dimensional (camada-sombra) — só computa quando ?diagnostico=1
-  const diagnostico = useMemo(
-    () => ehDiagnostico ? ativos.map(a => ({ a, d: diagnosticoDimensional(a) })) : [],
-    [ehDiagnostico, ativos]
-  );
+  // Diagnóstico dimensional do Método Intento — espinha do painel (só /lider, líder-only)
+  const diagnostico = useMemo(() => ativos.map(a => ({ a, d: diagnosticoDimensional(a) })), [ativos]);
   const ciclo = CICLOS_INFO[cicloIdx()];
 
   // Saúde da base: distribuição de perfis + distribuição por dimensão (onde a base trava)
@@ -622,6 +620,23 @@ export default function PainelLider() {
   const pendenciasDiagnostico = useMemo(() => dados?.pendencias || [], [dados]);
   const alunosAguardando = useMemo(() => (dados?.alunos || []).filter(a => !a.mentor || !a.mentorAtivo), [dados]);
 
+  // ── Fila única "Precisa de você": alerta clínico > fora-da-trajetória > designação/diagnóstico ──
+  const acoes = useMemo(() => {
+    const items = [];
+    diagnostico.forEach(({ a, d }) => {
+      if (!(a.mentor && a.mentorAtivo)) return; // sem mentor ativo → cai no 'designar' abaixo
+      const atrasadoCiclo = d.cobMed != null && d.cobMed < ciclo.cobMin;
+      if (d.alerta) items.push({ prioridade: 0, tipo: 'clinico', a, d, motivo: 'alerta clínico', acao: 'card' });
+      else if (atrasadoCiclo) items.push({ prioridade: 1, tipo: 'trajetoria', a, d, motivo: `Cobertura ${Math.round(d.cobMed)}% — atrás p/ ${ciclo.id}`, acao: 'card' });
+      else if (d.perfil === 'aprendiz') items.push({ prioridade: 1, tipo: 'trajetoria', a, d, motivo: `Aprendiz · elo ${d.eloDim ? DIM_LABEL[d.eloDim] : '—'}`, acao: 'card' });
+    });
+    alunosAguardando.forEach(a => items.push({ prioridade: 2, tipo: 'designar', a, motivo: a.mentor && !a.mentorAtivo ? 'mentor inativo' : 'aguardando designação', acao: 'designar' }));
+    pendenciasDiagnostico.forEach(a => items.push({ prioridade: 3, tipo: 'diagnostico', a, motivo: 'sem diagnóstico', acao: (!a.mentor || !a.mentorAtivo) ? 'designar' : 'perfil' }));
+    const seen = new Map();
+    items.forEach(it => { const k = (it.a.idAluno || '') + it.a.nome; if (!seen.has(k) || it.prioridade < seen.get(k).prioridade) seen.set(k, it); });
+    return [...seen.values()].sort((x, y) => x.prioridade - y.prioridade || (ORD_CAR[x.d?.perfil] ?? 9) - (ORD_CAR[y.d?.perfil] ?? 9));
+  }, [diagnostico, ciclo, alunosAguardando, pendenciasDiagnostico]);
+
   const [inativando, setInativando] = useState(null);
   const inativarAluno = async (aluno) => {
     if (ehDemo) { alert('Modo demo: ação desabilitada.'); return; }
@@ -746,35 +761,17 @@ export default function PainelLider() {
 
         {aba === 'mentoria' && (<>
 
-        {/* ── HERÓI: as mentorias estão bem encaminhadas? ── */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">As mentorias estão bem encaminhadas?</p>
-          <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
-            <div className="flex items-center gap-4">
-              <span className="text-3xl font-bold text-emerald-600">🟢 {resumoStatus.rollup.verde}</span>
-              <span className="text-3xl font-bold text-amber-500">🟡 {resumoStatus.rollup.amarelo}</span>
-              <span className="text-3xl font-bold text-red-500">🔴 {resumoStatus.rollup.vermelho}</span>
-              <span className="text-xs text-slate-400 font-medium self-end mb-1">de {resumoStatus.total} no app</span>
-            </div>
+        {/* ── STRIP DE SAÚDE (1 linha) ── */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-bold text-intento-blue">{ciclo.id} · {ciclo.nome}</span>
+            <span className="text-[11px] text-slate-400 font-medium hidden md:inline truncate">{ciclo.leitura}</span>
           </div>
-          {/* drill nos 2 eixos */}
-          <div className="flex flex-wrap gap-x-8 gap-y-2 mt-4 pt-4 border-t border-slate-100">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Processo (mentor)</span>
-              <Pilula v={resumoStatus.processo.verde} a={resumoStatus.processo.amarelo} r={resumoStatus.processo.vermelho} />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Aluno (estado)</span>
-              <Pilula v={resumoStatus.aluno.verde} a={resumoStatus.aluno.amarelo} r={resumoStatus.aluno.vermelho} />
-            </div>
-          </div>
-          {/* KPIs de operação */}
-          <div className="flex flex-wrap gap-x-6 gap-y-1 mt-4 text-xs font-medium text-slate-500">
-            <span>Acomp. semana: <b className="text-intento-blue">{acompPct != null ? `${acompPct}%` : '—'}</b></span>
-            <span>Mentores ativos: <b className="text-intento-blue">{mentoresAtivosN}</b></span>
-            <span>Alunos/mentor: <b className="text-intento-blue">{mentoresAtivosN > 0 ? (ativos.length / mentoresAtivosN).toFixed(1) : '—'}</b></span>
-            <span>Simulados (4 sem): <b className="text-intento-blue">{simulados}</b></span>
-            <span>Fora do app: <b className="text-slate-600">{foraDoApp.length}</b></span>
+          <div className="flex items-center gap-x-5 gap-y-1 text-xs font-medium text-slate-500 flex-wrap">
+            <span><b className="text-intento-blue">{ativos.length + foraDoApp.length}</b> ativos</span>
+            <span><b className="text-intento-blue">{mentoresAtivosN}</b> mentores</span>
+            <span>acomp. <b className="text-intento-blue">{acompPct != null ? `${acompPct}%` : '—'}</b></span>
+            <span className={acoes.length ? 'text-red-600 font-bold' : 'text-emerald-600 font-bold'}>{acoes.length} precisam de você</span>
           </div>
         </div>
 
@@ -809,12 +806,6 @@ export default function PainelLider() {
               <option value="EM">Ensino Médio</option>
             </select>
 
-            <select value={periodoFiltro} onChange={e => setPeriodoFiltro(e.target.value)} className="text-xs font-semibold text-intento-blue bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-2 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue cursor-pointer" title="Janela do gráfico de evolução">
-              <option value="4">Últimas 4 semanas</option>
-              <option value="8">Últimas 8 semanas</option>
-              <option value="tudo">Todo o período</option>
-            </select>
-
             <div className="relative flex-1 min-w-[200px]">
               <input type="text" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar aluno por nome ou email..." className="w-full text-xs font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400" />
             </div>
@@ -823,174 +814,50 @@ export default function PainelLider() {
           </div>
         </div>
 
-        {/* ── FILA DE ATENÇÃO ── */}
+        {/* ── PRECISA DE VOCÊ — fila única (clínico > trajetória > designação/diagnóstico) ── */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-intento-blue">Fila de atenção</h2>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${fila.length ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{fila.length}</span>
+              <h2 className="text-base font-semibold text-intento-blue">Precisa de você</h2>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${acoes.length ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{acoes.length}</span>
             </div>
-            <span className="text-[11px] text-slate-400 font-medium">ordenada por gravidade · respeita filtros</span>
+            <button onClick={() => setExplorar(v => !v)} className="text-[11px] font-semibold text-intento-blue hover:underline">{explorar ? 'fechar base' : 'explorar base →'}</button>
           </div>
-          {fila.length === 0 ? (
-            <p className="text-sm text-slate-400 font-medium text-center py-8">Nenhuma mentoria fora do trilho nos filtros atuais. 🎉</p>
+          {acoes.length === 0 ? (
+            <p className="text-sm text-slate-400 font-medium text-center py-8">Nada pendente nos filtros atuais. A base está bem encaminhada. 🎉</p>
           ) : (
             <div className="divide-y divide-slate-100">
-              {fila.map(({ a, st }) => (
-                <div key={a.idAluno + a.nome} className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-slate-50 transition">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${DOT[st.rollup]}`} />
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-700 truncate">{a.nome} <span className="text-slate-400 font-normal">· {a.mentorNome || a.mentor}</span></p>
-                      <p className="text-[11px] text-slate-500 font-medium truncate">
-                        {st.motivos.map((m, i) => (
-                          <span key={i} className={m.nivel === 'vermelho' ? 'text-red-600' : 'text-amber-600'}>{i > 0 ? ' · ' : ''}{m.motivo}</span>
-                        ))}
-                      </p>
+              {acoes.map(it => {
+                const ic = it.tipo === 'clinico' ? '🚨' : it.tipo === 'trajetoria' ? '🔴' : '⏳';
+                const corMotivo = it.tipo === 'clinico' ? 'text-red-600' : it.tipo === 'trajetoria' ? 'text-amber-600' : 'text-slate-500';
+                return (
+                  <div key={(it.a.idAluno || '') + it.a.nome} className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-slate-50 transition">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="text-sm shrink-0">{ic}</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-700 truncate">{it.a.nome} <span className="text-slate-400 font-normal">· {it.a.mentorNome || it.a.mentor || 'sem mentor'}</span></p>
+                        <p className={`text-[11px] font-medium truncate ${corMotivo}`}>{it.motivo}</p>
+                      </div>
                     </div>
+                    {it.acao === 'card'
+                      ? <button onClick={() => setAlunoDiag({ a: it.a, d: it.d })} className="text-[11px] font-semibold text-intento-blue hover:underline shrink-0">abrir →</button>
+                      : it.acao === 'designar'
+                        ? <button onClick={() => abrirDesignacao(it.a)} className="text-[11px] font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition shrink-0">designar</button>
+                        : <button onClick={() => window.open(`/mentor/${it.a.idAluno}?nome=${encodeURIComponent(it.a.nome)}`, '_blank')} className="text-[11px] font-semibold text-intento-blue hover:underline shrink-0">perfil ↗</button>}
                   </div>
-                  <button onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')} className="text-[11px] font-semibold text-intento-blue hover:underline shrink-0">Perfil ↗</button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
-
-        {/* Pendências de diagnóstico */}
-        {pendenciasDiagnostico.length > 0 && (
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-sm font-bold text-blue-800">Pendências de diagnóstico</h2>
-              <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{pendenciasDiagnostico.length}</span>
-            </div>
-            <p className="text-xs text-blue-700/80 font-medium mb-4">Alunos que fizeram onboarding mas ainda não fizeram o diagnóstico teórico. Designe mentor (se faltar) e/ou cobre o diagnóstico.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {pendenciasDiagnostico.map(a => (
-                <div key={a.idAluno + a.nome} className="bg-white border border-blue-200 rounded-lg p-3 flex flex-col gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-slate-700 truncate">{a.nome}</p>
-                    <p className="text-[11px] text-slate-400 font-medium truncate">{a.email}</p>
-                    {a.mentor && a.mentorAtivo && <p className="text-[10px] text-slate-500 font-medium mt-0.5 truncate">mentor: {a.mentorNome || a.mentor}</p>}
-                    {!a.mentor && <p className="text-[10px] text-blue-700 font-medium mt-0.5">sem mentor designado</p>}
-                  </div>
-                  <div className="flex items-center gap-2 justify-end">
-                    {(!a.mentor || !a.mentorAtivo) && <button onClick={() => abrirDesignacao(a)} className="text-[11px] font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition shrink-0">Designar</button>}
-                    <button onClick={() => inativarAluno(a)} disabled={inativando === a.idAluno} className="text-[11px] font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1.5 rounded transition disabled:opacity-50">{inativando === a.idAluno ? '...' : 'Inativar'}</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Aguardando designação */}
-        {alunosAguardando.length > 0 && (
-          <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-sm font-bold text-amber-800">Aguardando designação</h2>
-              <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{alunosAguardando.length}</span>
-            </div>
-            <p className="text-xs text-amber-700/80 font-medium mb-4">Alunos sem mentor ativo cadastrado. Designe um mentor para que ele entre em contato.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {alunosAguardando.map(a => (
-                <div key={a.idAluno + a.nome} className="bg-white border border-amber-200 rounded-lg p-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-slate-700 truncate">{a.nome}</p>
-                    <p className="text-[11px] text-slate-400 font-medium truncate">{a.email}</p>
-                  </div>
-                  <button onClick={() => abrirDesignacao(a)} className="text-xs font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition shrink-0">Designar</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Toasts */}
         {mensagemSucesso && <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-3"><span className="text-xs font-semibold text-emerald-800">Designado: {mensagemSucesso}</span></div>}
         {mensagemEdicao && <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-3"><span className="text-xs font-semibold text-emerald-800">{mensagemEdicao}</span></div>}
 
-        {/* ── TABELA DE MENTORES ── */}
-        <SeccaoColapsavel
-          titulo="Mentores" subtitulo="respeita filtros · clique pra filtrar nele"
-          aberto={seccoesAbertas.mentores} onToggle={() => toggleSeccao('mentores')}
-          resumo={<><span><b className="text-intento-blue">{mentoresTabela.length}</b> mentor(es)</span><span><b className="text-intento-blue">{ativos.length}</b> aluno(s) no app</span></>}
-        >
-          {mentoresTabela.length === 0 ? (
-            <p className="text-sm text-slate-400 font-medium text-center py-6">Nenhum aluno (no app) nos filtros atuais.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm whitespace-nowrap">
-                <thead className="text-[10px] text-slate-400 uppercase tracking-wide border-b border-slate-100">
-                  <tr>
-                    <th className="text-left font-bold p-2.5">Mentor</th>
-                    <th className="font-bold p-2.5">Alunos</th>
-                    <th className="font-bold p-2.5">🟢/🟡/🔴</th>
-                    <th className="font-bold p-2.5 border-l border-slate-100">Acomp.</th>
-                    <th className="font-bold p-2.5">Encontros</th>
-                    <th className="font-bold p-2.5 border-l border-slate-100">Domínio</th>
-                    <th className="font-bold p-2.5">Horas/meta</th>
-                    <th className="font-bold p-2.5">Check-in</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mentoresTabela.map(g => {
-                    const pctAcomp = g.acompTot > 0 ? Math.round((g.acompVerde / g.acompTot) * 100) : null;
-                    const pctEnc = g.encTot > 0 ? Math.round((g.encVerde / g.encTot) * 100) : null;
-                    const dom = g.domC > 0 ? Math.round(g.dom / g.domC) : null;
-                    const eng = g.engC > 0 ? Math.round(g.engPct / g.engC) : null;
-                    const chk = g.chkTot > 0 ? Math.round((g.chkVerde / g.chkTot) * 100) : null;
-                    const corPct = (p) => p == null ? 'text-slate-300' : p >= 80 ? 'text-emerald-600' : p >= 50 ? 'text-amber-600' : 'text-red-600';
-                    const filtrarNoMentor = () => { setMentoresSelecionados([g.mentor]); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-                    return (
-                      <tr key={g.mentor + g.nome} className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer" onClick={filtrarNoMentor}>
-                        <td className="text-left p-2.5 font-semibold text-intento-blue">{g.nome}{!g.ativo && <span className="ml-1.5 text-[9px] font-bold text-amber-600">inativo</span>}</td>
-                        <td className="text-center p-2.5 text-slate-600">{g.alunos.length}</td>
-                        <td className="text-center p-2.5"><Pilula v={g.roll.verde} a={g.roll.amarelo} r={g.roll.vermelho} /></td>
-                        <td className={`text-center p-2.5 font-bold tabular-nums border-l border-slate-100 ${corPct(pctAcomp)}`}>{pctAcomp != null ? `${pctAcomp}%` : '—'}</td>
-                        <td className={`text-center p-2.5 font-bold tabular-nums ${corPct(pctEnc)}`}>{pctEnc != null ? `${pctEnc}%` : '—'}</td>
-                        <td className="text-center p-2.5 font-bold tabular-nums text-intento-blue border-l border-slate-100">{dom != null ? `${dom}%` : '—'}</td>
-                        <td className={`text-center p-2.5 font-bold tabular-nums ${corPct(eng)}`}>{eng != null ? `${eng}%` : '—'}</td>
-                        <td className={`text-center p-2.5 font-bold tabular-nums ${corPct(chk)}`}>{chk != null ? `${chk}%` : '—'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              <p className="text-[10px] text-slate-400 font-medium mt-3">Acomp./Encontros/Check-in = % de alunos 🟢 no sinal · Horas/meta e Domínio = média (só quem usa o app). Autoavaliação e metas batidas entram na Fase 2.</p>
-            </div>
-          )}
-        </SeccaoColapsavel>
-
-        {/* Fora do app (non-adopters) */}
-        {foraDoApp.length > 0 && (
-          <div className={cardClass}>
-            <div className="flex items-center gap-2 mb-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fora do app</p>
-              <span className="bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{foraDoApp.length}</span>
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium mb-3">Não se adaptaram / não vão usar o app — fora do status e da fila (o engajamento por horas não se aplica). Encontros e acompanhamento ainda valem; acompanhe pelo perfil.</p>
-            <div className="flex flex-wrap gap-2">
-              {foraDoApp.map(a => (
-                <button key={a.idAluno + a.nome} onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')} className="text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 hover:border-intento-blue/40 px-3 py-1.5 rounded-full transition">
-                  {a.nome} <span className="text-slate-400 font-normal">· {a.mentorNome || a.mentor}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── DIAGNÓSTICO FASES E CICLOS — modelo ideal (sombra · só líder · ?diagnostico=1) ── */}
-        {ehDiagnostico && (<>
-          {/* A. Faixa de Ciclo */}
-          <div className="bg-intento-blue text-white rounded-xl shadow-sm px-5 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold">{ciclo.id} · {ciclo.nome}</span>
-              <span className="text-[10px] font-bold bg-intento-yellow text-intento-blue px-2 py-0.5 rounded uppercase tracking-wider">diagnóstico · sombra</span>
-            </div>
-            <span className="text-[11px] text-white/70 font-medium">{ciclo.leitura} · invisível aos mentores</span>
-          </div>
-
-          {/* B. Saúde da base */}
+        {/* ── EXPLORAR BASE — analytics sob demanda (drill) ── */}
+        {explorar && (<>
+          {/* Saúde da base — distribuição dimensional (onde a base trava) */}
           {diagResumo && (
             <div className={cardClass}>
               <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
@@ -1018,46 +885,12 @@ export default function PainelLider() {
                 <span><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />Aprendiz</span>
                 <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />Veterano</span>
                 <span><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />Mestre</span>
-                <span className="ml-auto">acomp. {acompPct != null ? `${acompPct}%` : '—'} · {mentoresAtivosN} mentores · Comportamento s/ Presença e Simulado: Fase 2</span>
+                <span className="ml-auto">Comportamento s/ Presença e Simulado: Fase 2</span>
               </div>
             </div>
           )}
 
-          {/* C. Fora da trajetória do Ciclo */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-semibold text-intento-blue">Fora da trajetória de {ciclo.id}</h2>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${filaDiag.length ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{filaDiag.length}</span>
-              </div>
-              <span className="text-[11px] text-slate-400 font-medium">alerta clínico primeiro · clique → card dimensional</span>
-            </div>
-            {filaDiag.length === 0 ? (
-              <p className="text-sm text-slate-400 font-medium text-center py-8">Todo mundo na trajetória de {ciclo.id}. 🎉</p>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {filaDiag.map(({ a, d, atrasadoCiclo }) => (
-                  <button key={a.idAluno + a.nome} onClick={() => setAlunoDiag({ a, d })} className="w-full px-5 py-3 flex items-center justify-between gap-4 hover:bg-slate-50 transition text-left">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <CarimboBadge nivel={d.perfil} />
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-700 truncate">{a.nome} <span className="text-slate-400 font-normal">· {a.mentorNome || a.mentor}</span></p>
-                        <p className="text-[11px] font-medium truncate">
-                          {d.alerta && <span className="text-red-600">🚨 alerta clínico</span>}
-                          {d.alerta && (atrasadoCiclo || d.eloDim) && <span className="text-slate-300"> · </span>}
-                          {atrasadoCiclo && <span className="text-amber-600">Cobertura {Math.round(d.cobMed)}% (≥{ciclo.cobMin}% em {ciclo.id})</span>}
-                          {!atrasadoCiclo && d.eloDim && <span className="text-slate-500">elo: {DIM_LABEL[d.eloDim]}</span>}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-semibold text-intento-blue shrink-0">ver →</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* D. Mentores — lente dimensional */}
+          {/* Mentores — lente dimensional */}
           <SeccaoColapsavel titulo="Mentores · lente dimensional" subtitulo="distribuição de perfis + dimensão-gargalo do grupo"
             aberto={seccoesAbertas.mentoresDim} onToggle={() => toggleSeccao('mentoresDim')}
             resumo={<span>onde o grupo de cada mentor patina — sinal de gap de método</span>}>
@@ -1089,54 +922,76 @@ export default function PainelLider() {
               <p className="text-[10px] text-slate-400 font-medium mt-3 px-1">Dimensão-gargalo = onde mais alunos do mentor estão em Aprendiz. Repetir na mesma dimensão sugere lacuna de método do mentor (coaching).</p>
             </div>
           </SeccaoColapsavel>
-        </>)}
-        {alunoDiag && <CardDimensional a={alunoDiag.a} d={alunoDiag.d} ciclo={ciclo} onClose={() => setAlunoDiag(null)} />}
 
-        {/* ── EVOLUÇÃO + BEM-ESTAR ── */}
-        <SeccaoColapsavel
-          titulo="Evolução da base e bem-estar" subtitulo={haFiltroAtivo ? 'recalculado com base nos filtros' : 'visão geral da base'}
-          aberto={seccoesAbertas.analitica} onToggle={() => toggleSeccao('analitica')}
-          resumo={<><span><b className="text-intento-blue">{haFiltroAtivo ? alunosFiltrados.length : (dados?.alunos || []).length}</b> aluno(s)</span><span><b className={checkinAlertas ? 'text-red-600' : 'text-emerald-600'}>{checkinAlertas}</b> em alerta de check-in</span></>}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className={cardClass}>
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Distribuição de horas estudadas</h3>
-              <p className="text-[10px] font-medium text-slate-400 mb-4">semana de referência</p>
-              <div className="h-56"><Bar data={{ labels: distribuicao.map(d => d.faixa), datasets: [{ data: distribuicao.map(d => d.count), backgroundColor: distribuicao.map((_, i) => FAIXAS_HORAS[i]?.color || '#94a3b8'), borderRadius: 4 }] }} options={{ ...chartOptions, indexAxis: 'y', plugins: { legend: { display: false } } }} /></div>
-            </div>
-            <div className={cardClass}>
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Domínio médio por matéria</h3>
-              <p className="text-[10px] font-medium text-slate-400 mb-4">média · últimas 4 semanas</p>
-              <div className="h-56"><Bar data={{ labels: ['Biologia', 'Química', 'Física', 'Matemática'], datasets: [{ data: [dominio.bio || 0, dominio.qui || 0, dominio.fis || 0, dominio.mat || 0], backgroundColor: ['#10b981', '#3b82f6', '#f97316', '#ef4444'], borderRadius: 4 }] }} options={{ ...chartOptions, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, grid: { color: 'rgba(150,150,150,0.1)' } } } }} /></div>
-            </div>
-            <div className={cardClass}>
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Progresso médio por matéria</h3>
-              <p className="text-[10px] font-medium text-slate-400 mb-4">média · últimas 4 semanas</p>
-              <div className="h-56"><Bar data={{ labels: ['Biologia', 'Química', 'Física', 'Matemática'], datasets: [{ data: [progresso.bio || 0, progresso.qui || 0, progresso.fis || 0, progresso.mat || 0], backgroundColor: ['#10b981', '#3b82f6', '#f97316', '#ef4444'], borderRadius: 4 }] }} options={{ ...chartOptions, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, grid: { color: 'rgba(150,150,150,0.1)' } } } }} /></div>
+          {/* Evolução + bem-estar */}
+          <SeccaoColapsavel
+            titulo="Evolução da base e bem-estar" subtitulo={haFiltroAtivo ? 'recalculado com base nos filtros' : 'visão geral da base'}
+            aberto={seccoesAbertas.analitica} onToggle={() => toggleSeccao('analitica')}
+            resumo={<><span><b className="text-intento-blue">{haFiltroAtivo ? alunosFiltrados.length : (dados?.alunos || []).length}</b> aluno(s)</span><span><b className={checkinAlertas ? 'text-red-600' : 'text-emerald-600'}>{checkinAlertas}</b> em alerta de check-in</span></>}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className={cardClass}>
+                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Distribuição de horas estudadas</h3>
+                <p className="text-[10px] font-medium text-slate-400 mb-4">semana de referência</p>
+                <div className="h-56"><Bar data={{ labels: distribuicao.map(d => d.faixa), datasets: [{ data: distribuicao.map(d => d.count), backgroundColor: distribuicao.map((_, i) => FAIXAS_HORAS[i]?.color || '#94a3b8'), borderRadius: 4 }] }} options={{ ...chartOptions, indexAxis: 'y', plugins: { legend: { display: false } } }} /></div>
+              </div>
+              <div className={cardClass}>
+                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Domínio médio por matéria</h3>
+                <p className="text-[10px] font-medium text-slate-400 mb-4">média · últimas 4 semanas</p>
+                <div className="h-56"><Bar data={{ labels: ['Biologia', 'Química', 'Física', 'Matemática'], datasets: [{ data: [dominio.bio || 0, dominio.qui || 0, dominio.fis || 0, dominio.mat || 0], backgroundColor: ['#10b981', '#3b82f6', '#f97316', '#ef4444'], borderRadius: 4 }] }} options={{ ...chartOptions, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, grid: { color: 'rgba(150,150,150,0.1)' } } } }} /></div>
+              </div>
+              <div className={cardClass}>
+                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Progresso médio por matéria</h3>
+                <p className="text-[10px] font-medium text-slate-400 mb-4">média · últimas 4 semanas</p>
+                <div className="h-56"><Bar data={{ labels: ['Biologia', 'Química', 'Física', 'Matemática'], datasets: [{ data: [progresso.bio || 0, progresso.qui || 0, progresso.fis || 0, progresso.mat || 0], backgroundColor: ['#10b981', '#3b82f6', '#f97316', '#ef4444'], borderRadius: 4 }] }} options={{ ...chartOptions, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, grid: { color: 'rgba(150,150,150,0.1)' } } } }} /></div>
+              </div>
+              <div className={cardClass}>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide">Bem-estar — média da base</h3>
+                  {checkinAlertas > 0 && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{checkinAlertas} em alerta</span>}
+                </div>
+                <p className="text-[10px] font-medium text-slate-400 mb-4">maior = melhor (inclusive estresse) · alerta ≤ 40</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[{ label: 'Sono', valor: bemEstar.sono, cor: '#a855f7' }, { label: 'Motivação', valor: bemEstar.motivacao, cor: '#10b981' }, { label: 'Ansiedade', valor: bemEstar.ansiedade, cor: '#f97316' }, { label: 'Estresse', valor: bemEstar.estresse, cor: '#ef4444' }].map(b => (
+                    <div key={b.label} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{b.label}</p>
+                      <p className="text-2xl font-bold" style={{ color: (b.valor || 0) <= 40 ? '#ef4444' : b.cor }}>{b.valor || 0}<span className="text-xs text-slate-400 font-medium">%</span></p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className={cardClass}>
               <div className="flex items-center justify-between mb-1">
-                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide">Bem-estar — média da base</h3>
-                {checkinAlertas > 0 && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{checkinAlertas} em alerta</span>}
+                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide">Horas estudadas vs Meta — média da base</h3>
+                <select value={periodoFiltro} onChange={e => setPeriodoFiltro(e.target.value)} className="text-[10px] font-semibold text-intento-blue bg-slate-50 border border-slate-200 px-2 py-1 rounded outline-none cursor-pointer">
+                  <option value="4">4 sem</option><option value="8">8 sem</option><option value="tudo">tudo</option>
+                </select>
               </div>
-              <p className="text-[10px] font-medium text-slate-400 mb-4">maior = melhor (inclusive estresse) · alerta ≤ 40</p>
-              <div className="grid grid-cols-2 gap-3">
-                {[{ label: 'Sono', valor: bemEstar.sono, cor: '#a855f7' }, { label: 'Motivação', valor: bemEstar.motivacao, cor: '#10b981' }, { label: 'Ansiedade', valor: bemEstar.ansiedade, cor: '#f97316' }, { label: 'Estresse', valor: bemEstar.estresse, cor: '#ef4444' }].map(b => (
-                  <div key={b.label} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{b.label}</p>
-                    <p className="text-2xl font-bold" style={{ color: (b.valor || 0) <= 40 ? '#ef4444' : b.cor }}>{b.valor || 0}<span className="text-xs text-slate-400 font-medium">%</span></p>
-                  </div>
-                ))}
-              </div>
+              <p className="text-[10px] font-medium text-slate-400 mb-4">{periodoFiltro === 'tudo' ? 'todo o período' : `últimas ${periodoFiltro} semanas`}</p>
+              <div className="h-64"><Line data={{ labels: historico.map(h => String(h.semana || '').split(' a ')[0] || ''), datasets: [{ label: 'Horas (média)', data: historico.map(h => h.mediaHoras), borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.3 }, { label: 'Meta (média)', data: historico.map(h => h.mediaMeta), borderColor: '#94a3b8', backgroundColor: 'transparent', borderDash: [6, 4], tension: 0.3 }] }} options={chartOptions} /></div>
             </div>
-          </div>
 
-          <div className={cardClass}>
-            <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Horas estudadas vs Meta — média da base</h3>
-            <p className="text-[10px] font-medium text-slate-400 mb-4">{periodoFiltro === 'tudo' ? 'todo o período' : `últimas ${periodoFiltro} semanas`}</p>
-            <div className="h-64"><Line data={{ labels: historico.map(h => String(h.semana || '').split(' a ')[0] || ''), datasets: [{ label: 'Horas (média)', data: historico.map(h => h.mediaHoras), borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.3 }, { label: 'Meta (média)', data: historico.map(h => h.mediaMeta), borderColor: '#94a3b8', backgroundColor: 'transparent', borderDash: [6, 4], tension: 0.3 }] }} options={chartOptions} /></div>
-          </div>
-        </SeccaoColapsavel>
+            {/* Fora do app (non-adopters) */}
+            {foraDoApp.length > 0 && (
+              <div className={cardClass}>
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fora do app</p>
+                  <span className="bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{foraDoApp.length}</span>
+                </div>
+                <p className="text-[11px] text-slate-400 font-medium mb-3">Não se adaptaram / não vão usar o app — fora do diagnóstico dimensional. Encontros e acompanhamento ainda valem; acompanhe pelo perfil.</p>
+                <div className="flex flex-wrap gap-2">
+                  {foraDoApp.map(a => (
+                    <button key={a.idAluno + a.nome} onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')} className="text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 hover:border-intento-blue/40 px-3 py-1.5 rounded-full transition">
+                      {a.nome} <span className="text-slate-400 font-normal">· {a.mentorNome || a.mentor}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </SeccaoColapsavel>
+        </>)}
+        {alunoDiag && <CardDimensional a={alunoDiag.a} d={alunoDiag.d} ciclo={ciclo} onClose={() => setAlunoDiag(null)} />}
 
         {/* Modal de designação */}
         {alunoDesignar && (
