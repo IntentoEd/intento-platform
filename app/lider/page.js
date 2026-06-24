@@ -188,27 +188,44 @@ function carimboPorFaixa(v, limVet, limMes) {
   if (v < limMes) return 'veterano';
   return 'mestre';
 }
-function cicloAtual() {
-  const m = new Date().getMonth(); // 0 = janeiro
-  return m <= 2 ? 'C1 · Fundação' : m <= 5 ? 'C2 · Aprofundamento' : m <= 8 ? 'C3 · Lapidação' : 'C4 · Refinamento';
-}
+// Ciclos do manual (ancorado no ENEM) + leitura clínica e piso de Cobertura
+// abaixo do qual o aluno está "fora da trajetória" daquele Ciclo (aluno integral típico).
+const CICLOS_INFO = [
+  { id: 'C1', nome: 'Fundação', leitura: 'Instalação de rotina e método — Cobertura baixa é normal.', cobMin: 0 },
+  { id: 'C2', nome: 'Aprofundamento', leitura: 'Operação plena — Cobertura deve passar de ~20%.', cobMin: 20 },
+  { id: 'C3', nome: 'Lapidação', leitura: 'Pico + simulados — Cobertura <50% vira alerta.', cobMin: 50 },
+  { id: 'C4', nome: 'Refinamento', leitura: 'Preservação e prova — Cobertura <80% vira alerta.', cobMin: 80 },
+];
+function cicloIdx() { const m = new Date().getMonth(); return m <= 2 ? 0 : m <= 5 ? 1 : m <= 8 ? 2 : 3; }
+
+const DIM_LABEL = { comportamento: 'Comportamento', cobertura: 'Cobertura', dominio: 'Domínio', simulado: 'Simulado' };
+const OPERACAO_DOMINANTE = {
+  comportamento: 'Instalação/reparo de hábito (Manual de Hábitos)',
+  cobertura: 'Codificação ativa de novos tópicos (Manual de Codificação)',
+  dominio: 'Aprofundar o já visto — revisão dirigida (Manual de Revisão)',
+  simulado: 'Estratégia de prova + regulação (Manual de Estratégia)',
+};
+
 function diagnosticoDimensional(a) {
   const mx = a.metricas || {}, m = mx.materias || {};
   const domVals = mediasPorDisc(m, 'dom');
   const domMed = mediaArr(domVals);
   let dominio = carimboPorFaixa(domMed, 70, 80);
   if (dominio === 'mestre' && domVals.some(v => v < 70)) dominio = 'veterano'; // Mestre exige nenhuma matéria <70
-  const cobMed = mediaArr(mediasPorDisc(m, 'prog'));
+  const cobMed = mediaArr(mediasPorDisc(m, 'prog')); // 100% = edital canônico → média = % do edital visto
   const cobertura = carimboPorFaixa(cobMed, 30, 70);
   const u = ultimaSemanaHist(mx.historico);
   const aprov = (u && u.meta > 0) ? Math.round((u.horas / u.meta) * 100) : null;
   const comportamento = carimboPorFaixa(aprov, 70, 95);
   const overstudying = aprov != null && aprov > 105;
-  const presentes = [comportamento, cobertura, dominio].filter(Boolean);
-  const perfil = presentes.length ? CARIMBOS[Math.min(...presentes.map(c => ORD_CAR[c]))] : null;
+  // elo: dimensão menos avançada (prioridade Comportamento > Cobertura > Domínio em empate)
+  const dimsOrd = [['comportamento', comportamento], ['cobertura', cobertura], ['dominio', dominio]].filter(([, n]) => n);
+  const minO = dimsOrd.length ? Math.min(...dimsOrd.map(([, n]) => ORD_CAR[n])) : null;
+  const eloDim = dimsOrd.find(([, n]) => ORD_CAR[n] === minO)?.[0] || null;
+  const perfil = minO != null ? CARIMBOS[minO] : null;
   const chk = sinalCheckin(a);
   const alerta = chk?.nivel === 'vermelho' || overstudying;
-  return { comportamento, cobertura, dominio, simulado: null, perfil, alerta, overstudying, domMed, cobMed, aprov };
+  return { comportamento, cobertura, dominio, simulado: null, perfil, eloDim, alerta, overstudying, domMed, cobMed, aprov };
 }
 function CarimboBadge({ nivel, sufixo }) {
   if (!nivel) return <span className="text-slate-300 text-xs">—</span>;
@@ -216,6 +233,75 @@ function CarimboBadge({ nivel, sufixo }) {
     : nivel === 'veterano' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700';
   const label = nivel === 'mestre' ? 'Mestre' : nivel === 'veterano' ? 'Veterano' : 'Aprendiz';
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cor}`}>{label}{sufixo || ''}</span>;
+}
+// Barra de 3 segmentos Apr|Vet|Mes com o nível atual destacado
+function BarraCarimbo({ nivel }) {
+  const segs = [['aprendiz', 'Apr', 'bg-amber-400'], ['veterano', 'Vet', 'bg-blue-500'], ['mestre', 'Mes', 'bg-emerald-500']];
+  return (
+    <span className="inline-flex rounded-md overflow-hidden border border-slate-200 shrink-0">
+      {segs.map(([s, txt, cor]) => (
+        <span key={s} className={`text-[9px] font-bold px-2.5 py-0.5 ${s === nivel ? cor + ' text-white' : 'bg-slate-50 text-slate-300'}`}>{txt}</span>
+      ))}
+    </span>
+  );
+}
+// Barra empilhada de distribuição (heatmap dimensional): Aprendiz/Veterano/Mestre
+function DistribDim({ label, dist, total, gargalo }) {
+  const seg = (n, cor) => n > 0 ? <span className={`${cor} h-full`} style={{ width: `${(n / total) * 100}%` }} /> : null;
+  return (
+    <div className="flex items-center gap-3">
+      <span className={`text-[11px] font-semibold w-32 ${gargalo ? 'text-red-600' : 'text-slate-500'}`}>{label}{gargalo && ' ← gargalo'}</span>
+      <span className="flex-1 flex h-3 rounded-full overflow-hidden bg-slate-100">
+        {seg(dist.aprendiz, 'bg-amber-400')}{seg(dist.veterano, 'bg-blue-500')}{seg(dist.mestre, 'bg-emerald-500')}
+      </span>
+      <span className="text-[10px] text-slate-400 tabular-nums w-14 text-right">{dist.aprendiz}/{dist.veterano}/{dist.mestre}</span>
+    </div>
+  );
+}
+// O ÁTOMO: dashboard dimensional de um aluno (manual: "apresentar o dashboard dimensional")
+function CardDimensional({ a, d, ciclo, onClose }) {
+  const linhas = [
+    { key: 'comportamento', val: d.aprov != null ? `${d.aprov}% da meta` : '—', nota: 'sem Presença · Fase 2' },
+    { key: 'cobertura', val: d.cobMed != null ? `${Math.round(d.cobMed)}% do edital` : '—' },
+    { key: 'dominio', val: d.domMed != null ? `${Math.round(d.domMed)}% de acerto` : '—' },
+  ];
+  return (
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-intento-blue truncate">{a.nome}</h2>
+            <p className="text-[11px] text-slate-400 font-medium">{a.mentorNome || a.mentor} · {a.plano || '—'} · {ciclo.id} {ciclo.nome}</p>
+          </div>
+          <CarimboBadge nivel={d.perfil} />
+        </div>
+        <div className="p-6 space-y-3">
+          {d.alerta && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs font-semibold text-red-700">🚨 Alerta clínico ativo — sobrepõe a operação dimensional. Regular antes de cobrar conteúdo.</div>}
+          {linhas.map(l => (
+            <div key={l.key} className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-slate-600 w-28 shrink-0">{DIM_LABEL[l.key]}</span>
+              <BarraCarimbo nivel={d[l.key]} />
+              <span className="text-[11px] text-slate-400 font-medium flex-1 text-right">{l.val}{l.nota && <span className="block text-[9px] text-slate-300">{l.nota}</span>}</span>
+            </div>
+          ))}
+          <div className="flex items-center gap-3 opacity-60">
+            <span className="text-xs font-semibold text-slate-600 w-28 shrink-0">Simulado</span>
+            <span className="text-[10px] text-slate-400 font-semibold">Fase 2 — aba de simulados da planilha</span>
+          </div>
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Operação dominante {d.eloDim && <span className="normal-case font-medium">(elo: {DIM_LABEL[d.eloDim]})</span>}</p>
+            <p className="text-sm font-semibold text-intento-blue mt-0.5">⚑ {d.eloDim ? OPERACAO_DOMINANTE[d.eloDim] : 'sem dado suficiente'}</p>
+          </div>
+          <p className="text-[10px] text-slate-400 font-medium pt-1 leading-relaxed">Carimbos preliminares · Comportamento sem Presença · perfil pela regra do elo mais fraco. Promoção/regressão formal é decisão de Marco de Ciclo.</p>
+        </div>
+        <div className="bg-slate-50 px-6 py-3 flex justify-between items-center border-t border-slate-100">
+          <button onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')} className="text-xs font-semibold text-intento-blue hover:underline">Abrir perfil ↗</button>
+          <button onClick={onClose} className="text-xs font-semibold text-slate-400 hover:text-slate-700 px-3 py-1">Fechar</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Demo (/lider?demo=1) ─────────────────────────────────────────────────────
@@ -241,7 +327,11 @@ function _aluno(o) {
 }
 const D_HOJE = new Date();
 const _iso = (dOffset) => { const d = new Date(D_HOJE); d.setDate(d.getDate() + dOffset); return d.toISOString().slice(0, 10); };
-const _matBoa = { domBio: 70, cDomBio: 1, domQui: 64, cDomQui: 1, domFis: 60, cDomFis: 1, domMat: 58, cDomMat: 1, progBio: 50, cProgBio: 1, progQui: 45, cProgQui: 1, progFis: 42, cProgFis: 1, progMat: 40, cProgMat: 1 };
+// dom = domínio central, prog = cobertura central (% médio do edital)
+const _mat = (dom, prog) => ({
+  domBio: dom + 4, cDomBio: 1, domQui: dom, cDomQui: 1, domFis: dom - 4, cDomFis: 1, domMat: dom - 6, cDomMat: 1,
+  progBio: prog + 4, cProgBio: 1, progQui: prog, cProgQui: 1, progFis: prog - 3, cProgFis: 1, progMat: prog - 5, cProgMat: 1,
+});
 const DEMO_LIDER = {
   status: 'sucesso',
   semanaAtual: '14/06 a 20/06/2026',
@@ -252,12 +342,12 @@ const DEMO_LIDER = {
     { idAluno: 'demo', nome: 'Novato Sem Diag', email: 'novato@exemplo.com', mentor: '', mentorNome: '', mentorAtivo: false, tipoAluno: 'ENEM' },
   ],
   alunos: [
-    _aluno({ nome: 'Maria Silva', mentor: 'Ana', mentorEmail: 'ana@x', plano: 'Quinzenal', esp: 2, feitos: 1, ultEnc: _iso(-8), acomp: _iso(-1), tipo: 'EM', escola: 'Colégio X', sim: 1, materias: _matBoa, historico: _hist(['26/05 a 01/06', 16, 20], ['02/06 a 08/06', 18, 20], ['09/06 a 15/06', 19, 20]), checkin: [{ est: 70, mot: 80 }, { est: 65, mot: 75 }, { est: 70, mot: 80 }] }),
-    _aluno({ nome: 'João Souza', mentor: 'Ana', mentorEmail: 'ana@x', plano: 'Mensal', esp: 1, feitos: 1, ultEnc: _iso(-12), acomp: _iso(-2), sim: 0, materias: _matBoa, historico: _hist(['09/06 a 15/06', 17, 20]), checkin: [{ est: 60, mot: 70 }, { est: 60, mot: 65 }] }),
-    _aluno({ nome: 'Ana Pereira', mentor: 'Bruno', mentorEmail: 'bruno@x', plano: 'Quinzenal', esp: 2, feitos: 0, ultEnc: _iso(-26), acomp: _iso(-18), sim: 2, materias: _matBoa, historico: _hist(['09/06 a 15/06', 8, 20]), checkin: [{ est: 35, mot: 30 }, { est: 38, mot: 35 }] }),
-    _aluno({ nome: 'Pedro Lima', mentor: 'Bruno', mentorEmail: 'bruno@x', plano: 'Mensal', esp: 1, feitos: 1, ultEnc: _iso(-20), acomp: _iso(-9), sim: 0, materias: _matBoa, historico: _hist(['09/06 a 15/06', 12, 20]), checkin: [{ est: 70, mot: 38 }, { est: 65, mot: 70 }] }),
-    _aluno({ nome: 'Beatriz Costa', mentor: 'Carla', mentorEmail: 'carla@x', plano: 'Quinzenal', esp: 2, feitos: 2, ultEnc: _iso(-5), acomp: _iso(-1), tipo: 'EM', sim: 1, materias: _matBoa, historico: _hist(['09/06 a 15/06', 21, 22]), checkin: [{ est: 75, mot: 80 }, { est: 78, mot: 82 }] }),
-    _aluno({ nome: 'Lucas Almeida', mentor: 'Carla', mentorEmail: 'carla@x', plano: 'Mensal', esp: 1, feitos: 0, ultEnc: '', acomp: '', statusApp: 'Não se adaptou', sim: 0, materias: _matBoa, historico: {}, checkin: [] }),
+    _aluno({ nome: 'Maria Silva', mentor: 'Ana', mentorEmail: 'ana@x', plano: 'Quinzenal', esp: 2, feitos: 1, ultEnc: _iso(-8), acomp: _iso(-1), tipo: 'EM', escola: 'Colégio X', sim: 1, materias: _mat(74, 45), historico: _hist(['26/05 a 01/06', 16, 20], ['02/06 a 08/06', 18, 20], ['09/06 a 15/06', 19, 20]), checkin: [{ est: 70, mot: 80 }, { est: 65, mot: 75 }, { est: 70, mot: 80 }] }),
+    _aluno({ nome: 'João Souza', mentor: 'Ana', mentorEmail: 'ana@x', plano: 'Mensal', esp: 1, feitos: 1, ultEnc: _iso(-12), acomp: _iso(-2), sim: 0, materias: _mat(76, 18), historico: _hist(['09/06 a 15/06', 17, 20]), checkin: [{ est: 60, mot: 70 }, { est: 60, mot: 65 }] }),
+    _aluno({ nome: 'Ana Pereira', mentor: 'Bruno', mentorEmail: 'bruno@x', plano: 'Quinzenal', esp: 2, feitos: 0, ultEnc: _iso(-26), acomp: _iso(-18), sim: 2, materias: _mat(58, 25), historico: _hist(['09/06 a 15/06', 8, 20]), checkin: [{ est: 35, mot: 30 }, { est: 38, mot: 35 }] }),
+    _aluno({ nome: 'Pedro Lima', mentor: 'Bruno', mentorEmail: 'bruno@x', plano: 'Mensal', esp: 1, feitos: 1, ultEnc: _iso(-20), acomp: _iso(-9), sim: 0, materias: _mat(74, 45), historico: _hist(['09/06 a 15/06', 26, 20]), checkin: [{ est: 70, mot: 70 }, { est: 65, mot: 70 }] }),
+    _aluno({ nome: 'Beatriz Costa', mentor: 'Carla', mentorEmail: 'carla@x', plano: 'Quinzenal', esp: 2, feitos: 2, ultEnc: _iso(-5), acomp: _iso(-1), tipo: 'EM', sim: 1, materias: _mat(84, 76), historico: _hist(['09/06 a 15/06', 21, 22]), checkin: [{ est: 75, mot: 80 }, { est: 78, mot: 82 }] }),
+    _aluno({ nome: 'Lucas Almeida', mentor: 'Carla', mentorEmail: 'carla@x', plano: 'Mensal', esp: 1, feitos: 0, ultEnc: '', acomp: '', statusApp: 'Não se adaptou', sim: 0, materias: {}, historico: {}, checkin: [] }),
   ],
   agregado: {
     horasEstudadas: {
@@ -301,6 +391,7 @@ export default function PainelLider() {
   const [editEscola, setEditEscola] = useState('');
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [mensagemEdicao, setMensagemEdicao] = useState('');
+  const [alunoDiag, setAlunoDiag] = useState(null); // {a, d} aberto no card dimensional
 
   const [seccoesAbertas, setSeccoesAbertas] = useState({ mentores: true, analitica: false });
   const toggleSeccao = (key) => setSeccoesAbertas(prev => ({ ...prev, [key]: !prev[key] }));
@@ -406,6 +497,50 @@ export default function PainelLider() {
     () => ehDiagnostico ? ativos.map(a => ({ a, d: diagnosticoDimensional(a) })) : [],
     [ehDiagnostico, ativos]
   );
+  const ciclo = CICLOS_INFO[cicloIdx()];
+
+  // Saúde da base: distribuição de perfis + distribuição por dimensão (onde a base trava)
+  const diagResumo = useMemo(() => {
+    if (!diagnostico.length) return null;
+    const z = () => ({ aprendiz: 0, veterano: 0, mestre: 0 });
+    const perfil = z(), porDim = { comportamento: z(), cobertura: z(), dominio: z() };
+    let alertas = 0;
+    diagnostico.forEach(({ d }) => {
+      if (d.perfil) perfil[d.perfil]++;
+      ['comportamento', 'cobertura', 'dominio'].forEach(k => { if (d[k]) porDim[k][d[k]]++; });
+      if (d.alerta) alertas++;
+    });
+    // gargalo = dimensão com mais Aprendizes
+    const gargalo = ['comportamento', 'cobertura', 'dominio'].sort((x, y) => porDim[y].aprendiz - porDim[x].aprendiz)[0];
+    return { perfil, porDim, alertas, total: diagnostico.length, gargalo: porDim[gargalo].aprendiz > 0 ? gargalo : null };
+  }, [diagnostico]);
+
+  // Fora da trajetória do Ciclo: alerta clínico, atrasado p/ o Ciclo, ou perfil Aprendiz
+  const filaDiag = useMemo(() => {
+    return diagnostico
+      .map(({ a, d }) => ({ a, d, atrasadoCiclo: d.cobMed != null && d.cobMed < ciclo.cobMin }))
+      .filter(({ d, atrasadoCiclo }) => d.alerta || atrasadoCiclo || d.perfil === 'aprendiz')
+      .sort((x, y) => (Number(y.d.alerta) - Number(x.d.alerta)) || ((ORD_CAR[x.d.perfil] ?? 9) - (ORD_CAR[y.d.perfil] ?? 9)));
+  }, [diagnostico, ciclo]);
+
+  // Mentores pela lente dimensional: distribuição de perfis + dimensão-gargalo do grupo
+  const mentoresDiag = useMemo(() => {
+    const g = {};
+    diagnostico.forEach(({ a, d }) => {
+      const k = a.mentor || 'sem';
+      if (!g[k]) g[k] = { nome: a.mentorNome || a.mentor || 'Sem mentor', aprendiz: 0, veterano: 0, mestre: 0, alertas: 0, dimAprendiz: { comportamento: 0, cobertura: 0, dominio: 0 } };
+      const grp = g[k];
+      if (d.perfil) grp[d.perfil]++;
+      if (d.alerta) grp.alertas++;
+      ['comportamento', 'cobertura', 'dominio'].forEach(dim => { if (d[dim] === 'aprendiz') grp.dimAprendiz[dim]++; });
+    });
+    return Object.values(g).map(grp => {
+      const top = Object.entries(grp.dimAprendiz).sort((x, y) => y[1] - x[1])[0];
+      grp.gargalo = top && top[1] > 0 ? top[0] : null;
+      grp.total = grp.aprendiz + grp.veterano + grp.mestre;
+      return grp;
+    }).sort((x, y) => y.aprendiz - x.aprendiz || y.alertas - x.alertas);
+  }, [diagnostico]);
 
   // Contagens pro herói (rollup + drill por eixo)
   const resumoStatus = useMemo(() => {
@@ -844,54 +979,118 @@ export default function PainelLider() {
           </div>
         )}
 
-        {/* ── DIAGNÓSTICO FASES E CICLOS (sombra · só líder · ?diagnostico=1) ── */}
-        {ehDiagnostico && (
-          <div className="bg-white rounded-xl border-2 border-dashed border-intento-yellow/50 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-semibold text-intento-blue">Diagnóstico Fases e Ciclos</h2>
-                <span className="text-[10px] font-bold bg-intento-yellow/15 text-intento-yellow border border-intento-yellow/30 px-2 py-0.5 rounded uppercase tracking-wider">sombra · só você vê</span>
-                <span className="text-[11px] text-slate-400 font-medium">Ciclo atual: {cicloAtual()}</span>
-              </div>
-              <p className="text-[11px] text-slate-400 font-medium mt-1 leading-relaxed">
-                Carimbos preliminares do Método Intento, invisíveis aos mentores. <b>Domínio</b> = acerto por matéria; <b>Cobertura</b> = progresso validado pelo mentor; <b>Comportamento</b> = só Aproveitamento (Presença vem na Fase 2/BigQuery); <b>Simulado</b> pendente (Fase 2/planilha). <b>Perfil</b> = elo mais fraco entre as dimensões já computáveis.
-              </p>
+        {/* ── DIAGNÓSTICO FASES E CICLOS — modelo ideal (sombra · só líder · ?diagnostico=1) ── */}
+        {ehDiagnostico && (<>
+          {/* A. Faixa de Ciclo */}
+          <div className="bg-intento-blue text-white rounded-xl shadow-sm px-5 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold">{ciclo.id} · {ciclo.nome}</span>
+              <span className="text-[10px] font-bold bg-intento-yellow text-intento-blue px-2 py-0.5 rounded uppercase tracking-wider">diagnóstico · sombra</span>
             </div>
-            {diagnostico.length === 0 ? (
-              <p className="text-sm text-slate-400 font-medium text-center py-8">Nenhum aluno (no app) nos filtros atuais.</p>
+            <span className="text-[11px] text-white/70 font-medium">{ciclo.leitura} · invisível aos mentores</span>
+          </div>
+
+          {/* B. Saúde da base */}
+          {diagResumo && (
+            <div className={cardClass}>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Perfil da base · elo mais fraco</p>
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl font-bold text-amber-500">🟡 {diagResumo.perfil.aprendiz}</span>
+                    <span className="text-2xl font-bold text-blue-500">🔵 {diagResumo.perfil.veterano}</span>
+                    <span className="text-2xl font-bold text-emerald-500">🟢 {diagResumo.perfil.mestre}</span>
+                    <span className="text-xs text-slate-400 self-end mb-1">de {diagResumo.total} no app</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Alertas clínicos</p>
+                  <p className={`text-2xl font-bold ${diagResumo.alertas ? 'text-red-500' : 'text-emerald-500'}`}>{diagResumo.alertas}</p>
+                </div>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Onde a base trava (carimbos por dimensão)</p>
+              <div className="space-y-1.5">
+                <DistribDim label="Comportamento" dist={diagResumo.porDim.comportamento} total={diagResumo.total} gargalo={diagResumo.gargalo === 'comportamento'} />
+                <DistribDim label="Cobertura" dist={diagResumo.porDim.cobertura} total={diagResumo.total} gargalo={diagResumo.gargalo === 'cobertura'} />
+                <DistribDim label="Domínio" dist={diagResumo.porDim.dominio} total={diagResumo.total} gargalo={diagResumo.gargalo === 'dominio'} />
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-medium text-slate-400 mt-3 pt-3 border-t border-slate-100">
+                <span><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />Aprendiz</span>
+                <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />Veterano</span>
+                <span><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />Mestre</span>
+                <span className="ml-auto">acomp. {acompPct != null ? `${acompPct}%` : '—'} · {mentoresAtivosN} mentores · Comportamento s/ Presença e Simulado: Fase 2</span>
+              </div>
+            </div>
+          )}
+
+          {/* C. Fora da trajetória do Ciclo */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold text-intento-blue">Fora da trajetória de {ciclo.id}</h2>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${filaDiag.length ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{filaDiag.length}</span>
+              </div>
+              <span className="text-[11px] text-slate-400 font-medium">alerta clínico primeiro · clique → card dimensional</span>
+            </div>
+            {filaDiag.length === 0 ? (
+              <p className="text-sm text-slate-400 font-medium text-center py-8">Todo mundo na trajetória de {ciclo.id}. 🎉</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm whitespace-nowrap">
-                  <thead className="text-[10px] text-slate-400 uppercase tracking-wide border-b border-slate-100">
-                    <tr>
-                      <th className="text-left font-bold p-2.5">Aluno</th>
-                      <th className="text-left font-bold p-2.5">Mentor</th>
-                      <th className="font-bold p-2.5">Comportamento</th>
-                      <th className="font-bold p-2.5">Cobertura</th>
-                      <th className="font-bold p-2.5">Domínio</th>
-                      <th className="font-bold p-2.5">Simulado</th>
-                      <th className="font-bold p-2.5 border-l border-slate-100">Perfil (elo)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {diagnostico.slice().sort((x, y) => (ORD_CAR[x.d.perfil] ?? 9) - (ORD_CAR[y.d.perfil] ?? 9)).map(({ a, d }) => (
-                      <tr key={a.idAluno + a.nome} className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer" onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')}>
-                        <td className="text-left p-2.5 font-semibold text-intento-blue">{a.nome}{d.alerta && <span className="ml-1.5 text-red-500" title="Alerta clínico (check-in/overstudying)">⚠</span>}</td>
-                        <td className="text-left p-2.5 text-slate-500">{a.mentorNome || a.mentor}</td>
-                        <td className="text-center p-2.5"><CarimboBadge nivel={d.comportamento} sufixo={d.overstudying ? ' ⚠' : ''} /></td>
-                        <td className="text-center p-2.5"><CarimboBadge nivel={d.cobertura} /></td>
-                        <td className="text-center p-2.5"><CarimboBadge nivel={d.dominio} /></td>
-                        <td className="text-center p-2.5"><span className="text-[10px] text-slate-300 font-semibold" title="Fase 2 — aba de simulados da planilha">Fase 2</span></td>
-                        <td className="text-center p-2.5 border-l border-slate-100"><CarimboBadge nivel={d.perfil} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <p className="text-[10px] text-slate-400 font-medium mt-3 px-1 leading-relaxed">⚠ no nome = alerta clínico transversal (check-in ≤40 em 2+ semanas, ou overstudying). Comportamento ainda sem o sinal de Presença — pode sair mais otimista do que o manual prevê. Carimbos preliminares (regra do elo mais fraco); promoção/regressão formal é decisão de Marco de Ciclo, não automática.</p>
+              <div className="divide-y divide-slate-100">
+                {filaDiag.map(({ a, d, atrasadoCiclo }) => (
+                  <button key={a.idAluno + a.nome} onClick={() => setAlunoDiag({ a, d })} className="w-full px-5 py-3 flex items-center justify-between gap-4 hover:bg-slate-50 transition text-left">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <CarimboBadge nivel={d.perfil} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-700 truncate">{a.nome} <span className="text-slate-400 font-normal">· {a.mentorNome || a.mentor}</span></p>
+                        <p className="text-[11px] font-medium truncate">
+                          {d.alerta && <span className="text-red-600">🚨 alerta clínico</span>}
+                          {d.alerta && (atrasadoCiclo || d.eloDim) && <span className="text-slate-300"> · </span>}
+                          {atrasadoCiclo && <span className="text-amber-600">Cobertura {Math.round(d.cobMed)}% (≥{ciclo.cobMin}% em {ciclo.id})</span>}
+                          {!atrasadoCiclo && d.eloDim && <span className="text-slate-500">elo: {DIM_LABEL[d.eloDim]}</span>}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-semibold text-intento-blue shrink-0">ver →</span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
-        )}
+
+          {/* D. Mentores — lente dimensional */}
+          <SeccaoColapsavel titulo="Mentores · lente dimensional" subtitulo="distribuição de perfis + dimensão-gargalo do grupo"
+            aberto={seccoesAbertas.mentoresDim} onToggle={() => toggleSeccao('mentoresDim')}
+            resumo={<span>onde o grupo de cada mentor patina — sinal de gap de método</span>}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm whitespace-nowrap">
+                <thead className="text-[10px] text-slate-400 uppercase tracking-wide border-b border-slate-100">
+                  <tr>
+                    <th className="text-left font-bold p-2.5">Mentor</th>
+                    <th className="font-bold p-2.5">Alunos</th>
+                    <th className="font-bold p-2.5" title="Aprendiz / Veterano / Mestre">🟡/🔵/🟢</th>
+                    <th className="font-bold p-2.5 border-l border-slate-100">Dimensão-gargalo</th>
+                    <th className="font-bold p-2.5">Alertas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mentoresDiag.map(g => (
+                    <tr key={g.nome} className="border-b border-slate-50 hover:bg-slate-50">
+                      <td className="text-left p-2.5 font-semibold text-intento-blue">{g.nome}</td>
+                      <td className="text-center p-2.5 text-slate-600">{g.total}</td>
+                      <td className="text-center p-2.5 text-[11px] font-bold tabular-nums">
+                        <span className="text-amber-500">{g.aprendiz}</span><span className="text-slate-300">/</span><span className="text-blue-500">{g.veterano}</span><span className="text-slate-300">/</span><span className="text-emerald-500">{g.mestre}</span>
+                      </td>
+                      <td className={`text-center p-2.5 font-semibold border-l border-slate-100 ${g.gargalo ? 'text-red-600' : 'text-slate-300'}`}>{g.gargalo ? DIM_LABEL[g.gargalo] : '—'}</td>
+                      <td className={`text-center p-2.5 font-bold ${g.alertas ? 'text-red-600' : 'text-slate-300'}`}>{g.alertas || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-[10px] text-slate-400 font-medium mt-3 px-1">Dimensão-gargalo = onde mais alunos do mentor estão em Aprendiz. Repetir na mesma dimensão sugere lacuna de método do mentor (coaching).</p>
+            </div>
+          </SeccaoColapsavel>
+        </>)}
+        {alunoDiag && <CardDimensional a={alunoDiag.a} d={alunoDiag.d} ciclo={ciclo} onClose={() => setAlunoDiag(null)} />}
 
         {/* ── EVOLUÇÃO + BEM-ESTAR ── */}
         <SeccaoColapsavel
