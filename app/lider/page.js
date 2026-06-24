@@ -246,11 +246,11 @@ function BarraCarimbo({ nivel }) {
   );
 }
 // Barra empilhada de distribuição (heatmap dimensional): Aprendiz/Veterano/Mestre
-function DistribDim({ label, dist, total, gargalo }) {
+function DistribDim({ label, dist, total }) {
   const seg = (n, cor) => n > 0 ? <span className={`${cor} h-full`} style={{ width: `${(n / total) * 100}%` }} /> : null;
   return (
     <div className="flex items-center gap-3">
-      <span className={`text-[11px] font-semibold w-32 ${gargalo ? 'text-red-600' : 'text-slate-500'}`}>{label}{gargalo && ' ← gargalo'}</span>
+      <span className="text-[11px] font-semibold w-32 text-slate-500">{label}</span>
       <span className="flex-1 flex h-3 rounded-full overflow-hidden bg-slate-100">
         {seg(dist.aprendiz, 'bg-amber-400')}{seg(dist.veterano, 'bg-blue-500')}{seg(dist.mestre, 'bg-emerald-500')}
       </span>
@@ -277,7 +277,7 @@ function CardDimensional({ a, d, ciclo, onClose }) {
           <CarimboBadge nivel={d.perfil} />
         </div>
         <div className="p-6 space-y-3">
-          {d.alerta && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs font-semibold text-red-700">🚨 Alerta clínico ativo — sobrepõe a operação dimensional. Regular antes de cobrar conteúdo.</div>}
+          {d.alerta && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs font-semibold text-red-700">🚨 Alerta clínico ativo</div>}
           {linhas.map(l => (
             <div key={l.key} className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-600 w-28 shrink-0">{DIM_LABEL[l.key]}</span>
@@ -763,15 +763,12 @@ export default function PainelLider() {
 
         {/* ── STRIP DE SAÚDE (1 linha) ── */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm font-bold text-intento-blue">{ciclo.id} · {ciclo.nome}</span>
-            <span className="text-[11px] text-slate-400 font-medium hidden md:inline truncate">{ciclo.leitura}</span>
-          </div>
+          <span className="text-sm font-bold text-intento-blue">{ciclo.id} · {ciclo.nome}</span>
           <div className="flex items-center gap-x-5 gap-y-1 text-xs font-medium text-slate-500 flex-wrap">
             <span><b className="text-intento-blue">{ativos.length + foraDoApp.length}</b> ativos</span>
             <span><b className="text-intento-blue">{mentoresAtivosN}</b> mentores</span>
             <span>acomp. <b className="text-intento-blue">{acompPct != null ? `${acompPct}%` : '—'}</b></span>
-            <span className={acoes.length ? 'text-red-600 font-bold' : 'text-emerald-600 font-bold'}>{acoes.length} precisam de você</span>
+            <span className={acoes.length ? 'text-red-600 font-bold' : 'text-emerald-600 font-bold'}>{acoes.length} pendências</span>
           </div>
         </div>
 
@@ -814,6 +811,38 @@ export default function PainelLider() {
           </div>
         </div>
 
+        {/* ── PERFIL DA BASE ── */}
+        {diagResumo && (
+          <div className={cardClass}>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Perfil da base</p>
+                <div className="flex items-center gap-4">
+                  <span className="text-2xl font-bold text-amber-500">🟡 {diagResumo.perfil.aprendiz}</span>
+                  <span className="text-2xl font-bold text-blue-500">🔵 {diagResumo.perfil.veterano}</span>
+                  <span className="text-2xl font-bold text-emerald-500">🟢 {diagResumo.perfil.mestre}</span>
+                  <span className="text-xs text-slate-400 self-end mb-1">de {diagResumo.total} no app</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Alertas clínicos</p>
+                <p className={`text-2xl font-bold ${diagResumo.alertas ? 'text-red-500' : 'text-emerald-500'}`}>{diagResumo.alertas}</p>
+              </div>
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Por dimensão</p>
+            <div className="space-y-1.5">
+              <DistribDim label="Comportamento" dist={diagResumo.porDim.comportamento} total={diagResumo.total} />
+              <DistribDim label="Cobertura" dist={diagResumo.porDim.cobertura} total={diagResumo.total} />
+              <DistribDim label="Domínio" dist={diagResumo.porDim.dominio} total={diagResumo.total} />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-medium text-slate-400 mt-3 pt-3 border-t border-slate-100">
+              <span><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />Aprendiz</span>
+              <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />Veterano</span>
+              <span><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />Mestre</span>
+            </div>
+          </div>
+        )}
+
         {/* ── PRECISA DE VOCÊ — fila única (clínico > trajetória > designação/diagnóstico) ── */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
@@ -824,7 +853,7 @@ export default function PainelLider() {
             <button onClick={() => setExplorar(v => !v)} className="text-[11px] font-semibold text-intento-blue hover:underline">{explorar ? 'fechar base' : 'explorar base →'}</button>
           </div>
           {acoes.length === 0 ? (
-            <p className="text-sm text-slate-400 font-medium text-center py-8">Nada pendente nos filtros atuais. A base está bem encaminhada. 🎉</p>
+            <p className="text-sm text-slate-400 font-medium text-center py-8">Sem pendências nos filtros atuais.</p>
           ) : (
             <div className="divide-y divide-slate-100">
               {acoes.map(it => {
@@ -857,43 +886,9 @@ export default function PainelLider() {
 
         {/* ── EXPLORAR BASE — analytics sob demanda (drill) ── */}
         {explorar && (<>
-          {/* Saúde da base — distribuição dimensional (onde a base trava) */}
-          {diagResumo && (
-            <div className={cardClass}>
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Perfil da base · elo mais fraco</p>
-                  <div className="flex items-center gap-4">
-                    <span className="text-2xl font-bold text-amber-500">🟡 {diagResumo.perfil.aprendiz}</span>
-                    <span className="text-2xl font-bold text-blue-500">🔵 {diagResumo.perfil.veterano}</span>
-                    <span className="text-2xl font-bold text-emerald-500">🟢 {diagResumo.perfil.mestre}</span>
-                    <span className="text-xs text-slate-400 self-end mb-1">de {diagResumo.total} no app</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Alertas clínicos</p>
-                  <p className={`text-2xl font-bold ${diagResumo.alertas ? 'text-red-500' : 'text-emerald-500'}`}>{diagResumo.alertas}</p>
-                </div>
-              </div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Onde a base trava (carimbos por dimensão)</p>
-              <div className="space-y-1.5">
-                <DistribDim label="Comportamento" dist={diagResumo.porDim.comportamento} total={diagResumo.total} gargalo={diagResumo.gargalo === 'comportamento'} />
-                <DistribDim label="Cobertura" dist={diagResumo.porDim.cobertura} total={diagResumo.total} gargalo={diagResumo.gargalo === 'cobertura'} />
-                <DistribDim label="Domínio" dist={diagResumo.porDim.dominio} total={diagResumo.total} gargalo={diagResumo.gargalo === 'dominio'} />
-              </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-medium text-slate-400 mt-3 pt-3 border-t border-slate-100">
-                <span><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />Aprendiz</span>
-                <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />Veterano</span>
-                <span><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />Mestre</span>
-                <span className="ml-auto">Comportamento s/ Presença e Simulado: Fase 2</span>
-              </div>
-            </div>
-          )}
-
           {/* Mentores — lente dimensional */}
-          <SeccaoColapsavel titulo="Mentores · lente dimensional" subtitulo="distribuição de perfis + dimensão-gargalo do grupo"
-            aberto={seccoesAbertas.mentoresDim} onToggle={() => toggleSeccao('mentoresDim')}
-            resumo={<span>onde o grupo de cada mentor patina — sinal de gap de método</span>}>
+          <SeccaoColapsavel titulo="Mentores · lente dimensional" subtitulo="perfis + dimensão-gargalo por mentor"
+            aberto={seccoesAbertas.mentoresDim} onToggle={() => toggleSeccao('mentoresDim')}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm whitespace-nowrap">
                 <thead className="text-[10px] text-slate-400 uppercase tracking-wide border-b border-slate-100">
@@ -919,7 +914,7 @@ export default function PainelLider() {
                   ))}
                 </tbody>
               </table>
-              <p className="text-[10px] text-slate-400 font-medium mt-3 px-1">Dimensão-gargalo = onde mais alunos do mentor estão em Aprendiz. Repetir na mesma dimensão sugere lacuna de método do mentor (coaching).</p>
+              <p className="text-[10px] text-slate-400 font-medium mt-3 px-1">Dimensão-gargalo = dimensão com mais alunos em Aprendiz.</p>
             </div>
           </SeccaoColapsavel>
 
