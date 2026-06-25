@@ -3,6 +3,9 @@
 @theme {
   --color-intento-blue: #060242;
   --color-intento-yellow: #D4B726;
+  --color-intento-azul: #1307CF;
+  --color-intento-verde: #2FA838;
+  --color-intento-amarelo-vivo: #F5D83B;
 
   --font-sans: "Ubuntu", ui-sans-serif, system-ui, sans-serif;
   --font-ubuntu: "Ubuntu", ui-sans-serif, system-ui, sans-serif;

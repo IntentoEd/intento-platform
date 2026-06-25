@@ -6,6 +6,9 @@ module.exports = {
         intento: {
           blue: '#060242',
           yellow: '#D4B726',
+          azul: '#1307CF',
+          verde: '#2FA838',
+          'amarelo-vivo': '#F5D83B',
         }
       },
       fontFamily: {

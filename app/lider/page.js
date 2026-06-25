@@ -11,6 +11,7 @@ import { LoadingScreen } from '@/components/Loading';
 import { getCache, setCache, tempoRelativo } from '@/lib/cacheClient';
 import PushToggle from '@/components/PushToggle';
 import PainelLiderPipeline from '@/components/PainelLiderPipeline';
+import { corDe, CARIMBO_LABEL } from './carimboCores';
 
 const EMAILS_LIDER = ['filippe@metodointento.com.br', 'rafael@metodointento.com.br'];
 const cardClass = "bg-white rounded-xl border border-slate-200 p-5 shadow-sm";
@@ -206,6 +207,42 @@ const OPERACAO_DOMINANTE = {
   simulado: 'Estratégia de prova + regulação (Manual de Estratégia)',
 };
 
+// Avatar de iniciais (até 2 palavras)
+const iniciais = (nome) => String(nome || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+
+// "Precisa de ação" = mesmo critério da fila acoes: alerta clínico OU Cobertura abaixo
+// do piso do Ciclo OU perfil Aprendiz. (Só Cobertura tem piso por Ciclo — CICLOS_INFO.cobMin.)
+function precisaAcao(d, ciclo) {
+  if (!d) return false;
+  const atrasadoCiclo = d.cobMed != null && d.cobMed < ciclo.cobMin;
+  return !!d.alerta || atrasadoCiclo || d.perfil === 'aprendiz';
+}
+
+// Traduz o elo (dimensão menos avançada) em rótulo com número real + operação do método.
+function eloOperacao(d, ciclo) {
+  if (!d || !d.eloDim) return { rotulo: '—', operacao: '' };
+  const atrasadoCiclo = d.cobMed != null && d.cobMed < ciclo.cobMin;
+  const rot = {
+    comportamento: d.aprov != null ? `Comportamento ${d.aprov}% da meta` : 'Comportamento',
+    cobertura: `Cobertura ${d.cobMed != null ? Math.round(d.cobMed) : '—'}% do edital${atrasadoCiclo ? ` — atrás p/ ${ciclo.id}` : ''}`,
+    dominio: `Domínio ${d.domMed != null ? Math.round(d.domMed) : '—'}%`,
+  };
+  return { rotulo: rot[d.eloDim] || DIM_LABEL[d.eloDim] || '—', operacao: OPERACAO_DOMINANTE[d.eloDim] || '' };
+}
+
+// Célula de métrica pequena (cards de mentor)
+function Metrica({ label, valor, sub, tom }) {
+  const bg = tom === 'ambar' ? '#FEF3C7' : tom === 'vermelho' ? '#FEE2E2' : '#F8FAFC';
+  const cor = tom === 'ambar' ? '#92400E' : tom === 'vermelho' ? '#B91C1C' : '#1E293B';
+  return (
+    <div className="rounded-lg p-2 text-center border border-slate-100" style={{ backgroundColor: bg }}>
+      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-tight">{label}</p>
+      <p className="text-base font-bold leading-tight mt-0.5" style={{ color: cor }}>{valor}</p>
+      {sub && <p className="text-[8px] text-slate-400 font-medium">{sub}</p>}
+    </div>
+  );
+}
+
 function diagnosticoDimensional(a) {
   const mx = a.metricas || {}, m = mx.materias || {};
   const domVals = mediasPorDisc(m, 'dom');
@@ -229,33 +266,59 @@ function diagnosticoDimensional(a) {
 }
 function CarimboBadge({ nivel, sufixo }) {
   if (!nivel) return <span className="text-slate-300 text-xs">—</span>;
-  const cor = nivel === 'mestre' ? 'bg-emerald-100 text-emerald-700'
-    : nivel === 'veterano' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700';
-  const label = nivel === 'mestre' ? 'Mestre' : nivel === 'veterano' ? 'Veterano' : 'Aprendiz';
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cor}`}>{label}{sufixo || ''}</span>;
+  const c = corDe(nivel);
+  return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: c.bg, color: c.texto }}>{CARIMBO_LABEL[nivel]}{sufixo || ''}</span>;
 }
 // Barra de 3 segmentos Apr|Vet|Mes com o nível atual destacado
 function BarraCarimbo({ nivel }) {
-  const segs = [['aprendiz', 'Apr', 'bg-amber-400'], ['veterano', 'Vet', 'bg-blue-500'], ['mestre', 'Mes', 'bg-emerald-500']];
+  const segs = [['aprendiz', 'Apr'], ['veterano', 'Vet'], ['mestre', 'Mes']];
   return (
     <span className="inline-flex rounded-md overflow-hidden border border-slate-200 shrink-0">
-      {segs.map(([s, txt, cor]) => (
-        <span key={s} className={`text-[9px] font-bold px-2.5 py-0.5 ${s === nivel ? cor + ' text-white' : 'bg-slate-50 text-slate-300'}`}>{txt}</span>
-      ))}
+      {segs.map(([s, txt]) => {
+        const on = s === nivel;
+        return <span key={s} className="text-[9px] font-bold px-2.5 py-0.5" style={on ? { backgroundColor: corDe(s).solido, color: '#fff' } : { backgroundColor: '#F8FAFC', color: '#CBD5E1' }}>{txt}</span>;
+      })}
     </span>
   );
 }
 // Barra empilhada de distribuição (heatmap dimensional): Aprendiz/Veterano/Mestre
 function DistribDim({ label, dist, total }) {
-  const seg = (n, cor) => n > 0 ? <span className={`${cor} h-full`} style={{ width: `${(n / total) * 100}%` }} /> : null;
+  const seg = (n, nivel) => n > 0 ? <span className="h-full" style={{ width: `${(n / total) * 100}%`, backgroundColor: corDe(nivel).solido }} /> : null;
   return (
     <div className="flex items-center gap-3">
       <span className="text-[11px] font-semibold w-32 text-slate-500">{label}</span>
       <span className="flex-1 flex h-3 rounded-full overflow-hidden bg-slate-100">
-        {seg(dist.aprendiz, 'bg-amber-400')}{seg(dist.veterano, 'bg-blue-500')}{seg(dist.mestre, 'bg-emerald-500')}
+        {seg(dist.aprendiz, 'aprendiz')}{seg(dist.veterano, 'veterano')}{seg(dist.mestre, 'mestre')}
       </span>
       <span className="text-[10px] text-slate-400 tabular-nums w-14 text-right">{dist.aprendiz}/{dist.veterano}/{dist.mestre}</span>
     </div>
+  );
+}
+// Os 4 selos dimensionais de um aluno lado a lado: Comportamento · Cobertura · Domínio · Simulado.
+// Simulado === null (termômetro inativo até o aluno virar Veterano agregado) → selo cinza
+// dessaturado com aria-label "Simulado inativo" — nunca colorido, nunca vazio, nunca inventado.
+function CarimboDimensional({ d, tamanho = 'md' }) {
+  const DIMS = [
+    { key: 'comportamento', curto: 'Com', nome: 'Comportamento' },
+    { key: 'cobertura', curto: 'Cob', nome: 'Cobertura' },
+    { key: 'dominio', curto: 'Dom', nome: 'Domínio' },
+    { key: 'simulado', curto: 'Sim', nome: 'Simulado' },
+  ];
+  const cls = tamanho === 'sm' ? 'text-[8px] px-1.5 py-0.5' : 'text-[9px] px-2 py-0.5';
+  return (
+    <span className="inline-flex gap-1">
+      {DIMS.map(({ key, curto, nome }) => {
+        const nivel = d?.[key];
+        const inativo = key === 'simulado' && d?.simulado === null;
+        const c = corDe(nivel); // null/ausente → cinza neutro
+        const aria = inativo ? 'Simulado inativo' : nivel ? `${nome}: ${CARIMBO_LABEL[nivel]}` : `${nome} sem dado`;
+        return (
+          <span key={key} aria-label={aria} title={aria}
+            className={`font-bold rounded ${cls} ${inativo ? 'opacity-70' : ''}`}
+            style={{ backgroundColor: c.bg, color: c.texto }}>{curto}</span>
+        );
+      })}
+    </span>
   );
 }
 // O ÁTOMO: dashboard dimensional de um aluno (manual: "apresentar o dashboard dimensional")
@@ -393,6 +456,9 @@ export default function PainelLider() {
   const [mensagemEdicao, setMensagemEdicao] = useState('');
   const [alunoDiag, setAlunoDiag] = useState(null); // {a, d} aberto no card dimensional
   const [explorar, setExplorar] = useState(false);  // drill da base (analytics) sob demanda
+  const [subAba, setSubAba] = useState('visao');           // visao | mentores | mentorados
+  const [mentoresOrder, setMentoresOrder] = useState('carga'); // carga | pendencias | alertas
+  const [mentoradosChip, setMentoradosChip] = useState('todos'); // todos | acao | aprendiz | veterano | mestre
 
   const [seccoesAbertas, setSeccoesAbertas] = useState({ mentores: true, analitica: false });
   const toggleSeccao = (key) => setSeccoesAbertas(prev => ({ ...prev, [key]: !prev[key] }));
@@ -637,6 +703,64 @@ export default function PainelLider() {
     return [...seen.values()].sort((x, y) => x.prioridade - y.prioridade || (ORD_CAR[x.d?.perfil] ?? 9) - (ORD_CAR[y.d?.perfil] ?? 9));
   }, [diagnostico, ciclo, alunosAguardando, pendenciasDiagnostico]);
 
+  // ── ETAPA 4: cards por mentor (camada de apresentação sobre o diagnóstico) ──
+  // Reusa diagnostico (carimbos prontos) + acoes (pendências). Não recalcula carimbo.
+  const mentoresCards = useMemo(() => {
+    // Pendências do mentor = itens da fila dele que NÃO são alerta clínico (decisão do Filippe).
+    const pendPorMentor = {};
+    acoes.forEach(it => { if (it.tipo !== 'clinico' && it.a?.mentor) pendPorMentor[it.a.mentor] = (pendPorMentor[it.a.mentor] || 0) + 1; });
+    const g = {};
+    diagnostico.forEach(({ a, d }) => {
+      if (!(a.mentor && a.mentorAtivo)) return; // casa com dados.mentoresAtivos
+      const k = a.mentor;
+      if (!g[k]) g[k] = { email: k, nome: a.mentorNome || k, alunos: [], planos: new Set(), aprendiz: 0, veterano: 0, mestre: 0, alertas: 0, acompTot: 0, acompVerde: 0, encFeitos: 0, encEsp: 0 };
+      const grp = g[k];
+      grp.alunos.push({ a, d });
+      if (a.plano) grp.planos.add(String(a.plano).replace('Padrao', 'Padrão'));
+      if (d.perfil) grp[d.perfil]++;
+      if (d.alerta) grp.alertas++;
+      const sa = sinalAcomp(a); if (sa) { grp.acompTot++; if (sa.nivel === 'verde') grp.acompVerde++; } // acompanhamento enviado (semana)
+      if (a.encontrosEsperados > 0) { grp.encEsp += a.encontrosEsperados; grp.encFeitos += (a.encontrosMesCorrente || 0); } // encontros do mês
+    });
+    return Object.values(g).map(grp => {
+      grp.carga = grp.alunos.length;
+      grp.pendencias = pendPorMentor[grp.email] || 0;
+      grp.acompPct = grp.acompTot ? Math.round(grp.acompVerde / grp.acompTot * 100) : null;
+      grp.encPct = grp.encEsp ? Math.round(grp.encFeitos / grp.encEsp * 100) : null;
+      grp.distrib = { aprendiz: grp.aprendiz, veterano: grp.veterano, mestre: grp.mestre };
+      grp.distTotal = grp.aprendiz + grp.veterano + grp.mestre;
+      grp.planosArr = [...grp.planos];
+      // Problema mais quente: alerta > atrás-no-ciclo > Aprendiz (mesma prioridade da fila). Não estático.
+      grp.quente = [...grp.alunos]
+        .filter(({ d }) => precisaAcao(d, ciclo))
+        .sort((x, y) => (Number(y.d.alerta) - Number(x.d.alerta)) || ((ORD_CAR[x.d.perfil] ?? 9) - (ORD_CAR[y.d.perfil] ?? 9)))[0] || null;
+      return grp;
+    });
+  }, [diagnostico, acoes, ciclo]);
+
+  const mentoresCardsOrdenados = useMemo(() => {
+    const arr = [...mentoresCards];
+    arr.sort((x, y) => mentoresOrder === 'pendencias' ? y.pendencias - x.pendencias
+      : mentoresOrder === 'alertas' ? y.alertas - x.alertas
+        : y.carga - x.carga);
+    return arr;
+  }, [mentoresCards, mentoresOrder]);
+
+  // ── ETAPA 5: linhas de Mentorados (diagnostico já filtrado) + chip de perfil/ação ──
+  const mentoradosFiltrados = useMemo(() => {
+    if (mentoradosChip === 'acao') return diagnostico.filter(({ d }) => precisaAcao(d, ciclo));
+    if (['aprendiz', 'veterano', 'mestre'].includes(mentoradosChip)) return diagnostico.filter(({ d }) => d.perfil === mentoradosChip);
+    return diagnostico;
+  }, [diagnostico, mentoradosChip, ciclo]);
+
+  const mentoradosContagens = useMemo(() => ({
+    todos: diagnostico.length,
+    acao: diagnostico.filter(({ d }) => precisaAcao(d, ciclo)).length,
+    aprendiz: diagnostico.filter(({ d }) => d.perfil === 'aprendiz').length,
+    veterano: diagnostico.filter(({ d }) => d.perfil === 'veterano').length,
+    mestre: diagnostico.filter(({ d }) => d.perfil === 'mestre').length,
+  }), [diagnostico, ciclo]);
+
   const [inativando, setInativando] = useState(null);
   const inativarAluno = async (aluno) => {
     if (ehDemo) { alert('Modo demo: ação desabilitada.'); return; }
@@ -772,6 +896,13 @@ export default function PainelLider() {
           </div>
         </div>
 
+        {/* ── SUB-ABAS (Visão geral · Mentores · Mentorados) ── */}
+        <div className="flex gap-1 border-b border-slate-200">
+          {[['visao', 'Visão geral'], ['mentores', 'Mentores'], ['mentorados', 'Mentorados']].map(([k, label]) => (
+            <button key={k} onClick={() => setSubAba(k)} className={`px-4 py-2 text-sm font-semibold transition border-b-2 ${subAba === k ? 'text-intento-blue border-intento-azul' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>{label}</button>
+          ))}
+        </div>
+
         {/* Filtros */}
         <div className={cardClass}>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Filtros</p>
@@ -811,6 +942,7 @@ export default function PainelLider() {
           </div>
         </div>
 
+        {subAba === 'visao' && (<>
         {/* ── PERFIL DA BASE ── */}
         {diagResumo && (
           <div className={cardClass}>
@@ -886,38 +1018,6 @@ export default function PainelLider() {
 
         {/* ── EXPLORAR BASE — analytics sob demanda (drill) ── */}
         {explorar && (<>
-          {/* Mentores — lente dimensional */}
-          <SeccaoColapsavel titulo="Mentores · lente dimensional" subtitulo="perfis + dimensão-gargalo por mentor"
-            aberto={seccoesAbertas.mentoresDim} onToggle={() => toggleSeccao('mentoresDim')}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm whitespace-nowrap">
-                <thead className="text-[10px] text-slate-400 uppercase tracking-wide border-b border-slate-100">
-                  <tr>
-                    <th className="text-left font-bold p-2.5">Mentor</th>
-                    <th className="font-bold p-2.5">Alunos</th>
-                    <th className="font-bold p-2.5" title="Aprendiz / Veterano / Mestre">🟡/🔵/🟢</th>
-                    <th className="font-bold p-2.5 border-l border-slate-100">Dimensão-gargalo</th>
-                    <th className="font-bold p-2.5">Alertas</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mentoresDiag.map(g => (
-                    <tr key={g.nome} className="border-b border-slate-50 hover:bg-slate-50">
-                      <td className="text-left p-2.5 font-semibold text-intento-blue">{g.nome}</td>
-                      <td className="text-center p-2.5 text-slate-600">{g.total}</td>
-                      <td className="text-center p-2.5 text-[11px] font-bold tabular-nums">
-                        <span className="text-amber-500">{g.aprendiz}</span><span className="text-slate-300">/</span><span className="text-blue-500">{g.veterano}</span><span className="text-slate-300">/</span><span className="text-emerald-500">{g.mestre}</span>
-                      </td>
-                      <td className={`text-center p-2.5 font-semibold border-l border-slate-100 ${g.gargalo ? 'text-red-600' : 'text-slate-300'}`}>{g.gargalo ? DIM_LABEL[g.gargalo] : '—'}</td>
-                      <td className={`text-center p-2.5 font-bold ${g.alertas ? 'text-red-600' : 'text-slate-300'}`}>{g.alertas || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="text-[10px] text-slate-400 font-medium mt-3 px-1">Dimensão-gargalo = dimensão com mais alunos em Aprendiz.</p>
-            </div>
-          </SeccaoColapsavel>
-
           {/* Evolução + bem-estar */}
           <SeccaoColapsavel
             titulo="Evolução da base e bem-estar" subtitulo={haFiltroAtivo ? 'recalculado com base nos filtros' : 'visão geral da base'}
@@ -986,6 +1086,106 @@ export default function PainelLider() {
             )}
           </SeccaoColapsavel>
         </>)}
+        </>)}
+
+        {/* ── MENTORES (Etapa 4) ── */}
+        {subAba === 'mentores' && (<>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{mentoresCardsOrdenados.length} mentores</p>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ordenar</span>
+              {[['carga', 'Carga'], ['pendencias', 'Pendências'], ['alertas', 'Alertas']].map(([k, l]) => (
+                <button key={k} onClick={() => setMentoresOrder(k)} className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition ${mentoresOrder === k ? 'text-white border-transparent bg-intento-blue' : 'text-slate-500 bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>{l}</button>
+              ))}
+            </div>
+          </div>
+          {mentoresCardsOrdenados.length === 0 ? (
+            <div className={cardClass}><p className="text-sm text-slate-400 font-medium text-center py-8">Nenhum mentor com alunos no app nos filtros atuais.</p></div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {mentoresCardsOrdenados.map(m => (
+                <div key={m.email} className={cardClass}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 bg-intento-blue">{iniciais(m.nome)}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-intento-blue truncate">{m.nome}</p>
+                      <p className="text-[11px] text-slate-400 font-medium truncate">{m.planosArr.join(' · ') || 'sem plano'}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
+                    <Metrica label="Carga" valor={m.carga} />
+                    <Metrica label="Acomp." valor={m.acompPct != null ? `${m.acompPct}%` : '—'} sub="enviado" />
+                    <Metrica label="Encontros" valor={m.encPct != null ? `${m.encPct}%` : '—'} sub="do mês" />
+                    <Metrica label="Pendências" valor={m.pendencias} tom={m.pendencias ? 'ambar' : null} />
+                    <Metrica label="Alertas" valor={m.alertas} tom={m.alertas ? 'vermelho' : null} />
+                  </div>
+                  <DistribDim label="Perfis" dist={m.distrib} total={m.distTotal || 1} />
+                  {m.quente
+                    ? <button onClick={() => setAlunoDiag(m.quente)} className="block w-full text-left mt-3 text-[11px] text-slate-500 hover:text-intento-blue transition"><span className="font-semibold text-slate-600">Mais quente:</span> {m.quente.a.nome} — {eloOperacao(m.quente.d, ciclo).rotulo} ↗</button>
+                    : <p className="mt-3 text-[11px] text-emerald-600 font-medium">Sem alunos em ação no momento.</p>}
+                  <button onClick={() => { setMentoresSelecionados([m.email]); setSubAba('mentorados'); }} className="mt-3 text-[11px] font-semibold text-intento-azul hover:underline">ver alunos de {m.nome.split(' ')[0]} →</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>)}
+
+        {/* ── MENTORADOS (Etapa 5) ── */}
+        {subAba === 'mentorados' && (<>
+          <div className="flex flex-wrap items-center gap-2">
+            {[['todos', 'Todos'], ['acao', 'Precisam de ação'], ['aprendiz', 'Aprendiz'], ['veterano', 'Veterano'], ['mestre', 'Mestre']].map(([k, l]) => {
+              const on = mentoradosChip === k;
+              return (
+                <button key={k} onClick={() => setMentoradosChip(k)} className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition ${on ? 'text-white border-transparent bg-intento-blue' : 'text-slate-500 bg-white border-slate-200 hover:bg-slate-50'}`}>
+                  {l} <span className={on ? 'text-white/60' : 'text-slate-400'}>{mentoradosContagens[k] ?? 0}</span>
+                </button>
+              );
+            })}
+            <span className="text-[10px] text-slate-400 font-medium ml-auto">use os Filtros acima p/ buscar por nome/mentor/plano</span>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm whitespace-nowrap">
+                <thead className="text-[10px] text-slate-400 uppercase tracking-wide border-b border-slate-100 bg-slate-50">
+                  <tr>
+                    <th className="text-left font-bold p-3">Aluno</th>
+                    <th className="text-left font-bold p-3">Mentor</th>
+                    <th className="text-left font-bold p-3">Perfil</th>
+                    <th className="text-left font-bold p-3">Carimbos</th>
+                    <th className="text-left font-bold p-3">Elo / operação</th>
+                    <th className="font-bold p-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mentoradosFiltrados.length === 0 ? (
+                    <tr><td colSpan={6} className="text-center text-sm text-slate-400 font-medium py-8">Nenhum aluno nos filtros atuais.</td></tr>
+                  ) : mentoradosFiltrados.map(({ a, d }) => {
+                    const eo = eloOperacao(d, ciclo);
+                    return (
+                      <tr key={(a.idAluno || '') + a.nome} className="border-b border-slate-50 hover:bg-slate-50">
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 bg-intento-blue">{iniciais(a.nome)}</span>
+                            <span className="font-semibold text-slate-700 truncate max-w-[160px]">{a.nome}</span>
+                          </div>
+                        </td>
+                        <td className="p-3 text-slate-500 truncate max-w-[120px]">{a.mentorNome || a.mentor || '—'}</td>
+                        <td className="p-3"><CarimboBadge nivel={d.perfil} /></td>
+                        <td className="p-3"><CarimboDimensional d={d} /></td>
+                        <td className="p-3">
+                          <p className="text-[12px] font-semibold text-slate-600">{eo.rotulo}</p>
+                          {eo.operacao && <p className="text-[10px] text-slate-400">{eo.operacao}</p>}
+                        </td>
+                        <td className="p-3 text-right"><button onClick={() => setAlunoDiag({ a, d })} className="text-[11px] font-semibold text-intento-azul hover:underline">abrir</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>)}
+
         {alunoDiag && <CardDimensional a={alunoDiag.a} d={alunoDiag.d} ciclo={ciclo} onClose={() => setAlunoDiag(null)} />}
 
         {/* Modal de designação */}
