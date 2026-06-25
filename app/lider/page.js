@@ -243,6 +243,21 @@ function Metrica({ label, valor, sub, tom }) {
   );
 }
 
+// Barra de distribuição em segmentos arredondados proporcionais (Aprendiz/Veterano/Mestre).
+function BarraSegmentos({ dist, total, altura = 'h-2.5' }) {
+  const segs = [['aprendiz', dist.aprendiz], ['veterano', dist.veterano], ['mestre', dist.mestre]].filter(([, n]) => n > 0);
+  if (!segs.length) return <span className={`flex-1 ${altura} rounded-full bg-slate-100`} />;
+  return (
+    <span className={`flex-1 flex items-center gap-1 ${altura}`}>
+      {segs.map(([nivel, n]) => (
+        <span key={nivel} className={`${altura} rounded-full`} style={{ flexGrow: n, flexBasis: 0, backgroundColor: corDe(nivel).solido }} />
+      ))}
+    </span>
+  );
+}
+// Tons de avatar — ciclam pelas 3 famílias da marca pra dar variedade visual
+const AVATAR_TINTS = ['veterano', 'mestre', 'aprendiz'];
+
 function diagnosticoDimensional(a) {
   const mx = a.metricas || {}, m = mx.materias || {};
   const domVals = mediasPorDisc(m, 'dom');
@@ -725,6 +740,7 @@ export default function PainelLider() {
     return Object.values(g).map(grp => {
       grp.carga = grp.alunos.length;
       grp.pendencias = pendPorMentor[grp.email] || 0;
+      grp.atrasados = grp.alunos.filter(({ d }) => d.cobMed != null && d.cobMed < ciclo.cobMin).length;
       grp.acompPct = grp.acompTot ? Math.round(grp.acompVerde / grp.acompTot * 100) : null;
       grp.encPct = grp.encEsp ? Math.round(grp.encFeitos / grp.encEsp * 100) : null;
       grp.distrib = { aprendiz: grp.aprendiz, veterano: grp.veterano, mestre: grp.mestre };
@@ -885,22 +901,14 @@ export default function PainelLider() {
 
         {aba === 'mentoria' && (<>
 
-        {/* ── STRIP DE SAÚDE (1 linha) ── */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-          <span className="text-sm font-bold text-intento-blue">{ciclo.id} · {ciclo.nome}</span>
-          <div className="flex items-center gap-x-5 gap-y-1 text-xs font-medium text-slate-500 flex-wrap">
-            <span><b className="text-intento-blue">{ativos.length + foraDoApp.length}</b> ativos</span>
-            <span><b className="text-intento-blue">{mentoresAtivosN}</b> mentores</span>
-            <span>acomp. <b className="text-intento-blue">{acompPct != null ? `${acompPct}%` : '—'}</b></span>
-            <span className={acoes.length ? 'text-red-600 font-bold' : 'text-emerald-600 font-bold'}>{acoes.length} pendências</span>
+        {/* ── SUB-ABAS (Visão geral · Mentores · Mentorados) + Ciclo ── */}
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200">
+          <div className="flex gap-1">
+            {[['visao', 'Visão geral'], ['mentores', 'Mentores'], ['mentorados', 'Mentorados']].map(([k, label]) => (
+              <button key={k} onClick={() => setSubAba(k)} className={`px-4 py-2 text-sm font-semibold transition border-b-2 ${subAba === k ? 'text-intento-blue border-intento-azul' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>{label}</button>
+            ))}
           </div>
-        </div>
-
-        {/* ── SUB-ABAS (Visão geral · Mentores · Mentorados) ── */}
-        <div className="flex gap-1 border-b border-slate-200">
-          {[['visao', 'Visão geral'], ['mentores', 'Mentores'], ['mentorados', 'Mentorados']].map(([k, label]) => (
-            <button key={k} onClick={() => setSubAba(k)} className={`px-4 py-2 text-sm font-semibold transition border-b-2 ${subAba === k ? 'text-intento-blue border-intento-azul' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>{label}</button>
-          ))}
+          <span className="text-[11px] font-semibold text-slate-400 pb-2 shrink-0">{ciclo.id} · {ciclo.nome} · <b className="text-slate-500">{ativos.length + foraDoApp.length}</b> ativos</span>
         </div>
 
         {/* Filtros */}
@@ -943,37 +951,101 @@ export default function PainelLider() {
         </div>
 
         {subAba === 'visao' && (<>
-        {/* ── PERFIL DA BASE ── */}
-        {diagResumo && (
+        {diagResumo && (<>
+        {/* ── SCOREBOARD (4 KPIs) ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           <div className={cardClass}>
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Perfil da base</p>
-                <div className="flex items-center gap-4">
-                  <span className="text-2xl font-bold text-amber-500">🟡 {diagResumo.perfil.aprendiz}</span>
-                  <span className="text-2xl font-bold text-blue-500">🔵 {diagResumo.perfil.veterano}</span>
-                  <span className="text-2xl font-bold text-emerald-500">🟢 {diagResumo.perfil.mestre}</span>
-                  <span className="text-xs text-slate-400 self-end mb-1">de {diagResumo.total} no app</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Alertas clínicos</p>
-                <p className={`text-2xl font-bold ${diagResumo.alertas ? 'text-red-500' : 'text-emerald-500'}`}>{diagResumo.alertas}</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Perfil da base</p>
+            <div className="flex items-center gap-3">
+              {[['aprendiz', diagResumo.perfil.aprendiz], ['veterano', diagResumo.perfil.veterano], ['mestre', diagResumo.perfil.mestre]].map(([n, v]) => (
+                <span key={n} className="flex items-center gap-1.5 text-xl font-bold" style={{ color: corDe(n).texto }}><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: corDe(n).solido }} />{v}</span>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-400 font-medium mt-2">{diagResumo.total} com diagnóstico · {foraDoApp.length} sem</p>
+          </div>
+          <div className={cardClass}>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Acompanhamento</p>
+            <p className="text-3xl font-bold text-intento-blue leading-none">{acompPct != null ? `${acompPct}%` : '—'}</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-2">{acompComDado > 0 ? `${acompVerdeTotal} de ${acompComDado} em dia` : 'sem dado'}</p>
+          </div>
+          <div className="rounded-xl border p-5 shadow-sm" style={{ backgroundColor: '#FAEEDA', borderColor: '#EFDFBC' }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#92400E' }}>Pendências</p>
+            <p className="text-3xl font-bold leading-none" style={{ color: '#854F0B' }}>{acoes.length}</p>
+            <p className="text-[11px] font-medium mt-2" style={{ color: '#92400E' }}>precisam de você</p>
+          </div>
+          <div className="rounded-xl border p-5 shadow-sm" style={{ backgroundColor: '#FBEAEA', borderColor: '#F1D2D2' }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#9B1C1C' }}>Alertas clínicos</p>
+            <p className="text-3xl font-bold leading-none" style={{ color: '#B91C1C' }}>{diagResumo.alertas}</p>
+            <p className="text-[11px] font-medium mt-2" style={{ color: '#9B1C1C' }}>ativos na base</p>
+          </div>
+        </div>
+
+        {/* ── DISTRIBUIÇÃO POR DIMENSÃO · PERFIL POR MENTOR ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Distribuição por dimensão */}
+          <div className={cardClass}>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-4">Distribuição por dimensão</p>
+            <div className="space-y-3">
+              {[['comportamento', 'Comportamento'], ['cobertura', 'Cobertura'], ['dominio', 'Domínio']].map(([k, label]) => {
+                const dd = diagResumo.porDim[k];
+                return (
+                  <div key={k} className="flex items-center gap-3">
+                    <span className="text-[13px] font-semibold text-slate-600 w-28 shrink-0">{label}</span>
+                    <BarraSegmentos dist={dd} total={diagResumo.total} />
+                    <span className="text-[11px] text-slate-400 tabular-nums w-14 text-right shrink-0">{dd.aprendiz}·{dd.veterano}·{dd.mestre}</span>
+                  </div>
+                );
+              })}
+              {/* Simulado — Fase 2 (sem score; não inventar distribuição) */}
+              <div className="flex items-center gap-3">
+                <span className="text-[13px] font-semibold text-slate-400 w-28 shrink-0">Simulado</span>
+                <span className="flex-1 flex items-center gap-2">
+                  <span className="h-2.5 w-20 rounded-full bg-slate-200 opacity-60" />
+                  <span className="text-[11px] text-slate-400 italic">{diagResumo.perfil.aprendiz} ainda Aprendiz</span>
+                </span>
+                <span className="text-[11px] text-slate-300 w-14 text-right shrink-0">Fase 2</span>
               </div>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Por dimensão</p>
-            <div className="space-y-1.5">
-              <DistribDim label="Comportamento" dist={diagResumo.porDim.comportamento} total={diagResumo.total} />
-              <DistribDim label="Cobertura" dist={diagResumo.porDim.cobertura} total={diagResumo.total} />
-              <DistribDim label="Domínio" dist={diagResumo.porDim.dominio} total={diagResumo.total} />
-            </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-medium text-slate-400 mt-3 pt-3 border-t border-slate-100">
-              <span><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />Aprendiz</span>
-              <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />Veterano</span>
-              <span><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />Mestre</span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-medium text-slate-400 mt-4 pt-3 border-t border-slate-100">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: corDe('aprendiz').solido }} />Aprendiz</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: corDe('veterano').solido }} />Veterano</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: corDe('mestre').solido }} />Mestre</span>
+              <span className="ml-auto italic">Simulado ativa a partir de Veterano</span>
             </div>
           </div>
-        )}
+
+          {/* Perfil por mentor */}
+          <div className={cardClass}>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-4">Perfil por mentor</p>
+            {mentoresCards.length === 0 ? (
+              <p className="text-sm text-slate-400 font-medium py-6 text-center">Nenhum mentor com alunos no app.</p>
+            ) : (
+              <div className="space-y-3.5">
+                {mentoresCards.slice(0, 6).map((m, i) => {
+                  const tint = corDe(AVATAR_TINTS[i % AVATAR_TINTS.length]);
+                  const nota = m.alertas > 0 ? { txt: `${m.alertas} alerta${m.alertas > 1 ? 's' : ''}`, cor: '#B91C1C' }
+                    : m.atrasados > 0 ? { txt: `${m.atrasados} atrás p/ ${ciclo.id}`, cor: '#92400E' }
+                      : m.pendencias > 0 ? { txt: `${m.pendencias} em ação`, cor: '#92400E' }
+                        : { txt: 'tudo em dia', cor: corDe('mestre').texto };
+                  return (
+                    <div key={m.email} className="flex items-center gap-3">
+                      <span className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0" style={{ backgroundColor: tint.bg, color: tint.texto }}>{iniciais(m.nome)}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-[13px] font-bold text-intento-blue truncate">{m.nome}</span>
+                          <span className="text-[11px] font-semibold shrink-0" style={{ color: nota.cor }}>{nota.txt}</span>
+                        </div>
+                        <BarraSegmentos dist={m.distrib} total={m.distTotal} altura="h-2" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <button onClick={() => setSubAba('mentores')} className="mt-4 w-full text-center text-[12px] font-semibold text-intento-blue border border-slate-200 rounded-lg py-2.5 hover:bg-slate-50 transition">Ver detalhe dos mentores →</button>
+          </div>
+        </div>
+        </>)}
 
         {/* ── PRECISA DE VOCÊ — fila única (clínico > trajetória > designação/diagnóstico) ── */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -989,22 +1061,25 @@ export default function PainelLider() {
           ) : (
             <div className="divide-y divide-slate-100">
               {acoes.map(it => {
-                const ic = it.tipo === 'clinico' ? '🚨' : it.tipo === 'trajetoria' ? '🔴' : '⏳';
-                const corMotivo = it.tipo === 'clinico' ? 'text-red-600' : it.tipo === 'trajetoria' ? 'text-amber-600' : 'text-slate-500';
+                const corDot = it.tipo === 'clinico' ? '#7F1D1D' : it.tipo === 'trajetoria' ? corDe(it.d?.perfil).solido : '#94A3B8';
+                const corMotivo = it.tipo === 'clinico' ? 'text-red-700' : it.tipo === 'trajetoria' ? 'text-amber-700' : 'text-slate-500';
                 return (
-                  <div key={(it.a.idAluno || '') + it.a.nome} className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-slate-50 transition">
+                  <div key={(it.a.idAluno || '') + it.a.nome} className="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50 transition">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className="text-sm shrink-0">{ic}</span>
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: corDot }} />
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-700 truncate">{it.a.nome} <span className="text-slate-400 font-normal">· {it.a.mentorNome || it.a.mentor || 'sem mentor'}</span></p>
                         <p className={`text-[11px] font-medium truncate ${corMotivo}`}>{it.motivo}</p>
                       </div>
                     </div>
-                    {it.acao === 'card'
-                      ? <button onClick={() => setAlunoDiag({ a: it.a, d: it.d })} className="text-[11px] font-semibold text-intento-blue hover:underline shrink-0">abrir →</button>
-                      : it.acao === 'designar'
-                        ? <button onClick={() => abrirDesignacao(it.a)} className="text-[11px] font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition shrink-0">designar</button>
-                        : <button onClick={() => window.open(`/mentor/${it.a.idAluno}?nome=${encodeURIComponent(it.a.nome)}`, '_blank')} className="text-[11px] font-semibold text-intento-blue hover:underline shrink-0">perfil ↗</button>}
+                    <div className="flex items-center gap-3 shrink-0">
+                      {it.d?.perfil && <CarimboBadge nivel={it.d.perfil} />}
+                      {it.acao === 'card'
+                        ? <button onClick={() => setAlunoDiag({ a: it.a, d: it.d })} className="text-[11px] font-semibold text-intento-blue hover:underline">abrir →</button>
+                        : it.acao === 'designar'
+                          ? <button onClick={() => abrirDesignacao(it.a)} className="text-[11px] font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition">designar</button>
+                          : <button onClick={() => window.open(`/mentor/${it.a.idAluno}?nome=${encodeURIComponent(it.a.nome)}`, '_blank')} className="text-[11px] font-semibold text-intento-blue hover:underline">perfil ↗</button>}
+                    </div>
                   </div>
                 );
               })}
