@@ -24,8 +24,6 @@ const cardClass = "bg-white rounded-xl border border-slate-200 p-5 shadow-sm";
 // ─────────────────────────────────────────────────────────────────────────────
 const NIVEIS = { verde: 0, amarelo: 1, vermelho: 2 };
 const COR_NIVEL = ['verde', 'amarelo', 'vermelho'];
-const DOT = { verde: 'bg-emerald-500', amarelo: 'bg-amber-400', vermelho: 'bg-red-500', neutro: 'bg-slate-300' };
-const TXT = { verde: 'text-emerald-600', amarelo: 'text-amber-600', vermelho: 'text-red-600', neutro: 'text-slate-400' };
 
 function piorNivel(sinais) {
   const ns = sinais.filter(Boolean).map(s => NIVEIS[s.nivel]);
@@ -142,23 +140,6 @@ const FAIXAS_HORAS = [
   { faixa: '10–15h', color: '#eab308' }, { faixa: '15–20h', color: '#10b981' }, { faixa: '20h+', color: '#3b82f6' },
 ];
 
-// ── Selo de nível (rollup / eixo) ──
-function Selo({ nivel, label }) {
-  return (
-    <span className={`inline-flex items-center gap-1 text-[11px] font-bold ${TXT[nivel] || TXT.neutro}`}>
-      <span className={`w-2 h-2 rounded-full ${DOT[nivel] || DOT.neutro}`} />{label}
-    </span>
-  );
-}
-function Pilula({ v, a, r }) {
-  return (
-    <span className="inline-flex items-center gap-2 text-[11px] font-bold tabular-nums">
-      <span className="text-emerald-600">🟢{v}</span>
-      <span className="text-amber-600">🟡{a}</span>
-      <span className="text-red-600">🔴{r}</span>
-    </span>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Diagnóstico Fases e Ciclos (camada-SOMBRA, só líder · ?diagnostico=1)
@@ -446,7 +427,6 @@ const DEMO_LIDER = {
 export default function PainelLider() {
   const router = useRouter();
   const [ehDemo, setEhDemo] = useState(false);
-  const [ehDiagnostico, setEhDiagnostico] = useState(false);
   const [autorizado, setAutorizado] = useState(false);
   const [emailLogado, setEmailLogado] = useState('');
   const [aba, setAba] = useState('mentoria');
@@ -485,11 +465,10 @@ export default function PainelLider() {
   const [mensagemSucesso, setMensagemSucesso] = useState('');
   const PLANOS_DISPONIVEIS = ['Mensal', 'Quinzenal', 'Semanal', 'Padrão', 'Custom'];
 
-  // Detecta ?demo=1 e ?diagnostico=1 (client-side, evita Suspense de useSearchParams)
+  // Detecta ?demo=1 (client-side, evita Suspense de useSearchParams)
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     setEhDemo(p.get('demo') === '1');
-    setEhDiagnostico(p.get('diagnostico') === '1');
   }, []);
 
   // Auth
@@ -593,71 +572,6 @@ export default function PainelLider() {
     const gargalo = ['comportamento', 'cobertura', 'dominio'].sort((x, y) => porDim[y].aprendiz - porDim[x].aprendiz)[0];
     return { perfil, porDim, alertas, total: diagnostico.length, gargalo: porDim[gargalo].aprendiz > 0 ? gargalo : null };
   }, [diagnostico]);
-
-  // Fora da trajetória do Ciclo: alerta clínico, atrasado p/ o Ciclo, ou perfil Aprendiz
-  const filaDiag = useMemo(() => {
-    return diagnostico
-      .map(({ a, d }) => ({ a, d, atrasadoCiclo: d.cobMed != null && d.cobMed < ciclo.cobMin }))
-      .filter(({ d, atrasadoCiclo }) => d.alerta || atrasadoCiclo || d.perfil === 'aprendiz')
-      .sort((x, y) => (Number(y.d.alerta) - Number(x.d.alerta)) || ((ORD_CAR[x.d.perfil] ?? 9) - (ORD_CAR[y.d.perfil] ?? 9)));
-  }, [diagnostico, ciclo]);
-
-  // Mentores pela lente dimensional: distribuição de perfis + dimensão-gargalo do grupo
-  const mentoresDiag = useMemo(() => {
-    const g = {};
-    diagnostico.forEach(({ a, d }) => {
-      const k = a.mentor || 'sem';
-      if (!g[k]) g[k] = { nome: a.mentorNome || a.mentor || 'Sem mentor', aprendiz: 0, veterano: 0, mestre: 0, alertas: 0, dimAprendiz: { comportamento: 0, cobertura: 0, dominio: 0 } };
-      const grp = g[k];
-      if (d.perfil) grp[d.perfil]++;
-      if (d.alerta) grp.alertas++;
-      ['comportamento', 'cobertura', 'dominio'].forEach(dim => { if (d[dim] === 'aprendiz') grp.dimAprendiz[dim]++; });
-    });
-    return Object.values(g).map(grp => {
-      const top = Object.entries(grp.dimAprendiz).sort((x, y) => y[1] - x[1])[0];
-      grp.gargalo = top && top[1] > 0 ? top[0] : null;
-      grp.total = grp.aprendiz + grp.veterano + grp.mestre;
-      return grp;
-    }).sort((x, y) => y.aprendiz - x.aprendiz || y.alertas - x.alertas);
-  }, [diagnostico]);
-
-  // Contagens pro herói (rollup + drill por eixo)
-  const resumoStatus = useMemo(() => {
-    const z = () => ({ verde: 0, amarelo: 0, vermelho: 0 });
-    const rollup = z(), processo = z(), aluno = z();
-    comStatus.forEach(({ st }) => { rollup[st.rollup]++; processo[st.processo]++; aluno[st.aluno]++; });
-    return { rollup, processo, aluno, total: comStatus.length };
-  }, [comStatus]);
-
-  // Fila de atenção: rollup != verde, ordenada por gravidade
-  const fila = useMemo(() => {
-    return comStatus
-      .filter(({ st }) => st.rollup !== 'verde')
-      .map(({ a, st }) => ({ a, st }))
-      .sort((x, y) => NIVEIS[y.st.rollup] - NIVEIS[x.st.rollup]);
-  }, [comStatus]);
-
-  // Tabela de mentores (só app-adopters dos filtros)
-  const mentoresTabela = useMemo(() => {
-    const grupos = {};
-    comStatus.forEach(({ a, st }) => {
-      const key = a.mentor || 'sem-mentor';
-      if (!grupos[key]) grupos[key] = { mentor: a.mentor, nome: a.mentorNome || a.mentor || 'Sem mentor', ativo: a.mentorAtivo, alunos: [], roll: { verde: 0, amarelo: 0, vermelho: 0 }, acompVerde: 0, acompTot: 0, encVerde: 0, encTot: 0, dom: 0, domC: 0, engPct: 0, engC: 0, chkVerde: 0, chkTot: 0 };
-      const g = grupos[key];
-      g.alunos.push(a); g.roll[st.rollup]++;
-      if (st.acmp) { g.acompTot++; if (st.acmp.nivel === 'verde') g.acompVerde++; }
-      if (st.enc) { g.encTot++; if (st.enc.nivel === 'verde') g.encVerde++; }
-      if (st.chk) { g.chkTot++; if (st.chk.nivel === 'verde') g.chkVerde++; }
-      if (st.eng && st.eng.pct != null) { g.engPct += st.eng.pct; g.engC++; }
-      const mt = a.metricas?.materias;
-      if (mt) {
-        const ds = [['domBio', 'cDomBio'], ['domQui', 'cDomQui'], ['domFis', 'cDomFis'], ['domMat', 'cDomMat']];
-        let s = 0, c = 0; ds.forEach(([v, cc]) => { s += mt[v] || 0; c += mt[cc] || 0; });
-        if (c > 0) { g.dom += s / c; g.domC++; }
-      }
-    });
-    return Object.values(grupos).sort((x, y) => y.roll.vermelho - x.roll.vermelho || (y.roll.amarelo - x.roll.amarelo));
-  }, [comStatus]);
 
   // Check-in em alerta (eixo Aluno, sinal de check-in vermelho)
   const checkinAlertas = useMemo(() => comStatus.filter(({ st }) => st.chk?.nivel === 'vermelho').length, [comStatus]);
@@ -856,7 +770,6 @@ export default function PainelLider() {
   const progresso = ag.progressoPorMateria || {};
   const bemEstar = ag.bemEstar || {};
   const simulados = ag.simuladosUltimas4Semanas || 0;
-  const mentoresAtivosN = listaMentoresUnicos.filter(m => m.ativo).length;
   const acompVerdeTotal = comStatus.filter(({ st }) => st.acmp?.nivel === 'verde').length;
   const acompComDado = comStatus.filter(({ st }) => st.acmp).length;
   const acompPct = acompComDado > 0 ? Math.round((acompVerdeTotal / acompComDado) * 100) : null;
