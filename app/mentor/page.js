@@ -57,7 +57,7 @@ const DEMO_ALUNOS = [
 
 export default function PainelGlobalMentor() {
   const router = useRouter();
-  const { emailMentor, primeiroNome, alunos: alunosCtx, carregandoAlunos, prefetchAluno, marcarAcompanhamento } = useMentor();
+  const { emailMentor, primeiroNome, alunos: alunosCtx, carregandoAlunos, erroAlunos, recarregarAlunos, prefetchAluno, marcarAcompanhamento } = useMentor();
 
   // Detecta ?demo=1 no client (evita Suspense de useSearchParams numa página estática).
   const [ehDemo, setEhDemo] = useState(false);
@@ -70,6 +70,7 @@ export default function PainelGlobalMentor() {
 
   const alunos = ehDemo ? demoAlunos : alunosCtx;
   const carregando = ehDemo ? false : carregandoAlunos;
+  const erroCarga = ehDemo ? null : erroAlunos;
   const mentorLogado = ehDemo ? 'Filippe (demo)' : primeiroNome;
   const ehLider = emailMentor === 'filippe@metodointento.com.br';
 
@@ -149,10 +150,21 @@ export default function PainelGlobalMentor() {
           </div>
         )}
 
-        <h2 className="text-sm font-bold text-intento-blue">Mentorados ({alunos.length})</h2>
+        <h2 className="text-sm font-bold text-intento-blue">Mentorados{erroCarga ? '' : ` (${alunos.length})`}</h2>
 
         {/* Cards */}
-        {alunos.length === 0 ? (
+        {erroCarga ? (
+          <div className="bg-white border border-red-200 rounded-xl p-10 text-center shadow-sm space-y-3">
+            <p className="text-red-500 font-semibold text-sm">Não foi possível carregar seus mentorados.</p>
+            <p className="text-slate-400 text-xs font-medium">Falha de comunicação com o servidor ({erroCarga}). Seus alunos continuam lá — é só a carga que falhou.</p>
+            <button
+              onClick={recarregarAlunos}
+              className="bg-intento-blue text-white font-bold py-2 px-5 rounded-lg hover:bg-blue-900 transition-all text-xs"
+            >
+              Tentar de novo
+            </button>
+          </div>
+        ) : alunos.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-xl p-10 text-center shadow-sm">
             <p className="text-slate-400 font-medium text-sm">Nenhum aluno sob a sua responsabilidade no momento.</p>
           </div>
