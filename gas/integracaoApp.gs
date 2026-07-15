@@ -533,6 +533,7 @@ function cronGerarRegistrosApp(dryRun, semanaStrOverride) {
   var puladosStatus = 0;
   for (var i = 1; i < matriz.length; i++) {
     if (txt(matriz[i][COL_MESTRE.STATUS_ONBOARDING]) !== 'Onboarding Completo') continue;
+    if (matriz[i][COL_MESTRE.DT_SAIDA]) continue; // aluno que saiu não puxa registro do app
     var statusApp = txt(matriz[i][COL_MESTRE.STATUS_APP]);
     if (statusApp && statusApp !== STATUS_APP.USA) { puladosStatus++; continue; }
     var email = emailNorm(matriz[i][COL_MESTRE.EMAIL]);
