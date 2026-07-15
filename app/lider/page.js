@@ -691,19 +691,31 @@ export default function PainelLider() {
     mestre: diagnostico.filter(({ d }) => d.perfil === 'mestre').length,
   }), [diagnostico, ciclo]);
 
-  const [inativando, setInativando] = useState(null);
-  const inativarAluno = async (aluno) => {
+  // ── Registrar saída (inativar aluno com motivo) — restrito ao gestor ──
+  // Espelho de MOTIVOS_SAIDA do GAS (gas/Code.gs) — manter em sincronia.
+  const MOTIVOS_SAIDA = ['Pós-ENEM', 'Aprovação', 'Financeiro', 'Insatisfação', 'Desistiu de Estudar', 'Não se Adaptou', 'Questões Psicológicas'];
+  const ehGestor = ehDemo || emailLogado === 'filippe@metodointento.com.br';
+  const [alunoSaida, setAlunoSaida] = useState(null);
+  const [motivoSaida, setMotivoSaida] = useState('');
+  const [obsSaida, setObsSaida] = useState('');
+  const [registrandoSaida, setRegistrandoSaida] = useState(false);
+  const [mensagemSaida, setMensagemSaida] = useState('');
+  const abrirSaida = (aluno) => { setAlunoSaida(aluno); setMotivoSaida(''); setObsSaida(''); };
+  const registrarSaida = async () => {
+    if (!alunoSaida || !motivoSaida || registrandoSaida) return;
     if (ehDemo) { alert('Modo demo: ação desabilitada.'); return; }
-    if (!confirm(`Marcar ${aluno.nome} como INATIVO? Ele some do painel do líder e da lista do mentor. Reversível pelo Sheets (limpar célula dt_saida).`)) return;
-    setInativando(aluno.idAluno);
+    setRegistrandoSaida(true);
     try {
-      const r = await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'inativarAluno', idAluno: aluno.idAluno }) });
+      const r = await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'inativarAluno', idAluno: alunoSaida.idAluno, motivo: motivoSaida, observacao: obsSaida.trim() }) });
       const data = await r.json();
       if (data.status === 'sucesso') {
-        setDados(prev => prev ? { ...prev, alunos: (prev.alunos || []).filter(a => a.idAluno !== aluno.idAluno), pendencias: (prev.pendencias || []).filter(a => a.idAluno !== aluno.idAluno) } : prev);
-      } else { alert('Erro: ' + (data.mensagem || 'falha ao inativar')); }
-    } catch (e) { alert('Erro de conexão ao inativar.'); }
-    finally { setInativando(null); }
+        setDados(prev => prev ? { ...prev, alunos: (prev.alunos || []).filter(a => a.idAluno !== alunoSaida.idAluno), pendencias: (prev.pendencias || []).filter(a => a.idAluno !== alunoSaida.idAluno) } : prev);
+        setMensagemSaida(`${alunoSaida.nome} · ${motivoSaida}`);
+        setAlunoSaida(null);
+        setTimeout(() => setMensagemSaida(''), 6000);
+      } else { alert('Erro: ' + (data.mensagem || 'falha ao registrar saída')); }
+    } catch (e) { alert('Erro de conexão ao registrar saída.'); }
+    finally { setRegistrandoSaida(false); }
   };
 
   const abrirDesignacao = (aluno) => {
@@ -992,6 +1004,7 @@ export default function PainelLider() {
                         : it.acao === 'designar'
                           ? <button onClick={() => abrirDesignacao(it.a)} className="text-[11px] font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition">designar</button>
                           : <button onClick={() => window.open(`/mentor/${it.a.idAluno}?nome=${encodeURIComponent(it.a.nome)}`, '_blank')} className="text-[11px] font-semibold text-intento-blue hover:underline">perfil ↗</button>}
+                      {ehGestor && <button onClick={() => abrirSaida(it.a)} title="Registrar saída da mentoria" className="text-[11px] font-semibold text-slate-300 hover:text-red-600 transition">saída</button>}
                     </div>
                   </div>
                 );
@@ -1003,6 +1016,7 @@ export default function PainelLider() {
         {/* Toasts */}
         {mensagemSucesso && <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-3"><span className="text-xs font-semibold text-emerald-800">Designado: {mensagemSucesso}</span></div>}
         {mensagemEdicao && <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-3"><span className="text-xs font-semibold text-emerald-800">{mensagemEdicao}</span></div>}
+        {mensagemSaida && <div className="bg-slate-100 border border-slate-200 rounded-lg px-4 py-3 flex items-center gap-3"><span className="text-xs font-semibold text-slate-700">Saída registrada: {mensagemSaida}</span></div>}
 
         {/* ── EXPLORAR BASE — analytics sob demanda (drill) ── */}
         {explorar && (<>
@@ -1065,9 +1079,15 @@ export default function PainelLider() {
                 <p className="text-[11px] text-slate-400 font-medium mb-3">Não se adaptaram / não vão usar o app — fora do diagnóstico dimensional. Encontros e acompanhamento ainda valem; acompanhe pelo perfil.</p>
                 <div className="flex flex-wrap gap-2">
                   {foraDoApp.map(a => (
-                    <button key={a.idAluno + a.nome} onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')} className="text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 hover:border-intento-blue/40 px-3 py-1.5 rounded-full transition">
-                      {a.nome} <span className="text-slate-400 font-normal">· {a.mentorNome || a.mentor}</span>
-                    </button>
+                    <span key={a.idAluno + a.nome} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full">
+                      <button onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')} className="hover:text-intento-blue transition">
+                        {a.nome} <span className="text-slate-400 font-normal">· {a.mentorNome || a.mentor}</span>
+                      </button>
+                      {ehGestor && <>
+                        <button onClick={() => abrirDesignacao(a)} title="Trocar de mentor" className="text-slate-400 hover:text-intento-blue transition px-0.5">⇄</button>
+                        <button onClick={() => abrirSaida(a)} title="Registrar saída da mentoria" className="text-slate-400 hover:text-red-600 transition px-0.5">×</button>
+                      </>}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -1164,7 +1184,15 @@ export default function PainelLider() {
                           <p className="text-[12px] font-semibold text-slate-600">{eo.rotulo}</p>
                           {eo.operacao && <p className="text-[10px] text-slate-400">{eo.operacao}</p>}
                         </td>
-                        <td className="p-3 text-right"><button onClick={() => setAlunoDiag({ a, d })} className="text-[11px] font-semibold text-intento-azul hover:underline">abrir</button></td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-3">
+                            <button onClick={() => setAlunoDiag({ a, d })} className="text-[11px] font-semibold text-intento-azul hover:underline">abrir</button>
+                            {ehGestor && <>
+                              <button onClick={() => abrirDesignacao(a)} title="Trocar de mentor" className="text-[11px] font-semibold text-slate-400 hover:text-intento-blue transition">trocar mentor</button>
+                              <button onClick={() => abrirSaida(a)} title="Registrar saída da mentoria" className="text-[11px] font-semibold text-slate-300 hover:text-red-600 transition">saída</button>
+                            </>}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -1181,7 +1209,7 @@ export default function PainelLider() {
           <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in" onClick={(e) => { if (e.target === e.currentTarget) setAlunoDesignar(null); }}>
             <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
               <div className="px-6 py-5 border-b border-slate-100">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Designar mentor</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{alunoDesignar.mentor ? 'Trocar mentor' : 'Designar mentor'}</p>
                 <h2 className="text-base font-semibold text-intento-blue mt-0.5">{alunoDesignar.nome}</h2>
                 <p className="text-[11px] text-slate-400 mt-0.5">{alunoDesignar.email}</p>
                 {alunoDesignar.mentor && <p className="text-[11px] text-slate-500 mt-2">Mentor atual: <span className="font-semibold">{alunoDesignar.mentorNome || alunoDesignar.mentor}</span>{!alunoDesignar.mentorAtivo && <span className="ml-1 text-amber-600">(inativo)</span>}</p>}
@@ -1206,6 +1234,37 @@ export default function PainelLider() {
               <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-100">
                 <button onClick={() => setAlunoDesignar(null)} className="text-sm font-semibold text-slate-500 hover:text-intento-blue px-4 py-2 transition">Cancelar</button>
                 <button onClick={designarMentor} disabled={!mentorEscolhido || !planoEscolhido || designando} className="text-sm font-semibold bg-intento-blue hover:bg-blue-900 text-white px-5 py-2 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed">{designando ? 'Enviando...' : 'Designar e notificar'}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de saída (inativar com motivo) */}
+        {alunoSaida && (
+          <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in" onClick={(e) => { if (e.target === e.currentTarget && !registrandoSaida) setAlunoSaida(null); }}>
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-100">
+                <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Registrar saída</p>
+                <h2 className="text-base font-semibold text-intento-blue mt-0.5">{alunoSaida.nome}</h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">{alunoSaida.email}{(alunoSaida.mentorNome || alunoSaida.mentor) ? <> · mentor: <span className="font-semibold text-slate-500">{alunoSaida.mentorNome || alunoSaida.mentor}</span></> : null}</p>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Motivo da saída</label>
+                  <select value={motivoSaida} onChange={(e) => setMotivoSaida(e.target.value)} className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue">
+                    <option value="">— Escolha o motivo —</option>
+                    {MOTIVOS_SAIDA.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Observação <span className="normal-case font-medium text-slate-400">(opcional)</span></label>
+                  <textarea rows={3} value={obsSaida} onChange={(e) => setObsSaida(e.target.value)} placeholder="Contexto da saída, combinados, follow-up..." className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue placeholder:text-slate-400 resize-none" />
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">O aluno sai do painel do líder e da lista do mentor; o histórico fica preservado na planilha. <b>Nenhum email é enviado.</b> Reversível pelo Sheets (limpar as células dt_saida/motivo_saida).</p>
+              </div>
+              <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-100">
+                <button onClick={() => setAlunoSaida(null)} disabled={registrandoSaida} className="text-sm font-semibold text-slate-500 hover:text-intento-blue px-4 py-2 transition disabled:opacity-40">Cancelar</button>
+                <button onClick={registrarSaida} disabled={!motivoSaida || registrandoSaida} className="text-sm font-semibold bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed">{registrandoSaida ? 'Registrando...' : 'Registrar saída'}</button>
               </div>
             </div>
           </div>

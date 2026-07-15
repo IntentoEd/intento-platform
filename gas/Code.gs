@@ -77,8 +77,18 @@ const COL_MESTRE = {
   DT_SAIDA: 28,
   // Status do aluno em relação ao Aplicativo (acordado em reunião pelo mentor).
   // Define se o cron de integração tenta puxar registro do app pra esse aluno.
-  STATUS_APP: 29
+  STATUS_APP: 29,
+  // Motivo da saída (um de MOTIVOS_SAIDA) + observação livre. Preenchidos
+  // junto com DT_SAIDA pelo handleInativarAluno; vazios em aluno ativo.
+  MOTIVO_SAIDA: 30,
+  OBS_SAIDA: 31
 };
+
+// Valores possíveis de COL_MESTRE.MOTIVO_SAIDA.
+const MOTIVOS_SAIDA = [
+  'Pós-ENEM', 'Aprovação', 'Financeiro', 'Insatisfação',
+  'Desistiu de Estudar', 'Não se Adaptou', 'Questões Psicológicas'
+];
 
 // Valores possíveis de COL_MESTRE.STATUS_APP. Vazio = não definido (tratado como 'Usa').
 const STATUS_APP = {
@@ -2579,12 +2589,27 @@ function handleDashboardLider(dados) {
 }
 
 // =====================================================================
-// INATIVAR ALUNO (líder marca aluno como saiu da mentoria)
+// INATIVAR ALUNO (líder registra saída da mentoria, com motivo)
 // =====================================================================
-// Setamos DT_SAIDA = hoje. Aluno some do dashboardLider, listaAlunosMentor
-// e qualquer filtro futuro que considerar "ativo". Não deleta a linha
-// (preserva histórico). Reversível: limpar a célula DT_SAIDA manualmente
-// no Sheets reativa.
+// Setamos DT_SAIDA = hoje + MOTIVO_SAIDA (obrigatório, um de MOTIVOS_SAIDA)
+// + OBS_SAIDA (livre, opcional). Aluno some do dashboardLider,
+// listaAlunosMentor e qualquer filtro futuro que considerar "ativo".
+// Não deleta a linha (preserva histórico). Reversível: limpar as células
+// dt_saida/motivo_saida/obs_saida manualmente no Sheets reativa.
+
+// Garante os headers motivo_saida/obs_saida na aba MESTRE (migração lazy,
+// mesmo espírito de migrarColunaStatusApp mas sem passo manual no editor).
+function _garantirColunasSaida(aba) {
+  if (!txt(aba.getRange(1, COL_MESTRE.MOTIVO_SAIDA + 1).getValue())) {
+    aba.getRange(1, COL_MESTRE.MOTIVO_SAIDA + 1).setValue('motivo_saida');
+    Logger.log('coluna motivo_saida criada (col ' + (COL_MESTRE.MOTIVO_SAIDA + 1) + ')');
+  }
+  if (!txt(aba.getRange(1, COL_MESTRE.OBS_SAIDA + 1).getValue())) {
+    aba.getRange(1, COL_MESTRE.OBS_SAIDA + 1).setValue('obs_saida');
+    Logger.log('coluna obs_saida criada (col ' + (COL_MESTRE.OBS_SAIDA + 1) + ')');
+  }
+}
+
 function handleInativarAluno(dados) {
   var lock = LockService.getScriptLock();
   try {
@@ -2598,9 +2623,17 @@ function handleInativarAluno(dados) {
     var idAluno = txt(dados.idAluno);
     if (!idAluno) return responderJSON({ status: 'erro', mensagem: 'idAluno obrigatório' });
 
+    var motivo = txt(dados.motivo);
+    if (!motivo) return responderJSON({ status: 'erro', mensagem: 'motivo obrigatório' });
+    if (MOTIVOS_SAIDA.indexOf(motivo) === -1) {
+      return responderJSON({ status: 'erro', mensagem: 'motivo inválido (use: ' + MOTIVOS_SAIDA.join(', ') + ')' });
+    }
+    var observacao = txt(dados.observacao);
+
     var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
     var aba = ssMestre.getSheetByName(ABA.MESTRE);
     if (!aba) throw new Error('BD_Alunos não encontrada');
+    _garantirColunasSaida(aba);
 
     var matriz = aba.getDataRange().getValues();
     for (var i = 1; i < matriz.length; i++) {
@@ -2609,8 +2642,10 @@ function handleInativarAluno(dados) {
           return responderJSON({ status: 'erro', codigo: 'ja_inativo', mensagem: 'Aluno já está inativo desde ' + matriz[i][COL_MESTRE.DT_SAIDA] });
         }
         aba.getRange(i + 1, COL_MESTRE.DT_SAIDA + 1).setValue(new Date());
-        Logger.log('handleInativarAluno: ' + idAluno + ' inativado por ' + emailRequester);
-        return responderJSON({ status: 'sucesso', idAluno: idAluno });
+        aba.getRange(i + 1, COL_MESTRE.MOTIVO_SAIDA + 1).setValue(motivo);
+        if (observacao) aba.getRange(i + 1, COL_MESTRE.OBS_SAIDA + 1).setValue(observacao);
+        Logger.log('handleInativarAluno: ' + idAluno + ' inativado por ' + emailRequester + ' · motivo=' + motivo);
+        return responderJSON({ status: 'sucesso', idAluno: idAluno, motivo: motivo });
       }
     }
     return responderJSON({ status: 'erro', mensagem: 'Aluno não encontrado em BD_Alunos' });
@@ -2682,15 +2717,25 @@ function handleDesignarMentor(dados) {
 
     var emailsEnviados = { aluno: false, mentor: false };
 
+    // Troca (aluno já tinha outro mentor) muda o tom dos emails: nada de
+    // "sua mentoria começa agora" pra quem já está em mentoria há meses.
+    var ehTroca = !!dadosAluno.mentorAnterior && dadosAluno.mentorAnterior !== emailMentor;
+
     // Email pro aluno (GmailApp = mais confiável que MailApp pra entregabilidade)
     if (dadosAluno.email) {
       try {
+        var introAluno = ehTroca
+          ? 'A partir de agora, seu acompanhamento na Intento será feito pelo(a) mentor(a) ' + mentorObj.nome + '.'
+          : 'Você foi designado(a) para o(a) mentor(a) ' + mentorObj.nome + '.';
+        var seguimentoAluno = ehTroca
+          ? 'Em breve ele(a) entrará em contato com você pelo WhatsApp para se apresentar e combinar os próximos encontros. Todo o seu histórico continua valendo — a transição é só de quem te acompanha.'
+          : 'Em breve ele(a) entrará em contato com você pelo WhatsApp para agendar a primeira reunião e alinhar os primeiros passos da sua mentoria.';
         GmailApp.sendEmail(
           dadosAluno.email,
-          'Sua mentoria começa agora — bem-vindo(a) à Intento',
+          ehTroca ? 'Atualização na sua mentoria — novo(a) mentor(a)' : 'Sua mentoria começa agora — bem-vindo(a) à Intento',
           'Olá ' + (dadosAluno.nome || '') + ',\n\n' +
-          'Você foi designado(a) para o(a) mentor(a) ' + mentorObj.nome + '.\n\n' +
-          'Em breve ele(a) entrará em contato com você pelo WhatsApp para agendar a primeira reunião e alinhar os primeiros passos da sua mentoria.\n\n' +
+          introAluno + '\n\n' +
+          seguimentoAluno + '\n\n' +
           'Se tiver alguma dúvida nesse meio tempo, é só responder este email diretamente.\n\n' +
           'Bons estudos!\n— Filippe Ximenes\nEquipe Intento',
           {
@@ -2698,14 +2743,14 @@ function handleDesignarMentor(dados) {
             replyTo: 'filippe@metodointento.com.br',
             htmlBody:
               '<p>Olá <b>' + (dadosAluno.nome || '') + '</b>,</p>' +
-              '<p>Você foi designado(a) para o(a) mentor(a) <b>' + mentorObj.nome + '</b>.</p>' +
-              '<p>Em breve ele(a) entrará em contato com você pelo WhatsApp para agendar a primeira reunião e alinhar os primeiros passos da sua mentoria.</p>' +
+              '<p>' + introAluno.replace(mentorObj.nome, '<b>' + mentorObj.nome + '</b>') + '</p>' +
+              '<p>' + seguimentoAluno + '</p>' +
               '<p>Se tiver alguma dúvida nesse meio tempo, é só responder este email diretamente.</p>' +
               '<p>Bons estudos!<br/>— Filippe Ximenes<br/><b>Equipe Intento</b></p>'
           }
         );
         emailsEnviados.aluno = true;
-        Logger.log('email aluno OK: ' + dadosAluno.email);
+        Logger.log('email aluno OK: ' + dadosAluno.email + (ehTroca ? ' (troca)' : ''));
       } catch (e) { Logger.log('email aluno falhou: ' + e.message); }
     }
 
@@ -2713,26 +2758,30 @@ function handleDesignarMentor(dados) {
     try {
       GmailApp.sendEmail(
         emailMentor,
-        'Novo mentorado: ' + (dadosAluno.nome || 'sem nome'),
+        (ehTroca ? 'Mentorado transferido pra você: ' : 'Novo mentorado: ') + (dadosAluno.nome || 'sem nome'),
         'Olá ' + mentorObj.nome + ',\n\n' +
-        'Um novo mentorado foi designado pra você:\n\n' +
+        (ehTroca ? 'Um mentorado foi transferido pra você (já estava em mentoria com outro mentor):\n\n' : 'Um novo mentorado foi designado pra você:\n\n') +
         '- Nome: ' + (dadosAluno.nome || '—') + '\n' +
         '- Email: ' + (dadosAluno.email || '—') + '\n' +
         '- Telefone: ' + (dadosAluno.telefone || '—') + '\n\n' +
-        'Por favor, entre em contato em até 48h e cadastre o primeiro encontro no Diário de Bordo após a reunião inicial.\n\n' +
+        (ehTroca
+          ? 'Por favor, entre em contato em até 48h pra se apresentar e combinar os próximos encontros. O histórico dele(a) já está na plataforma.\n\n'
+          : 'Por favor, entre em contato em até 48h e cadastre o primeiro encontro no Diário de Bordo após a reunião inicial.\n\n') +
         '— Filippe Ximenes\nEquipe Intento',
         {
           name: 'Filippe Ximenes — Intento',
           replyTo: 'filippe@metodointento.com.br',
           htmlBody:
             '<p>Olá <b>' + mentorObj.nome + '</b>,</p>' +
-            '<p>Um novo mentorado foi designado pra você:</p>' +
+            (ehTroca ? '<p>Um mentorado foi <b>transferido</b> pra você (já estava em mentoria com outro mentor):</p>' : '<p>Um novo mentorado foi designado pra você:</p>') +
             '<ul>' +
               '<li><b>Nome:</b> ' + (dadosAluno.nome || '—') + '</li>' +
               '<li><b>Email:</b> ' + (dadosAluno.email || '—') + '</li>' +
               '<li><b>Telefone:</b> ' + (dadosAluno.telefone || '—') + '</li>' +
             '</ul>' +
-            '<p>Por favor, entre em contato em até 48h e cadastre o primeiro encontro no Diário de Bordo após a reunião inicial.</p>' +
+            (ehTroca
+              ? '<p>Por favor, entre em contato em até 48h pra se apresentar e combinar os próximos encontros. O histórico dele(a) já está na plataforma.</p>'
+              : '<p>Por favor, entre em contato em até 48h e cadastre o primeiro encontro no Diário de Bordo após a reunião inicial.</p>') +
             '<p>— Filippe Ximenes<br/><b>Equipe Intento</b></p>'
         }
       );

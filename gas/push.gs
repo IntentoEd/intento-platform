@@ -151,6 +151,7 @@ function cronLembreteAluno() {
   var count = 0;
   for (var i = 1; i < matriz.length; i++) {
     if (txt(matriz[i][COL_MESTRE.STATUS_ONBOARDING]) !== 'Onboarding Completo') continue;
+    if (matriz[i][COL_MESTRE.DT_SAIDA]) continue; // aluno que saiu não recebe push
     var em = emailNorm(matriz[i][COL_MESTRE.EMAIL]);
     if (!em) continue;
     _enviarPush(
@@ -194,6 +195,7 @@ function cronAlertaLiderMentoresFaltantes() {
   var faltantesPorMentor = {};
   for (var i = 1; i < matriz.length; i++) {
     if (txt(matriz[i][COL_MESTRE.STATUS_ONBOARDING]) !== 'Onboarding Completo') continue;
+    if (matriz[i][COL_MESTRE.DT_SAIDA]) continue; // aluno que saiu não conta como faltante
     var idPlanilha = txt(matriz[i][COL_MESTRE.ID_PLANILHA]);
     if (!idPlanilha) continue;
     var emailMentor = emailNorm(matriz[i][COL_MESTRE.MENTOR_RESPONSAVEL]);
