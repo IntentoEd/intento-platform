@@ -10,7 +10,6 @@ import { Bar, Line } from '@/components/Charts';
 import { LoadingScreen } from '@/components/Loading';
 import { getCache, setCache, tempoRelativo } from '@/lib/cacheClient';
 import PushToggle from '@/components/PushToggle';
-import PainelLiderPipeline from '@/components/PainelLiderPipeline';
 import { corDe, CARIMBO_LABEL } from './carimboCores';
 
 const EMAILS_LIDER = ['filippe@metodointento.com.br', 'rafael@metodointento.com.br'];
@@ -181,12 +180,6 @@ const CICLOS_INFO = [
 function cicloIdx() { const m = new Date().getMonth(); return m <= 2 ? 0 : m <= 5 ? 1 : m <= 8 ? 2 : 3; }
 
 const DIM_LABEL = { comportamento: 'Comportamento', cobertura: 'Cobertura', dominio: 'Domínio', simulado: 'Simulado' };
-const OPERACAO_DOMINANTE = {
-  comportamento: 'Instalação/reparo de hábito (Manual de Hábitos)',
-  cobertura: 'Codificação ativa de novos tópicos (Manual de Codificação)',
-  dominio: 'Aprofundar o já visto — revisão dirigida (Manual de Revisão)',
-  simulado: 'Estratégia de prova + regulação (Manual de Estratégia)',
-};
 
 // Avatar de iniciais (até 2 palavras)
 const iniciais = (nome) => String(nome || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
@@ -197,18 +190,6 @@ function precisaAcao(d, ciclo) {
   if (!d) return false;
   const atrasadoCiclo = d.cobMed != null && d.cobMed < ciclo.cobMin;
   return !!d.alerta || atrasadoCiclo || d.perfil === 'aprendiz';
-}
-
-// Traduz o elo (dimensão menos avançada) em rótulo com número real + operação do método.
-function eloOperacao(d, ciclo) {
-  if (!d || !d.eloDim) return { rotulo: '—', operacao: '' };
-  const atrasadoCiclo = d.cobMed != null && d.cobMed < ciclo.cobMin;
-  const rot = {
-    comportamento: d.aprov != null ? `Comportamento ${d.aprov}% da meta` : 'Comportamento',
-    cobertura: `Cobertura ${d.cobMed != null ? Math.round(d.cobMed) : '—'}% do edital${atrasadoCiclo ? ` — atrás p/ ${ciclo.id}` : ''}`,
-    dominio: `Domínio ${d.domMed != null ? Math.round(d.domMed) : '—'}%`,
-  };
-  return { rotulo: rot[d.eloDim] || DIM_LABEL[d.eloDim] || '—', operacao: OPERACAO_DOMINANTE[d.eloDim] || '' };
 }
 
 // Célula de métrica pequena (cards de mentor)
@@ -257,7 +238,9 @@ function diagnosticoDimensional(a) {
   const eloDim = dimsOrd.find(([, n]) => ORD_CAR[n] === minO)?.[0] || null;
   const perfil = minO != null ? CARIMBOS[minO] : null;
   const chk = sinalCheckin(a);
-  const alerta = chk?.nivel === 'vermelho' || overstudying;
+  // Alerta clínico = só sofrimento no check-in (persistente ou motivação em queda).
+  // Overstudying NÃO é alerta — semana boa acima da meta não pode virar urgência.
+  const alerta = chk?.nivel === 'vermelho';
   return { comportamento, cobertura, dominio, simulado: null, perfil, eloDim, alerta, overstudying, domMed, cobMed, aprov };
 }
 function CarimboBadge({ nivel, sufixo }) {
@@ -348,11 +331,6 @@ function CardDimensional({ a, d, ciclo, onClose }) {
             <span className="text-xs font-semibold text-slate-600 w-28 shrink-0">Simulado</span>
             <span className="text-[10px] text-slate-400 font-semibold">Fase 2 — aba de simulados da planilha</span>
           </div>
-          <div className="mt-3 pt-3 border-t border-slate-100">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Operação dominante {d.eloDim && <span className="normal-case font-medium">(elo: {DIM_LABEL[d.eloDim]})</span>}</p>
-            <p className="text-sm font-semibold text-intento-blue mt-0.5">⚑ {d.eloDim ? OPERACAO_DOMINANTE[d.eloDim] : 'sem dado suficiente'}</p>
-          </div>
-          <p className="text-[10px] text-slate-400 font-medium pt-1 leading-relaxed">Carimbos preliminares · Comportamento sem Presença · perfil pela regra do elo mais fraco. Promoção/regressão formal é decisão de Marco de Ciclo.</p>
         </div>
         <div className="bg-slate-50 px-6 py-3 flex justify-between items-center border-t border-slate-100">
           <button onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')} className="text-xs font-semibold text-intento-blue hover:underline">Abrir perfil ↗</button>
@@ -429,7 +407,6 @@ export default function PainelLider() {
   const [ehDemo, setEhDemo] = useState(false);
   const [autorizado, setAutorizado] = useState(false);
   const [emailLogado, setEmailLogado] = useState('');
-  const [aba, setAba] = useState('mentoria');
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState('');
@@ -557,6 +534,19 @@ export default function PainelLider() {
   const diagnostico = useMemo(() => ativos.map(a => ({ a, d: diagnosticoDimensional(a) })), [ativos]);
   const ciclo = CICLOS_INFO[cicloIdx()];
 
+  // ── KPIs de processo (Visão Geral) — sobre TODOS os filtrados, inclusive
+  // fora do app: encontros e acompanhamento valem pra eles também. ──
+  const encontrosMes = useMemo(() => {
+    let feitos = 0, esperados = 0;
+    alunosFiltrados.forEach(a => { if (a.encontrosEsperados > 0) { esperados += a.encontrosEsperados; feitos += (a.encontrosMesCorrente || 0); } });
+    return { feitos, esperados, pct: esperados > 0 ? Math.round((feitos / esperados) * 100) : null };
+  }, [alunosFiltrados]);
+  const acompStats = useMemo(() => {
+    let verde = 0, total = 0;
+    alunosFiltrados.forEach(a => { const s = sinalAcomp(a); if (s) { total++; if (s.nivel === 'verde') verde++; } });
+    return { verde, total, pct: total > 0 ? Math.round((verde / total) * 100) : null };
+  }, [alunosFiltrados]);
+
   // Saúde da base: distribuição de perfis + distribuição por dimensão (onde a base trava)
   const diagResumo = useMemo(() => {
     if (!diagnostico.length) return null;
@@ -615,22 +605,22 @@ export default function PainelLider() {
   const pendenciasDiagnostico = useMemo(() => dados?.pendencias || [], [dados]);
   const alunosAguardando = useMemo(() => (dados?.alunos || []).filter(a => !a.mentor || !a.mentorAtivo), [dados]);
 
-  // ── Fila única "Precisa de você": alerta clínico > fora-da-trajetória > designação/diagnóstico ──
+  // ── Fila única "Precisa de você": só o que o líder resolve agindo ──
+  // designação > diagnóstico > alerta clínico. Trajetória (cobertura atrás do
+  // ciclo / perfil Aprendiz) NÃO entra na fila — é pauta de mentoria e fica
+  // acessível pelo chip "Precisam de ação" na aba Mentorados.
   const acoes = useMemo(() => {
     const items = [];
+    alunosAguardando.forEach(a => items.push({ prioridade: 0, tipo: 'designar', a, motivo: a.mentor && !a.mentorAtivo ? 'mentor inativo' : 'aguardando designação', acao: 'designar' }));
+    pendenciasDiagnostico.forEach(a => items.push({ prioridade: 1, tipo: 'diagnostico', a, motivo: 'sem diagnóstico', acao: (!a.mentor || !a.mentorAtivo) ? 'designar' : 'perfil' }));
     diagnostico.forEach(({ a, d }) => {
-      if (!(a.mentor && a.mentorAtivo)) return; // sem mentor ativo → cai no 'designar' abaixo
-      const atrasadoCiclo = d.cobMed != null && d.cobMed < ciclo.cobMin;
-      if (d.alerta) items.push({ prioridade: 0, tipo: 'clinico', a, d, motivo: 'alerta clínico', acao: 'card' });
-      else if (atrasadoCiclo) items.push({ prioridade: 1, tipo: 'trajetoria', a, d, motivo: `Cobertura ${Math.round(d.cobMed)}% — atrás p/ ${ciclo.id}`, acao: 'card' });
-      else if (d.perfil === 'aprendiz') items.push({ prioridade: 1, tipo: 'trajetoria', a, d, motivo: `Aprendiz · elo ${d.eloDim ? DIM_LABEL[d.eloDim] : '—'}`, acao: 'card' });
+      if (!(a.mentor && a.mentorAtivo)) return; // sem mentor ativo → já entrou no 'designar'
+      if (d.alerta) items.push({ prioridade: 2, tipo: 'clinico', a, d, motivo: 'alerta clínico', acao: 'card' });
     });
-    alunosAguardando.forEach(a => items.push({ prioridade: 2, tipo: 'designar', a, motivo: a.mentor && !a.mentorAtivo ? 'mentor inativo' : 'aguardando designação', acao: 'designar' }));
-    pendenciasDiagnostico.forEach(a => items.push({ prioridade: 3, tipo: 'diagnostico', a, motivo: 'sem diagnóstico', acao: (!a.mentor || !a.mentorAtivo) ? 'designar' : 'perfil' }));
     const seen = new Map();
     items.forEach(it => { const k = (it.a.idAluno || '') + it.a.nome; if (!seen.has(k) || it.prioridade < seen.get(k).prioridade) seen.set(k, it); });
-    return [...seen.values()].sort((x, y) => x.prioridade - y.prioridade || (ORD_CAR[x.d?.perfil] ?? 9) - (ORD_CAR[y.d?.perfil] ?? 9));
-  }, [diagnostico, ciclo, alunosAguardando, pendenciasDiagnostico]);
+    return [...seen.values()].sort((x, y) => x.prioridade - y.prioridade);
+  }, [diagnostico, alunosAguardando, pendenciasDiagnostico]);
 
   // ── ETAPA 4: cards por mentor (camada de apresentação sobre o diagnóstico) ──
   // Reusa diagnostico (carimbos prontos) + acoes (pendências). Não recalcula carimbo.
@@ -660,10 +650,6 @@ export default function PainelLider() {
       grp.distrib = { aprendiz: grp.aprendiz, veterano: grp.veterano, mestre: grp.mestre };
       grp.distTotal = grp.aprendiz + grp.veterano + grp.mestre;
       grp.planosArr = [...grp.planos];
-      // Problema mais quente: alerta > atrás-no-ciclo > Aprendiz (mesma prioridade da fila). Não estático.
-      grp.quente = [...grp.alunos]
-        .filter(({ d }) => precisaAcao(d, ciclo))
-        .sort((x, y) => (Number(y.d.alerta) - Number(x.d.alerta)) || ((ORD_CAR[x.d.perfil] ?? 9) - (ORD_CAR[y.d.perfil] ?? 9)))[0] || null;
       return grp;
     });
   }, [diagnostico, acoes, ciclo]);
@@ -782,9 +768,6 @@ export default function PainelLider() {
   const progresso = ag.progressoPorMateria || {};
   const bemEstar = ag.bemEstar || {};
   const simulados = ag.simuladosUltimas4Semanas || 0;
-  const acompVerdeTotal = comStatus.filter(({ st }) => st.acmp?.nivel === 'verde').length;
-  const acompComDado = comStatus.filter(({ st }) => st.acmp).length;
-  const acompPct = acompComDado > 0 ? Math.round((acompVerdeTotal / acompComDado) * 100) : null;
 
   const chartOptions = {
     responsive: true, maintainAspectRatio: false,
@@ -816,15 +799,7 @@ export default function PainelLider() {
 
       <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
 
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-slate-200 -mt-2">
-          <button onClick={() => setAba('mentoria')} className={`px-4 py-2.5 text-sm font-semibold transition border-b-2 ${aba === 'mentoria' ? 'text-intento-blue border-intento-blue' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Mentoria</button>
-          <button onClick={() => setAba('pipeline')} className={`px-4 py-2.5 text-sm font-semibold transition border-b-2 ${aba === 'pipeline' ? 'text-intento-blue border-intento-blue' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>Pipeline (CRM)</button>
-        </div>
-
-        {aba === 'pipeline' && <PainelLiderPipeline email={emailLogado} />}
-
-        {aba === 'mentoria' && (<>
+        {/* Pipeline (CRM) saiu do /lider — funil comercial roda em software externo. */}
 
         {/* ── SUB-ABAS (Visão geral · Mentores · Mentorados) + Ciclo ── */}
         <div className="flex items-center justify-between gap-3 border-b border-slate-200">
@@ -877,21 +852,17 @@ export default function PainelLider() {
 
         {subAba === 'visao' && (<>
         {diagResumo && (<>
-        {/* ── SCOREBOARD (4 KPIs) ── */}
+        {/* ── SCOREBOARD (4 KPIs) — processo primeiro: encontros e relatórios ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           <div className={cardClass}>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Perfil da base</p>
-            <div className="flex items-center gap-3">
-              {[['aprendiz', diagResumo.perfil.aprendiz], ['veterano', diagResumo.perfil.veterano], ['mestre', diagResumo.perfil.mestre]].map(([n, v]) => (
-                <span key={n} className="flex items-center gap-1.5 text-xl font-bold" style={{ color: corDe(n).texto }}><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: corDe(n).solido }} />{v}</span>
-              ))}
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium mt-2">{diagResumo.total} com diagnóstico · {foraDoApp.length} sem</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Encontros do mês</p>
+            <p className="text-3xl font-bold text-intento-blue leading-none">{encontrosMes.pct != null ? `${encontrosMes.pct}%` : '—'}</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-2">{encontrosMes.esperados > 0 ? `${encontrosMes.feitos} de ${encontrosMes.esperados} esperados` : 'sem dado'}</p>
           </div>
           <div className={cardClass}>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Acompanhamento</p>
-            <p className="text-3xl font-bold text-intento-blue leading-none">{acompPct != null ? `${acompPct}%` : '—'}</p>
-            <p className="text-[11px] text-slate-400 font-medium mt-2">{acompComDado > 0 ? `${acompVerdeTotal} de ${acompComDado} em dia` : 'sem dado'}</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Acompanhamentos da semana</p>
+            <p className="text-3xl font-bold text-intento-blue leading-none">{acompStats.pct != null ? `${acompStats.pct}%` : '—'}</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-2">{acompStats.total > 0 ? `${acompStats.verde} de ${acompStats.total} enviados` : 'sem dado'}</p>
           </div>
           <div className="rounded-xl border p-5 shadow-sm" style={{ backgroundColor: '#FAEEDA', borderColor: '#EFDFBC' }}>
             <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#92400E' }}>Pendências</p>
@@ -907,9 +878,17 @@ export default function PainelLider() {
 
         {/* ── DISTRIBUIÇÃO POR DIMENSÃO · PERFIL POR MENTOR ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Distribuição por dimensão */}
+          {/* Distribuição por dimensão (+ perfil da base) */}
           <div className={cardClass}>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-4">Distribuição por dimensão</p>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Perfil da base · por dimensão</p>
+              <div className="flex items-center gap-3 shrink-0">
+                {[['aprendiz', diagResumo.perfil.aprendiz], ['veterano', diagResumo.perfil.veterano], ['mestre', diagResumo.perfil.mestre]].map(([n, v]) => (
+                  <span key={n} className="flex items-center gap-1.5 text-sm font-bold" style={{ color: corDe(n).texto }}><span className="w-2 h-2 rounded-full" style={{ backgroundColor: corDe(n).solido }} />{v}</span>
+                ))}
+                <span className="text-[10px] text-slate-400 font-medium">· {foraDoApp.length} sem diagnóstico</span>
+              </div>
+            </div>
             <div className="space-y-3">
               {[['comportamento', 'Comportamento'], ['cobertura', 'Cobertura'], ['dominio', 'Domínio']].map(([k, label]) => {
                 const dd = diagResumo.porDim[k];
@@ -1128,9 +1107,6 @@ export default function PainelLider() {
                     <Metrica label="Alertas" valor={m.alertas} tom={m.alertas ? 'vermelho' : null} />
                   </div>
                   <DistribDim label="Perfis" dist={m.distrib} total={m.distTotal || 1} />
-                  {m.quente
-                    ? <button onClick={() => setAlunoDiag(m.quente)} className="block w-full text-left mt-3 text-[11px] text-slate-500 hover:text-intento-blue transition"><span className="font-semibold text-slate-600">Mais quente:</span> {m.quente.a.nome} — {eloOperacao(m.quente.d, ciclo).rotulo} ↗</button>
-                    : <p className="mt-3 text-[11px] text-emerald-600 font-medium">Sem alunos em ação no momento.</p>}
                   <button onClick={() => { setMentoresSelecionados([m.email]); setSubAba('mentorados'); }} className="mt-3 text-[11px] font-semibold text-intento-azul hover:underline">ver alunos de {m.nome.split(' ')[0]} →</button>
                 </div>
               ))}
@@ -1160,15 +1136,13 @@ export default function PainelLider() {
                     <th className="text-left font-bold p-3">Mentor</th>
                     <th className="text-left font-bold p-3">Perfil</th>
                     <th className="text-left font-bold p-3">Carimbos</th>
-                    <th className="text-left font-bold p-3">Elo / operação</th>
                     <th className="font-bold p-3"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {mentoradosFiltrados.length === 0 ? (
-                    <tr><td colSpan={6} className="text-center text-sm text-slate-400 font-medium py-8">Nenhum aluno nos filtros atuais.</td></tr>
+                    <tr><td colSpan={5} className="text-center text-sm text-slate-400 font-medium py-8">Nenhum aluno nos filtros atuais.</td></tr>
                   ) : mentoradosFiltrados.map(({ a, d }) => {
-                    const eo = eloOperacao(d, ciclo);
                     return (
                       <tr key={(a.idAluno || '') + a.nome} className="border-b border-slate-50 hover:bg-slate-50">
                         <td className="p-3">
@@ -1180,10 +1154,6 @@ export default function PainelLider() {
                         <td className="p-3 text-slate-500 truncate max-w-[120px]">{a.mentorNome || a.mentor || '—'}</td>
                         <td className="p-3"><CarimboBadge nivel={d.perfil} /></td>
                         <td className="p-3"><CarimboDimensional d={d} /></td>
-                        <td className="p-3">
-                          <p className="text-[12px] font-semibold text-slate-600">{eo.rotulo}</p>
-                          {eo.operacao && <p className="text-[10px] text-slate-400">{eo.operacao}</p>}
-                        </td>
                         <td className="p-3 text-right">
                           <div className="flex items-center justify-end gap-3">
                             <button onClick={() => setAlunoDiag({ a, d })} className="text-[11px] font-semibold text-intento-azul hover:underline">abrir</button>
@@ -1300,7 +1270,6 @@ export default function PainelLider() {
           </div>
         )}
 
-        </>)}
       </div>
     </div>
   );
