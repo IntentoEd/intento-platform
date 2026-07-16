@@ -32,6 +32,8 @@
 -- · PROGRESSO por matéria= média simples das disciplinas da matéria (em geral 1).
 -- · PROGRESSO total      = MÉDIA SIMPLES das matérias (cada matéria pesa igual).
 -- · HORAS                = SUM(app.atividade.duration)/3600 na semana.
+-- · DIAS DE ESTUDO       = COUNT(DISTINCT dia) com atividade na semana, fuso
+--                          America/Sao_Paulo (insumo de Presença — Fases e Ciclos).
 -- · CHECK-IN             = AVG(app.checkin.*) na semana.
 -- · REVISÕES ATRASADAS   = replica activity_service.dueReviews (app.topico.reviews).
 --
@@ -159,6 +161,16 @@ semana_horas AS (
   WHERE DATE(TIMESTAMP_SECONDS(date)) BETWEEN semana_inicio AND semana_fim
   GROUP BY usuarioId
 ),
+-- PRESENÇA — dias distintos com atividade na semana, no fuso do aluno
+-- (America/Sao_Paulo): sessão às 22h BRT não pode contar como o dia seguinte
+-- em UTC. Insumo do critério de semana válida (Fases e Ciclos).
+semana_dias AS (
+  SELECT REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
+    COUNT(DISTINCT DATE(TIMESTAMP_SECONDS(date), 'America/Sao_Paulo')) AS dias_estudo
+  FROM `intento-edu.app.atividade`
+  WHERE DATE(TIMESTAMP_SECONDS(date), 'America/Sao_Paulo') BETWEEN semana_inicio AND semana_fim
+  GROUP BY usuarioId
+),
 -- CHECK-IN direto do raw (app.checkin). A tratada enviesava a média.
 -- Os valores são doubles na escala {0.0, 0.2, ..., 1.0}. Quando o aluno marca
 -- um EXTREMO (0.0 ou 1.0) o número trafega como inteiro e o Firestore grava no
@@ -210,12 +222,14 @@ SELECT a.email,
   ROUND(MAX(IF(m.materia='MAT', m.prog, NULL)), 2) AS prog_MAT,
   ROUND(AVG(m.prog), 2) AS prog_TOTAL,
   COALESCE(sh.horas, 0) AS horas,
+  COALESCE(sd.dias_estudo, 0) AS dias_estudo,
   sc.estresse, sc.ansiedade, sc.motivacao, sc.sono,
   COALESCE(ra.revisoes_atrasadas, 0) AS revisoes_atrasadas
 FROM alunos a
 LEFT JOIN metrica m ON m.usuarioId = a.uid
 LEFT JOIN semana_horas sh ON sh.usuarioId = a.uid
+LEFT JOIN semana_dias sd ON sd.usuarioId = a.uid
 LEFT JOIN semana_checkin sc ON sc.usuarioId = a.uid
 LEFT JOIN rev_atrasadas ra ON ra.usuarioId = a.uid
-GROUP BY a.email, sh.horas, sc.estresse, sc.ansiedade, sc.motivacao, sc.sono, ra.revisoes_atrasadas
+GROUP BY a.email, sh.horas, sd.dias_estudo, sc.estresse, sc.ansiedade, sc.motivacao, sc.sono, ra.revisoes_atrasadas
 ORDER BY a.email

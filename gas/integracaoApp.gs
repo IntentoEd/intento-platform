@@ -185,7 +185,7 @@ function smokeIntegracaoApp() {
   emails.forEach(function (em) {
     var r = registros[em];
     Logger.log('  ' + em +
-      ' | horas=' + r.horas +
+      ' | horas=' + r.horas + ' diasEstudo=' + r.dias_estudo +
       ' | domTotal=' + r.dom_TOTAL + ' progTotal=' + r.prog_TOTAL +
       ' | domBIO=' + r.dom_BIO + ' progBIO=' + r.prog_BIO +
       ' | estresse=' + r.estresse + ' sono=' + r.sono);
@@ -322,6 +322,17 @@ var _SQL_REGISTRO_APP = [
   '  WHERE DATE(TIMESTAMP_SECONDS(date)) BETWEEN @semana_inicio AND @semana_fim',
   '  GROUP BY usuarioId',
   '),',
+  // PRESENÇA — dias distintos com atividade na semana, no fuso do aluno
+  // (America/Sao_Paulo): sessão às 22h BRT não pode contar como o dia seguinte
+  // em UTC. Insumo do critério de semana válida (Fases e Ciclos).
+  'semana_dias AS (',
+  '  SELECT',
+  '    REGEXP_EXTRACT(__key__.path, r\'"u",\\s*"([^"]+)"\') AS usuarioId,',
+  '    COUNT(DISTINCT DATE(TIMESTAMP_SECONDS(date), \'America/Sao_Paulo\')) AS dias_estudo',
+  '  FROM `intento-edu.app.atividade`',
+  '  WHERE DATE(TIMESTAMP_SECONDS(date), \'America/Sao_Paulo\') BETWEEN @semana_inicio AND @semana_fim',
+  '  GROUP BY usuarioId',
+  '),',
   // CHECK-IN — direto do raw (app.checkin). A tabela analise.atividadesSemanais
   // replica o check-in por linha de disciplina, gerando médias enviesadas (e
   // pra alunos com disciplinas faltando na tabela, perde check-ins inteiros).
@@ -381,14 +392,16 @@ var _SQL_REGISTRO_APP = [
   '  ROUND(MAX(IF(m.materia=\'MAT\', m.prog, NULL)), 2) AS prog_MAT,',
   '  ROUND(AVG(m.prog), 2) AS prog_TOTAL,',
   '  COALESCE(sh.horas, 0) AS horas,',
+  '  COALESCE(sd.dias_estudo, 0) AS dias_estudo,',
   '  sc.estresse, sc.ansiedade, sc.motivacao, sc.sono,',
   '  COALESCE(ra.revisoes_atrasadas, 0) AS revisoes_atrasadas',
   'FROM alunos a',
   'LEFT JOIN metrica m ON m.usuarioId = a.uid',
   'LEFT JOIN semana_horas sh ON sh.usuarioId = a.uid',
+  'LEFT JOIN semana_dias sd ON sd.usuarioId = a.uid',
   'LEFT JOIN semana_checkin sc ON sc.usuarioId = a.uid',
   'LEFT JOIN rev_atrasadas ra ON ra.usuarioId = a.uid',
-  'GROUP BY a.email, sh.horas, sc.estresse, sc.ansiedade, sc.motivacao, sc.sono, ra.revisoes_atrasadas',
+  'GROUP BY a.email, sh.horas, sd.dias_estudo, sc.estresse, sc.ansiedade, sc.motivacao, sc.sono, ra.revisoes_atrasadas',
   'ORDER BY a.email',
 ].join('\n');
 
@@ -427,50 +440,63 @@ function _mesPorExtenso(isoDate) {
   return _MESES_PT[mm - 1] || '';
 }
 
-// Soma slots da Semana Padrão do aluno cuja categoria conta como hora de
-// estudo (Codificação + Revisão + Simulado). Cada slot = 1 hora.
+// Lê a Semana Padrão do aluno e devolve { horas, dias }:
+//   horas = meta semanal — slots de Codificação+Revisão+Simulado (1 slot = 1h),
+//           ou a meta MANUAL do mentor (linha 19, col B) quando definida.
+//   dias  = dias planejados — colunas da grade com ≥1 slot dessas categorias.
+//           A meta manual NÃO altera os dias (só a grade define presença).
 // Categoria é extraída do formato '[Categoria] descrição' em cada célula.
-// Retorna 0 se a aba não existe ou der erro (não-bloqueante).
+// Retorna { horas: 0, dias: 0 } se a aba não existe ou der erro (não-bloqueante).
 var _CATEGORIAS_META_HORAS = ['Codificação', 'Revisão', 'Simulado'];
 
-function _calcularMetaHorasDaSemanaPadrao(idPlanilha) {
+function _calcularMetaEDiasDaSemanaPadrao(idPlanilha) {
   try {
     var aba = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.SEMANA);
-    if (!aba) return 0;
-    // Meta MANUAL definida pelo mentor (linha 19, col B) tem prioridade.
-    // Espelha onde handleSalvarSemanaLote grava. '' = deriva da grade (legado).
-    var manual = aba.getRange(19, 2).getValue();
-    if (manual !== '' && manual !== null && !isNaN(parseFloat(manual))) {
-      return parseFloat(manual);
-    }
+    if (!aba) return { horas: 0, dias: 0 };
     var matriz = aba.getRange(2, 2, 16, 7).getValues(); // 16 horários × 7 dias
     var horas = 0;
+    var diaComSlot = [false, false, false, false, false, false, false];
     for (var l = 0; l < matriz.length; l++) {
       for (var c = 0; c < matriz[l].length; c++) {
         var celula = String(matriz[l][c] || '').trim();
         if (!celula) continue;
         var m = celula.match(/\[(.*?)\]/);
         var categoria = m ? m[1].trim() : '';
-        if (_CATEGORIAS_META_HORAS.indexOf(categoria) !== -1) horas++;
+        if (_CATEGORIAS_META_HORAS.indexOf(categoria) !== -1) { horas++; diaComSlot[c] = true; }
       }
     }
-    return horas;
+    var dias = diaComSlot.filter(function (d) { return d; }).length;
+    // Meta MANUAL definida pelo mentor (linha 19, col B) tem prioridade sobre
+    // a derivada da grade. Espelha onde handleSalvarSemanaLote grava.
+    var manual = aba.getRange(19, 2).getValue();
+    if (manual !== '' && manual !== null && !isNaN(parseFloat(manual))) {
+      horas = parseFloat(manual);
+    }
+    return { horas: horas, dias: dias };
   } catch (e) {
-    Logger.log('_calcularMetaHorasDaSemanaPadrao falhou pra ' + idPlanilha + ': ' + e.message);
-    return 0;
+    Logger.log('_calcularMetaEDiasDaSemanaPadrao falhou pra ' + idPlanilha + ': ' + e.message);
+    return { horas: 0, dias: 0 };
   }
 }
 
-// Garante que a aba BD_Registro tem a coluna origem_registro (col 21).
+// Garante que a aba BD_Registro tem as colunas extras (origem_registro,
+// dias_estudo, dias_planejados) até COL_REG_TOTAL, com headers.
 // Defensivo: chamado antes de toda escrita, então o código não depende
 // da migração one-shot ter rodado nem da ordem de deploy.
 function _garantirColunaOrigem(abaDB) {
   if (abaDB.getMaxColumns() < COL_REG_TOTAL) {
     abaDB.insertColumnsAfter(abaDB.getMaxColumns(), COL_REG_TOTAL - abaDB.getMaxColumns());
   }
-  if (!txt(abaDB.getRange(1, COL_REG.ORIGEM + 1).getValue())) {
-    abaDB.getRange(1, COL_REG.ORIGEM + 1).setValue('origem_registro');
-  }
+  var headers = [
+    [COL_REG.ORIGEM, 'origem_registro'],
+    [COL_REG.DIAS_ESTUDO, 'dias_estudo'],
+    [COL_REG.DIAS_PLANEJADOS, 'dias_planejados'],
+  ];
+  headers.forEach(function (h) {
+    if (!txt(abaDB.getRange(1, h[0] + 1).getValue())) {
+      abaDB.getRange(1, h[0] + 1).setValue(h[1]);
+    }
+  });
 }
 
 // Normaliza "DD/MM/YYYY a DD/MM/YYYY" → timestamp da data de início.
@@ -584,10 +610,12 @@ function cronGerarRegistrosApp(dryRun, semanaStrOverride) {
       // META = soma dos slots Cod+Rev+Sim da Semana Padrão (sugerida; mentor
       // pode ajustar editando o registro). 0 se aba não existe.
       // REVISOES = replica activity_service.dueReviews do app (snapshot).
-      var metaHoras = _calcularMetaHorasDaSemanaPadrao(aluno.idPlanilha);
+      // DIAS_ESTUDO/DIAS_PLANEJADOS = insumos de Presença (Fases e Ciclos);
+      // snapshot no domingo é o corte oficial — backfill posterior não conta.
+      var metaDias = _calcularMetaEDiasDaSemanaPadrao(aluno.idPlanilha);
       var novaLinha = [
         semanaStr, mesExt, dataRegistro,
-        metaHoras || '',              // META — calculada da Semana Padrão
+        metaDias.horas || '',         // META — calculada da Semana Padrão
         num(r.horas),
         num(r.dom_TOTAL), num(r.prog_TOTAL),
         num(r.revisoes_atrasadas),    // REVISOES — snapshot do app (atrasadas pendentes)
@@ -597,6 +625,8 @@ function cronGerarRegistrosApp(dryRun, semanaStrOverride) {
         num(r.dom_FIS), num(r.prog_FIS),
         num(r.dom_MAT), num(r.prog_MAT),
         ORIGEM_REG.AUTO,
+        num(r.dias_estudo),           // dias com atividade no app (fuso SP)
+        metaDias.dias,                // dias planejados na Semana Padrão (0 = grade vazia → não-mensurável)
       ];
 
       if (ehDryRun) {
