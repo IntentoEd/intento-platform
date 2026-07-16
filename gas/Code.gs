@@ -161,9 +161,14 @@ const COL_REG = {
   DOM_FIS: 16, PROG_FIS: 17, DOM_MAT: 18, PROG_MAT: 19,
   // Origem da linha: 'auto' (cron do app), 'manual' (mentor digitou),
   // 'revisado' (mentor conferiu/editou um registro auto). Vazio = legado manual.
-  ORIGEM: 20
+  ORIGEM: 20,
+  // Presença (Fases e Ciclos): dias distintos com atividade no app na semana
+  // (fuso America/Sao_Paulo) e dias planejados na Semana Padrão vigente no
+  // snapshot do cron. Vazio = semana anterior ao deploy (não-mensurável).
+  DIAS_ESTUDO: 21,
+  DIAS_PLANEJADOS: 22
 };
-const COL_REG_TOTAL = 21;
+const COL_REG_TOTAL = 23;
 
 // Valores de COL_REG.ORIGEM
 const ORIGEM_REG = {
@@ -1218,7 +1223,7 @@ function handleSalvarSemanaLote(dados) {
 
     // Meta de horas semanal MANUAL (definida pelo mentor). Guardada fora da
     // grade (linha 19) pra não colidir com o range 2..17 lido/escrito acima.
-    // Tem prioridade sobre a contagem de slots em _calcularMetaHorasDaSemanaPadrao.
+    // Tem prioridade sobre a contagem de slots em _calcularMetaEDiasDaSemanaPadrao.
     // '' / ausente = mantém o comportamento legado (deriva da grade).
     if (dados.metaHoras !== undefined) {
       const metaVal = (dados.metaHoras === '' || dados.metaHoras === null) ? '' : (parseFloat(dados.metaHoras) || 0);
@@ -2383,10 +2388,20 @@ function agregarMetricasBase_(alunos) {
           historicoPorSemana[lbl].horas += horasReg;
           historicoPorSemana[lbl].meta  += metaReg;
           historicoPorSemana[lbl].count++;
-          if (!alunoHist[lbl]) alunoHist[lbl] = { horas: 0, meta: 0, count: 0 };
+          if (!alunoHist[lbl]) alunoHist[lbl] = { horas: 0, meta: 0, count: 0, dias: null, diasPlan: null };
           alunoHist[lbl].horas += horasReg;
           alunoHist[lbl].meta  += metaReg;
           alunoHist[lbl].count++;
+          // Presença: vazio = semana pré-deploy (não-mensurável); linha dupla
+          // na mesma semana (raro) fica com o maior valor, nunca soma.
+          var diasReg  = ultimos[u][COL_REG.DIAS_ESTUDO];
+          var diasPlanReg = ultimos[u][COL_REG.DIAS_PLANEJADOS];
+          if (diasReg !== '' && diasReg != null && !isNaN(parseFloat(diasReg))) {
+            alunoHist[lbl].dias = Math.max(alunoHist[lbl].dias || 0, parseFloat(diasReg));
+          }
+          if (diasPlanReg !== '' && diasPlanReg != null && !isNaN(parseFloat(diasPlanReg))) {
+            alunoHist[lbl].diasPlan = Math.max(alunoHist[lbl].diasPlan || 0, parseFloat(diasPlanReg));
+          }
         }
 
         for (var w = 0; w < ultimas4.length; w++) {

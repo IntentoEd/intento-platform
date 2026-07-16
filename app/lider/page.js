@@ -220,6 +220,54 @@ function BarraSegmentos({ dist, total, altura = 'h-2.5' }) {
 // Tons de avatar — ciclam pelas 3 famílias da marca pra dar variedade visual
 const AVATAR_TINTS = ['veterano', 'mestre', 'aprendiz'];
 
+// ── Comportamento por semanas válidas (janela móvel de 4 semanas mensuráveis) ──
+// Substitui a leitura "última semana vs meta": dia e semana isolados não movem
+// carimbo; o que carimba é o padrão de semanas na janela (construto de robustez).
+//   Semana MENSURÁVEL: ≥3 dias planejados na Semana Padrão e meta > 0. Semana
+//   reduzida planejada (viagem/recesso), grade vazia ou pré-deploy da coluna
+//   `dias` fica fora — a janela estende para trás (horizonte máx. 8 semanas).
+//   Sem 4 mensuráveis no horizonte → "em formação" (sem dado suficiente).
+//   PRESENÇA: semana válida = no máx. 1 dia planejado sem registro (absoluto).
+//   APROVEITAMENTO: % = horas/meta vigente NAQUELA semana; válida-V ≥70, válida-M ≥85.
+//   ABSORÇÃO (máx. 1/janela): rompida imediatamente seguida de válida = disrupção
+//   absorvida (miss com retorno não pune — só vale p/ promoção a Mestre). Rompida
+//   na ponta recente NÃO absorve: o retorno ainda não aconteceu. Duas rompidas
+//   consecutivas = padrão de abandono, contam integralmente.
+//   OVERSTUDYING: 2 semanas consecutivas >105% → alerta clínico + trava Mestre.
+const HORIZONTE_SEMANAS = 8;
+const JANELA_COMPORTAMENTO = 4;
+const tsLabelSemana = (l) => { const p = String(l).split(' a ')[0].split('/'); return new Date(+p[2], +p[1] - 1, +p[0]).getTime() || 0; };
+
+function janelaMensuravel(hist) {
+  if (!hist) return { semanas: null, mensuraveis: 0 };
+  const labels = Object.keys(hist).sort((x, y) => tsLabelSemana(x) - tsLabelSemana(y)).slice(-HORIZONTE_SEMANAS);
+  const mensuraveis = labels.map(l => hist[l]).filter(s => s && s.diasPlan != null && s.diasPlan >= 3 && s.meta > 0);
+  return {
+    semanas: mensuraveis.length >= JANELA_COMPORTAMENTO ? mensuraveis.slice(-JANELA_COMPORTAMENTO) : null,
+    mensuraveis: mensuraveis.length,
+  };
+}
+
+// validas: booleans da mais antiga → mais recente. Todas válidas → Mestre;
+// 1 rompida absorvida (não é a mais recente ⇒ a próxima mensurável é válida)
+// → Mestre; 1 rompida na ponta recente → Veterano; 2+ rompidas → Aprendiz.
+function carimboPorSemanasValidas(validas) {
+  const v = validas.filter(Boolean).length;
+  if (v === validas.length) return 'mestre';
+  if (v === validas.length - 1) return validas[validas.length - 1] ? 'mestre' : 'veterano';
+  return 'aprendiz';
+}
+
+function carimboAproveitamento(pcts) {
+  // Semana >105% é válida pro carimbo, mas 2 consecutivas ativam o alerta
+  // clínico transversal e travam a promoção a Mestre (veto do cap. 6
+  // reoperacionalizado como gatilho automático).
+  const overstudying = pcts.some((p, i) => i > 0 && p > 105 && pcts[i - 1] > 105);
+  const podeMestre = !overstudying && carimboPorSemanasValidas(pcts.map(p => p >= 85)) === 'mestre';
+  const nivel = podeMestre ? 'mestre' : (pcts.filter(p => p >= 70).length >= 3 ? 'veterano' : 'aprendiz');
+  return { nivel, overstudying };
+}
+
 function diagnosticoDimensional(a) {
   const mx = a.metricas || {}, m = mx.materias || {};
   const domVals = mediasPorDisc(m, 'dom');
@@ -229,19 +277,32 @@ function diagnosticoDimensional(a) {
   const cobMed = mediaArr(mediasPorDisc(m, 'prog')); // 100% = edital canônico → média = % do edital visto
   const cobertura = carimboPorFaixa(cobMed, 30, 70);
   const u = ultimaSemanaHist(mx.historico);
-  const aprov = (u && u.meta > 0) ? Math.round((u.horas / u.meta) * 100) : null;
-  const comportamento = carimboPorFaixa(aprov, 70, 95);
-  const overstudying = aprov != null && aprov > 105;
+  const aprov = (u && u.meta > 0) ? Math.round((u.horas / u.meta) * 100) : null; // exibição: última semana
+  const jan = janelaMensuravel(mx.historico);
+  let comportamento = null, presenca = null, aproveitamento = null, overstudying = false;
+  if (jan.semanas) {
+    presenca = carimboPorSemanasValidas(jan.semanas.map(s => (s.dias || 0) >= s.diasPlan - 1));
+    const ca = carimboAproveitamento(jan.semanas.map(s => (s.horas / s.meta) * 100));
+    aproveitamento = ca.nivel;
+    overstudying = ca.overstudying;
+    comportamento = CARIMBOS[Math.min(ORD_CAR[presenca], ORD_CAR[aproveitamento])]; // elo interno
+  }
+  const compEmFormacao = !comportamento;
   // elo: dimensão menos avançada (prioridade Comportamento > Cobertura > Domínio em empate)
   const dimsOrd = [['comportamento', comportamento], ['cobertura', cobertura], ['dominio', dominio]].filter(([, n]) => n);
   const minO = dimsOrd.length ? Math.min(...dimsOrd.map(([, n]) => ORD_CAR[n])) : null;
   const eloDim = dimsOrd.find(([, n]) => ORD_CAR[n] === minO)?.[0] || null;
   const perfil = minO != null ? CARIMBOS[minO] : null;
   const chk = sinalCheckin(a);
-  // Alerta clínico = só sofrimento no check-in (persistente ou motivação em queda).
-  // Overstudying NÃO é alerta — semana boa acima da meta não pode virar urgência.
-  const alerta = chk?.nivel === 'vermelho';
-  return { comportamento, cobertura, dominio, simulado: null, perfil, eloDim, alerta, overstudying, domMed, cobMed, aprov };
+  // Alerta clínico transversal = sofrimento no check-in (persistente ou motivação
+  // em queda) OU overstudying sustentado (2 semanas consecutivas >105% da meta).
+  const alerta = chk?.nivel === 'vermelho' || overstudying;
+  return {
+    comportamento, presenca, aproveitamento, compEmFormacao,
+    semanasMensuraveis: jan.mensuraveis,
+    cobertura, dominio, simulado: null, perfil, eloDim, alerta, overstudying,
+    domMed, cobMed, aprov,
+  };
 }
 function CarimboBadge({ nivel, sufixo }) {
   if (!nivel) return <span className="text-slate-300 text-xs">—</span>;
@@ -303,7 +364,13 @@ function CarimboDimensional({ d, tamanho = 'md' }) {
 // O ÁTOMO: dashboard dimensional de um aluno (manual: "apresentar o dashboard dimensional")
 function CardDimensional({ a, d, ciclo, onClose }) {
   const linhas = [
-    { key: 'comportamento', val: d.aprov != null ? `${d.aprov}% da meta` : '—', nota: 'sem Presença · Fase 2' },
+    {
+      key: 'comportamento',
+      val: d.compEmFormacao
+        ? `em formação · ${d.semanasMensuraveis}/4 semanas mensuráveis`
+        : `Presença ${CARIMBO_LABEL[d.presenca]} · Aproveit. ${CARIMBO_LABEL[d.aproveitamento]}`,
+      nota: d.aprov != null ? `última semana: ${d.aprov}% da meta` : null,
+    },
     { key: 'cobertura', val: d.cobMed != null ? `${Math.round(d.cobMed)}% do edital` : '—' },
     { key: 'dominio', val: d.domMed != null ? `${Math.round(d.domMed)}% de acerto` : '—' },
   ];
@@ -320,6 +387,7 @@ function CardDimensional({ a, d, ciclo, onClose }) {
         </div>
         <div className="p-6 space-y-3">
           {d.alerta && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs font-semibold text-red-700">🚨 Alerta clínico ativo</div>}
+          {d.overstudying && <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs font-semibold text-amber-700">⚠️ Overstudying — 2+ semanas seguidas acima de 105% da meta (trava Mestre)</div>}
           {linhas.map(l => (
             <div key={l.key} className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-600 w-28 shrink-0">{DIM_LABEL[l.key]}</span>
