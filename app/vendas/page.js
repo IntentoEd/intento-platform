@@ -211,6 +211,7 @@ export default function Vendas() {
   const [filtroVendedor, setFiltroVendedor] = useState('');
   const [filtroOrigem, setFiltroOrigem] = useState('');
   const [busca, setBusca] = useState('');
+  const [filtroReativar, setFiltroReativar] = useState(false);
   const [modalNovo, setModalNovo] = useState(false);
   const [leadAberto, setLeadAberto] = useState(null);
   const [dialogOutcome, setDialogOutcome] = useState(null); // { lead } quando arrastou pra "Reuniao realizada"
@@ -369,6 +370,10 @@ export default function Vendas() {
       if (filtroVendedor && filtroVendedor !== 'sem-vendedor' && filtroVendedor !== 'meus' && l.vendedor !== filtroVendedor)
         return false;
       if (filtroOrigem && l.origem !== filtroOrigem) return false;
+      if (filtroReativar) {
+        const hoje = new Date().toISOString().slice(0, 10);
+        if (l.fase !== 'Não convertido' || !l.reativarEm || l.reativarEm > hoje) return false;
+      }
       if (busca) {
         const q = busca.toLowerCase();
         const matchNome = l.nome?.toLowerCase().includes(q);
@@ -378,7 +383,12 @@ export default function Vendas() {
       }
       return true;
     });
-  }, [leads, filtroVendedor, filtroOrigem, busca, email]);
+  }, [leads, filtroVendedor, filtroOrigem, busca, filtroReativar, email]);
+
+  const qtdReativarHoje = useMemo(() => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    return leads.filter((l) => l.fase === 'Não convertido' && l.reativarEm && l.reativarEm <= hoje).length;
+  }, [leads]);
 
   const porFase = useMemo(() => {
     const acc = {};
@@ -497,8 +507,21 @@ export default function Vendas() {
             </select>
           )}
           <span className="text-xs text-slate-500 ml-auto">
-            {leadsFiltrados.length} de {leads.length} leads
-          </span>
+            {leadsFiltrados.length} de {leads.length} 
+          {qtdReativarHoje > 0 && (
+            <button
+              onClick={() => setFiltroReativar((v) => !v)}
+              className={`px-3 py-1.5 text-sm font-semibold rounded-md border transition `${
+                filtroReativar
+                  ? 'bg-amber-500 text-white border-amber-500'
+                  : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+              }`}
+            >
+              ↺ Reativar hoje ({qtdReativarHoje})
+            </button>
+          )}
+          <span className="text-xs text-slate-500 ml-auto">
+            {leadsFiltrados.length} de {leads.length}
         </div>
       </div>
 
