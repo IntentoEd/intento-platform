@@ -10,7 +10,12 @@ import { Bar, Line } from '@/components/Charts';
 import { LoadingScreen } from '@/components/Loading';
 import { getCache, setCache, tempoRelativo } from '@/lib/cacheClient';
 import PushToggle from '@/components/PushToggle';
-import { corDe, CARIMBO_LABEL } from './carimboCores';
+import { corDe, CARIMBO_LABEL } from '@/lib/carimboCores';
+import {
+  CARIMBOS, ORD_CAR, DIM_LABEL, CICLOS_INFO, cicloIdx,
+  diagnosticoDimensional, sinalCheckin, ultimaSemanaHist,
+} from '@/lib/carimbos';
+import { CarimboBadge, BarraCarimbo, CarimboDimensional } from '@/components/Carimbos';
 
 const EMAILS_LIDER = ['filippe@metodointento.com.br', 'rafael@metodointento.com.br'];
 const cardClass = "bg-white rounded-xl border border-slate-200 p-5 shadow-sm";
@@ -53,15 +58,6 @@ function domingoISO(offset = 0) {
   return d.toISOString().slice(0, 10);
 }
 // Última semana do histórico (mapa { label: {horas, meta, count} }) ordenado por data
-function ultimaSemanaHist(hist) {
-  if (!hist) return null;
-  const labels = Object.keys(hist).sort((x, y) => {
-    const pl = (l) => { const p = String(l).split(' a ')[0].split('/'); return new Date(+p[2], +p[1] - 1, +p[0]).getTime() || 0; };
-    return pl(x) - pl(y);
-  });
-  const ult = labels[labels.length - 1];
-  return ult ? hist[ult] : null;
-}
 
 // ── sinais individuais (retornam {nivel, motivo} ou null=neutro) ──
 function sinalEncontros(a) {
@@ -80,19 +76,6 @@ function sinalAcomp(a) {
   if (ult && String(ult) >= domingoISO(0)) return { nivel: 'verde' };
   if (!ult || String(ult) < domingoISO(2)) return { nivel: 'vermelho', motivo: 'acompanhamento pendente 2+ sem' };
   return { nivel: 'amarelo', motivo: 'acompanhamento não enviado esta semana' };
-}
-function sinalCheckin(a) {
-  const hist = a.metricas?.checkin4w;
-  if (!Array.isArray(hist) || hist.length === 0) return null; // pré-deploy → neutro
-  const ruins = hist.filter(w => (w.est != null && w.est <= 40) || (w.mot != null && w.mot <= 40)).length;
-  if (ruins >= 2) return { nivel: 'vermelho', motivo: 'estresse/motivação ≤40 em 2+ semanas' };
-  const mots = hist.map(w => w.mot).filter(v => v != null);
-  if (mots.length >= 2) {
-    const pico = Math.max(...mots), ult = mots[mots.length - 1];
-    if (pico >= 60 && ult <= pico * 0.6) return { nivel: 'vermelho', motivo: 'motivação despencou' };
-  }
-  if (ruins === 1) return { nivel: 'amarelo', motivo: 'estresse/motivação ≤40 em 1 semana' };
-  return { nivel: 'verde' };
 }
 function sinalEngajamento(a) {
   if (naoUsaApp(a)) return null; // engajamento só se aplica a quem usa o app
@@ -141,45 +124,10 @@ const FAIXAS_HORAS = [
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Diagnóstico Fases e Ciclos (camada-SOMBRA, só líder · ?diagnostico=1)
-// Carimbos dimensionais do Método Intento computados do payload do dashboardLider.
-// INVISÍVEL aos mentores (rollout de vocabulário planejado pro 2º semestre).
-//   Domínio   = acerto por matéria (metricas.materias.dom*) — faixas <70/70-80/>80
-//   Cobertura = progresso VALIDADO pelo mentor (metricas.materias.prog*) — 0-30/30-70/70-100
-//   Comportamento = só Aproveitamento (horas/meta); Presença vem na Fase 2 (BigQuery do app)
-//   Simulado  = Fase 2 (aba de simulados da planilha do aluno)
-//   Perfil agregado = elo mais fraco entre as dimensões já computáveis (preliminar)
+// Diagnóstico Fases e Ciclos (camada ?diagnostico=1)
+// Motor, faixas e janelas moram em lib/carimbos.js (fonte única, compartilhada
+// com o /mentor) — aqui só a lente operacional do líder (fila, distribuições).
 // ─────────────────────────────────────────────────────────────────────────────
-const DISC_DIAG = ['Bio', 'Qui', 'Fis', 'Mat'];
-function mediasPorDisc(materias, base) { // base: 'dom' | 'prog'
-  const cap = base.charAt(0).toUpperCase() + base.slice(1);
-  const out = [];
-  DISC_DIAG.forEach(d => {
-    const soma = materias?.[base + d], cont = materias?.['c' + cap + d];
-    if (cont > 0) out.push(soma / cont);
-  });
-  return out;
-}
-const mediaArr = (arr) => arr.length ? arr.reduce((s, n) => s + n, 0) / arr.length : null;
-const CARIMBOS = ['aprendiz', 'veterano', 'mestre'];
-const ORD_CAR = { aprendiz: 0, veterano: 1, mestre: 2 };
-function carimboPorFaixa(v, limVet, limMes) {
-  if (v == null) return null;
-  if (v < limVet) return 'aprendiz';
-  if (v < limMes) return 'veterano';
-  return 'mestre';
-}
-// Ciclos do manual (ancorado no ENEM) + leitura clínica e piso de Cobertura
-// abaixo do qual o aluno está "fora da trajetória" daquele Ciclo (aluno integral típico).
-const CICLOS_INFO = [
-  { id: 'C1', nome: 'Fundação', leitura: 'Instalação de rotina e método — Cobertura baixa é normal.', cobMin: 0 },
-  { id: 'C2', nome: 'Aprofundamento', leitura: 'Operação plena — Cobertura deve passar de ~20%.', cobMin: 20 },
-  { id: 'C3', nome: 'Lapidação', leitura: 'Pico + simulados — Cobertura <50% vira alerta.', cobMin: 50 },
-  { id: 'C4', nome: 'Refinamento', leitura: 'Preservação e prova — Cobertura <80% vira alerta.', cobMin: 80 },
-];
-function cicloIdx() { const m = new Date().getMonth(); return m <= 2 ? 0 : m <= 5 ? 1 : m <= 8 ? 2 : 3; }
-
-const DIM_LABEL = { comportamento: 'Comportamento', cobertura: 'Cobertura', dominio: 'Domínio', simulado: 'Simulado' };
 
 // Avatar de iniciais (até 2 palavras)
 const iniciais = (nome) => String(nome || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
@@ -220,107 +168,6 @@ function BarraSegmentos({ dist, total, altura = 'h-2.5' }) {
 // Tons de avatar — ciclam pelas 3 famílias da marca pra dar variedade visual
 const AVATAR_TINTS = ['veterano', 'mestre', 'aprendiz'];
 
-// ── Comportamento por semanas válidas (janela móvel de 4 semanas mensuráveis) ──
-// Substitui a leitura "última semana vs meta": dia e semana isolados não movem
-// carimbo; o que carimba é o padrão de semanas na janela (construto de robustez).
-//   Semana MENSURÁVEL: ≥3 dias planejados na Semana Padrão e meta > 0. Semana
-//   reduzida planejada (viagem/recesso), grade vazia ou pré-deploy da coluna
-//   `dias` fica fora — a janela estende para trás (horizonte máx. 8 semanas).
-//   Sem 4 mensuráveis no horizonte → "em formação" (sem dado suficiente).
-//   PRESENÇA: semana válida = no máx. 1 dia planejado sem registro (absoluto).
-//   APROVEITAMENTO: % = horas/meta vigente NAQUELA semana; válida-V ≥70, válida-M ≥85.
-//   ABSORÇÃO (máx. 1/janela): rompida imediatamente seguida de válida = disrupção
-//   absorvida (miss com retorno não pune — só vale p/ promoção a Mestre). Rompida
-//   na ponta recente NÃO absorve: o retorno ainda não aconteceu. Duas rompidas
-//   consecutivas = padrão de abandono, contam integralmente.
-//   OVERSTUDYING: 2 semanas consecutivas >105% → alerta clínico + trava Mestre.
-const HORIZONTE_SEMANAS = 8;
-const JANELA_COMPORTAMENTO = 4;
-const tsLabelSemana = (l) => { const p = String(l).split(' a ')[0].split('/'); return new Date(+p[2], +p[1] - 1, +p[0]).getTime() || 0; };
-
-function janelaMensuravel(hist) {
-  if (!hist) return { semanas: null, mensuraveis: 0 };
-  const labels = Object.keys(hist).sort((x, y) => tsLabelSemana(x) - tsLabelSemana(y)).slice(-HORIZONTE_SEMANAS);
-  const mensuraveis = labels.map(l => hist[l]).filter(s => s && s.diasPlan != null && s.diasPlan >= 3 && s.meta > 0);
-  return {
-    semanas: mensuraveis.length >= JANELA_COMPORTAMENTO ? mensuraveis.slice(-JANELA_COMPORTAMENTO) : null,
-    mensuraveis: mensuraveis.length,
-  };
-}
-
-// validas: booleans da mais antiga → mais recente. Todas válidas → Mestre;
-// 1 rompida absorvida (não é a mais recente ⇒ a próxima mensurável é válida)
-// → Mestre; 1 rompida na ponta recente → Veterano; 2+ rompidas → Aprendiz.
-function carimboPorSemanasValidas(validas) {
-  const v = validas.filter(Boolean).length;
-  if (v === validas.length) return 'mestre';
-  if (v === validas.length - 1) return validas[validas.length - 1] ? 'mestre' : 'veterano';
-  return 'aprendiz';
-}
-
-function carimboAproveitamento(pcts) {
-  // Semana >105% é válida pro carimbo, mas 2 consecutivas ativam o alerta
-  // clínico transversal e travam a promoção a Mestre (veto do cap. 6
-  // reoperacionalizado como gatilho automático).
-  const overstudying = pcts.some((p, i) => i > 0 && p > 105 && pcts[i - 1] > 105);
-  const podeMestre = !overstudying && carimboPorSemanasValidas(pcts.map(p => p >= 85)) === 'mestre';
-  const nivel = podeMestre ? 'mestre' : (pcts.filter(p => p >= 70).length >= 3 ? 'veterano' : 'aprendiz');
-  return { nivel, overstudying };
-}
-
-function diagnosticoDimensional(a) {
-  const mx = a.metricas || {}, m = mx.materias || {};
-  const domVals = mediasPorDisc(m, 'dom');
-  const domMed = mediaArr(domVals);
-  let dominio = carimboPorFaixa(domMed, 70, 80);
-  if (dominio === 'mestre' && domVals.some(v => v < 70)) dominio = 'veterano'; // Mestre exige nenhuma matéria <70
-  const cobMed = mediaArr(mediasPorDisc(m, 'prog')); // 100% = edital canônico → média = % do edital visto
-  const cobertura = carimboPorFaixa(cobMed, 30, 70);
-  const u = ultimaSemanaHist(mx.historico);
-  const aprov = (u && u.meta > 0) ? Math.round((u.horas / u.meta) * 100) : null; // exibição: última semana
-  const jan = janelaMensuravel(mx.historico);
-  let comportamento = null, presenca = null, aproveitamento = null, overstudying = false;
-  if (jan.semanas) {
-    presenca = carimboPorSemanasValidas(jan.semanas.map(s => (s.dias || 0) >= s.diasPlan - 1));
-    const ca = carimboAproveitamento(jan.semanas.map(s => (s.horas / s.meta) * 100));
-    aproveitamento = ca.nivel;
-    overstudying = ca.overstudying;
-    comportamento = CARIMBOS[Math.min(ORD_CAR[presenca], ORD_CAR[aproveitamento])]; // elo interno
-  }
-  const compEmFormacao = !comportamento;
-  // elo: dimensão menos avançada (prioridade Comportamento > Cobertura > Domínio em empate)
-  const dimsOrd = [['comportamento', comportamento], ['cobertura', cobertura], ['dominio', dominio]].filter(([, n]) => n);
-  const minO = dimsOrd.length ? Math.min(...dimsOrd.map(([, n]) => ORD_CAR[n])) : null;
-  const eloDim = dimsOrd.find(([, n]) => ORD_CAR[n] === minO)?.[0] || null;
-  const perfil = minO != null ? CARIMBOS[minO] : null;
-  const chk = sinalCheckin(a);
-  // Alerta clínico transversal = sofrimento no check-in (persistente ou motivação
-  // em queda) OU overstudying sustentado (2 semanas consecutivas >105% da meta).
-  const alerta = chk?.nivel === 'vermelho' || overstudying;
-  return {
-    comportamento, presenca, aproveitamento, compEmFormacao,
-    semanasMensuraveis: jan.mensuraveis,
-    cobertura, dominio, simulado: null, perfil, eloDim, alerta, overstudying,
-    domMed, cobMed, aprov,
-  };
-}
-function CarimboBadge({ nivel, sufixo }) {
-  if (!nivel) return <span className="text-slate-300 text-xs">—</span>;
-  const c = corDe(nivel);
-  return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: c.bg, color: c.texto }}>{CARIMBO_LABEL[nivel]}{sufixo || ''}</span>;
-}
-// Barra de 3 segmentos Apr|Vet|Mes com o nível atual destacado
-function BarraCarimbo({ nivel }) {
-  const segs = [['aprendiz', 'Apr'], ['veterano', 'Vet'], ['mestre', 'Mes']];
-  return (
-    <span className="inline-flex rounded-md overflow-hidden border border-slate-200 shrink-0">
-      {segs.map(([s, txt]) => {
-        const on = s === nivel;
-        return <span key={s} className="text-[9px] font-bold px-2.5 py-0.5" style={on ? { backgroundColor: corDe(s).solido, color: '#fff' } : { backgroundColor: '#F8FAFC', color: '#CBD5E1' }}>{txt}</span>;
-      })}
-    </span>
-  );
-}
 // Barra empilhada de distribuição (heatmap dimensional): Aprendiz/Veterano/Mestre
 function DistribDim({ label, dist, total }) {
   const seg = (n, nivel) => n > 0 ? <span className="h-full" style={{ width: `${(n / total) * 100}%`, backgroundColor: corDe(nivel).solido }} /> : null;
@@ -332,33 +179,6 @@ function DistribDim({ label, dist, total }) {
       </span>
       <span className="text-[10px] text-slate-400 tabular-nums w-14 text-right">{dist.aprendiz}/{dist.veterano}/{dist.mestre}</span>
     </div>
-  );
-}
-// Os 4 selos dimensionais de um aluno lado a lado: Comportamento · Cobertura · Domínio · Simulado.
-// Simulado === null (termômetro inativo até o aluno virar Veterano agregado) → selo cinza
-// dessaturado com aria-label "Simulado inativo" — nunca colorido, nunca vazio, nunca inventado.
-function CarimboDimensional({ d, tamanho = 'md' }) {
-  const DIMS = [
-    { key: 'comportamento', curto: 'Com', nome: 'Comportamento' },
-    { key: 'cobertura', curto: 'Cob', nome: 'Cobertura' },
-    { key: 'dominio', curto: 'Dom', nome: 'Domínio' },
-    { key: 'simulado', curto: 'Sim', nome: 'Simulado' },
-  ];
-  const cls = tamanho === 'sm' ? 'text-[8px] px-1.5 py-0.5' : 'text-[9px] px-2 py-0.5';
-  return (
-    <span className="inline-flex gap-1">
-      {DIMS.map(({ key, curto, nome }) => {
-        const nivel = d?.[key];
-        const inativo = key === 'simulado' && d?.simulado === null;
-        const c = corDe(nivel); // null/ausente → cinza neutro
-        const aria = inativo ? 'Simulado inativo' : nivel ? `${nome}: ${CARIMBO_LABEL[nivel]}` : `${nome} sem dado`;
-        return (
-          <span key={key} aria-label={aria} title={aria}
-            className={`font-bold rounded ${cls} ${inativo ? 'opacity-70' : ''}`}
-            style={{ backgroundColor: c.bg, color: c.texto }}>{curto}</span>
-        );
-      })}
-    </span>
   );
 }
 // O ÁTOMO: dashboard dimensional de um aluno (manual: "apresentar o dashboard dimensional")
