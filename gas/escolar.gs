@@ -102,7 +102,12 @@ function _enriquecerComProximaProva(alunos) {
     var idA = txt(matriz[i][COL_AV.ID_ALUNO]);
     if (ids.indexOf(idA) === -1) continue;
     var d = matriz[i][COL_AV.DATA] instanceof Date ? matriz[i][COL_AV.DATA] : new Date(matriz[i][COL_AV.DATA]);
-    if (isNaN(d.getTime()) || d < hoje) continue;
+    if (isNaN(d.getTime())) continue;
+    // Truncar à meia-noite local: as datas são gravadas ao meio-dia (front),
+    // e comparar timestamp cheio contra `hoje` truncado + Math.ceil fazia a
+    // prova de HOJE contar como dias=1 ("amanhã") na lista /mentor.
+    d = new Date(d); d.setHours(0, 0, 0, 0);
+    if (d < hoje) continue;
     if (!proxima[idA] || d < proxima[idA].data) {
       proxima[idA] = { data: d, materia: txt(matriz[i][COL_AV.MATERIA]) };
     }
@@ -111,7 +116,9 @@ function _enriquecerComProximaProva(alunos) {
   alunos.forEach(function(a) {
     var p = proxima[a.id];
     if (p) {
-      var dias = Math.ceil((p.data - hoje) / (1000 * 60 * 60 * 24));
+      // Math.round (não ceil): com ambos à meia-noite a diferença é múltiplo
+      // de 24h, exceto em virada de horário de verão (23h/25h).
+      var dias = Math.round((p.data - hoje) / (1000 * 60 * 60 * 24));
       a.proximaProva = { data: p.data.toISOString(), materia: p.materia, dias: dias };
     }
   });
@@ -189,6 +196,10 @@ function handleCadastrarAvaliacoes(dados) {
       var startRow = aba.getLastRow() + 1;
       aba.getRange(startRow, 1, rows.length, 11).setValues(rows);
     } finally {
+      // flush antes de soltar o lock: setValues é bufferizado e só commitaria
+      // no fim da execução — depois do release, abrindo janela pra outra
+      // request ler/mutar a planilha sem ver esta escrita.
+      SpreadsheetApp.flush();
       lock.releaseLock();
     }
 
@@ -358,6 +369,9 @@ function handleAtualizarAvaliacao(dados) {
     Logger.log('handleAtualizarAvaliacao EXCEPTION: ' + e.message);
     return responderJSON({ status: 'erro', mensagem: e.message });
   } finally {
+    // flush antes de soltar o lock — escrita bufferizada tem que commitar
+    // enquanto ainda somos os donos do lock (no-op se nada foi escrito).
+    SpreadsheetApp.flush();
     lock.releaseLock();
   }
 }
@@ -399,6 +413,9 @@ function handleDeletarAvaliacao(dados) {
     Logger.log('handleDeletarAvaliacao EXCEPTION: ' + e.message);
     return responderJSON({ status: 'erro', mensagem: e.message });
   } finally {
+    // flush antes de soltar o lock — deleteRow bufferizado commita ainda
+    // sob o lock, senão outra request pode ler índices desatualizados.
+    SpreadsheetApp.flush();
     lock.releaseLock();
   }
 }
@@ -456,6 +473,17 @@ function migrarBDAvaliacoesFacSimile() {
     Logger.log('Aba ' + ABA.AVALIACOES + ': ' + adicionados + ' header(s) adicionado(s) ao final');
   } else {
     Logger.log('Aba ' + ABA.AVALIACOES + ' já existe com headers corretos.');
+  }
+
+  // Gate posicional: o backfill (e todos os handlers) leem/escrevem por ÍNDICE.
+  // Se qualquer header canônico não estiver na sua coluna (ex: alguém inseriu
+  // uma coluna manual no meio), escrever posicionalmente corromperia coluna
+  // alheia em silêncio — abortar e resolver a planilha antes.
+  for (var g = 0; g < headers.length; g++) {
+    if (headerAtual[g] !== headers[g]) {
+      Logger.log('ABORTADO antes do backfill: coluna ' + (g + 1) + ' deveria ser "' + headers[g] + '" mas contém "' + (headerAtual[g] || '') + '". Corrija os headers e rode de novo.');
+      return;
+    }
   }
 
   // Backfill: prova com nota e sem resultado_em ganha resultado_em = criado_em
