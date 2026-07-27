@@ -2,7 +2,8 @@
 
 import { apiFetch } from '@/lib/api';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { auth } from '@/lib/firebase';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Line } from '@/components/Charts';
@@ -660,7 +661,7 @@ function dataDoRegistro(row) {
 const fmtDataBR = (d) => d ? d.toLocaleDateString('pt-BR') : '—';
 
 // Cabeçalho de Visão Geral: quem é + onde está, de relance.
-function VisaoGeral({ registros, diarios, simulados, tipoAluno, escola }) {
+function VisaoGeral({ registros, diarios, simulados, tipoAluno, escola, proximaProva }) {
   const ult = registros && registros.length ? registros[registros.length - 1] : null;
   const nSimulados = simulados?.lista?.length || simulados?.kpi?.realizados || 0;
   const somaHoras = (registros || []).reduce((acc, r) => acc + (numOrNullDossie(r[4]) || 0), 0);
@@ -672,22 +673,35 @@ function VisaoGeral({ registros, diarios, simulados, tipoAluno, escola }) {
       {sub && <span className="ml-1 text-[10px] text-slate-400 font-medium">{sub}</span>}
     </div>
   );
+  const corProva = proximaProva
+    ? (proximaProva.dias <= 3 ? 'text-red-600' : proximaProva.dias <= 7 ? 'text-amber-700' : 'text-intento-blue')
+    : '';
+  const countdownProva = proximaProva
+    ? (proximaProva.dias === 0 ? 'hoje' : proximaProva.dias === 1 ? 'amanhã' : `em ${proximaProva.dias} dias`)
+    : '';
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
       <div className="flex items-center gap-2 mb-3">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visão geral</p>
         {tipoAluno === 'EM' && <span className="text-[9px] font-bold bg-intento-yellow/15 text-intento-yellow border border-intento-yellow/30 px-1.5 py-0.5 rounded uppercase tracking-wider">EM{escola ? ` · ${escola}` : ''}</span>}
       </div>
-      {!ult ? (
+      {!ult && !proximaProva ? (
         <p className="text-xs text-slate-400 font-medium">Sem registros semanais ainda.</p>
       ) : (
         <div className="flex flex-wrap gap-4">
           {stat('Horas totais', `${horasTotal}h`)}
-          {stat('Domínio', toPercent(ult[5]) != null ? `${toPercent(ult[5])}%` : '—', 'atual')}
-          {stat('Progresso', toPercent(ult[6]) != null ? `${toPercent(ult[6])}%` : '—', 'atual')}
-          {stat('Revisões atras.', numOrNullDossie(ult[7]) ?? '—', 'atual')}
+          {stat('Domínio', toPercent(ult?.[5]) != null ? `${toPercent(ult[5])}%` : '—', 'atual')}
+          {stat('Progresso', toPercent(ult?.[6]) != null ? `${toPercent(ult[6])}%` : '—', 'atual')}
+          {stat('Revisões atras.', numOrNullDossie(ult?.[7]) ?? '—', 'atual')}
           {stat('Encontros', diarios?.length || 0)}
           {stat('Simulados', nSimulados)}
+          {proximaProva && (
+            <div className="flex-1 min-w-[110px]">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">📅 Próx. prova</p>
+              <span className={`text-lg font-bold ${corProva}`}>{countdownProva}</span>
+              <span className="ml-1 text-[10px] text-slate-400 font-medium">{proximaProva.materia}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -956,10 +970,53 @@ export default function GestaoIndividualAluno() {
   const [carregandoOnboarding, setCarregandoOnboarding] = useState(false);
   const [erroOnboarding, setErroOnboarding] = useState('');
 
-  // Fac-símile EM: tipoAluno e escola vêm do BD_Alunos via buscarDadosAluno.
-  // Aba "Provas" só renderiza se tipoAluno === 'EM'.
+  // tipoAluno e escola vêm do BD_Alunos via buscarDadosAluno.
+  // Ciclo de Provas: a aba existe pros dois sabores — EM (provas escolares)
+  // e ENEM (vestibulares). O fetch mora aqui (não na AbaProvas) porque a
+  // Visão Geral e o label da aba também derivam dele.
   const [tipoAluno, setTipoAluno] = useState('ENEM');
   const [escolaAluno, setEscolaAluno] = useState('');
+  const [provasAluno, setProvasAluno] = useState(null);
+  const [erroProvas, setErroProvas] = useState('');
+
+  const carregarProvasAluno = async () => {
+    if (ehDemo) { setProvasAluno([]); return; }
+    try {
+      const res = await apiFetch('/api/mentor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'listarAvaliacoesAluno', email: auth.currentUser?.email || '', idAluno: params.id }),
+      });
+      const d = await res.json();
+      if (d.status !== 'sucesso') { setErroProvas(d.mensagem || 'Erro ao carregar provas.'); return; }
+      setErroProvas('');
+      setProvasAluno(d.avaliacoes || []);
+    } catch (e) {
+      setErroProvas('Erro de conexão.');
+    }
+  };
+
+  // Derivados do Ciclo de Provas: próxima prova (stat da Visão Geral) e
+  // pendências de resultado (contador no label da aba).
+  const { proximaProva, provasARegistrar } = useMemo(() => {
+    if (!provasAluno) return { proximaProva: null, provasARegistrar: 0 };
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const substituidas = new Set(provasAluno.map(p => p.substituiId).filter(Boolean));
+    let prox = null;
+    let pend = 0;
+    provasAluno.forEach(p => {
+      const d = new Date(p.data); d.setHours(0, 0, 0, 0);
+      if (isNaN(d.getTime())) return;
+      if (d >= hoje) {
+        if (!prox || d < prox.dataObj) {
+          prox = { dataObj: d, materia: p.materia, tipo: p.tipo, dias: Math.round((d - hoje) / 86400000) };
+        }
+      } else if (!p.resultadoEm && (p.nota === null || p.nota === undefined) && !substituidas.has(p.id)) {
+        pend++;
+      }
+    });
+    return { proximaProva: prox, provasARegistrar: pend };
+  }, [provasAluno]);
 
   // Status do aluno em relação ao app (controla o cron de integração).
   const [statusApp, setStatusApp] = useState('');
@@ -1145,7 +1202,8 @@ export default function GestaoIndividualAluno() {
       }
     };
     carregarDados();
-  }, [params.id]);
+    carregarProvasAluno(); // paralelo — não bloqueia o dossiê
+  }, [params.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // =========================================================================
   // SALVAR NOVO DIÁRIO
@@ -1382,9 +1440,12 @@ export default function GestaoIndividualAluno() {
             <button onClick={() => trocarAba('timeline')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'timeline' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Linha do Tempo</button>
             <button onClick={() => trocarAba('diario')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'diario' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Diário de Bordo</button>
             <button onClick={() => trocarAba('semana')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'semana' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Semana Padrão</button>
-            {tipoAluno === 'EM' && (
-              <button onClick={() => trocarAba('provas')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'provas' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Provas</button>
-            )}
+            <button onClick={() => trocarAba('provas')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 ${abaInterna === 'provas' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>
+              Provas
+              {provasARegistrar > 0 && (
+                <span className="text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full">{provasARegistrar}</span>
+              )}
+            </button>
             <button onClick={() => trocarAba('registros')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'registros' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Histórico Analítico</button>
             <button onClick={() => trocarAba('simulados')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'simulados' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Simulados</button>
             <button onClick={() => trocarAba('onboarding', carregarOnboarding)} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'onboarding' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Onboarding</button>
@@ -1409,7 +1470,7 @@ export default function GestaoIndividualAluno() {
         </div>
 
         {/* Cabeçalho de Visão Geral — sempre visível */}
-        <VisaoGeral registros={historicoRegistros} diarios={historicoDiarios} simulados={dadosSimulados} tipoAluno={tipoAluno} escola={escolaAluno} />
+        <VisaoGeral registros={historicoRegistros} diarios={historicoDiarios} simulados={dadosSimulados} tipoAluno={tipoAluno} escola={escolaAluno} proximaProva={proximaProva} />
 
         {/* Carimbos Fases e Ciclos — uso interno; mesmas fórmulas do /lider (lib/carimbos.js) */}
         <CardCarimbosAluno registros={historicoRegistros} statusApp={statusApp} />
@@ -1666,9 +1727,17 @@ export default function GestaoIndividualAluno() {
 
         {/* ... ABAS SEMANA E REGISTROS AQUI (MANTIDAS INTACTAS) ... */}
 
-        {abaInterna === 'provas' && tipoAluno === 'EM' && (
+        {abaInterna === 'provas' && (
           <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm animate-in fade-in duration-500">
-            <AbaProvas idAluno={params.id} alunoNome={nomeAluno} escola={escolaAluno} />
+            <AbaProvas
+              idAluno={params.id}
+              alunoNome={nomeAluno}
+              escola={escolaAluno}
+              tipoAluno={tipoAluno}
+              provas={provasAluno}
+              erro={erroProvas}
+              onRecarregar={carregarProvasAluno}
+            />
           </div>
         )}
 
