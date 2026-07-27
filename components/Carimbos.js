@@ -4,7 +4,7 @@
 // Compartilhados entre /lider e /mentor — cores em lib/carimboCores.js e regras
 // em lib/carimbos.js (fonte única). Nada de faixa ou cor hardcoded aqui.
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { corDe, CARIMBO_LABEL } from '@/lib/carimboCores';
 import { diagnosticoDimensional, registrosParaMetricas, cicloIdx, CICLOS_INFO, DIM_LABEL } from '@/lib/carimbos';
 
@@ -36,45 +36,83 @@ export function BarraCarimbo({ nivel }) {
 // em validação). Perfil agregado = leitura preliminar do ciclo (o freeze no
 // Marco de Ciclo ainda não existe). Carimbos computados no front a partir do
 // BD_Registro cru — mesmas fórmulas do /lider via lib/carimbos.js.
+// Faixa compacta por padrão (colapsada); clique em qualquer ponto expande o
+// detalhe por dimensão — economiza a dobra e reduz exposição da linguagem
+// interna em tela compartilhada.
 const STATUS_FORA_DO_APP = ['Não se adaptou', 'Nunca vai usar'];
+
+const NOTA_OVERSTUDYING = '2+ semanas acima de 105% da meta — atenção à sustentabilidade (trava Mestre)';
 
 export function CardCarimbosAluno({ registros, statusApp }) {
   const foraDoApp = STATUS_FORA_DO_APP.includes(statusApp);
+  const [aberto, setAberto] = useState(false);
   const d = useMemo(
     () => diagnosticoDimensional({ metricas: registrosParaMetricas(registros) }),
     [registros]
   );
   const ciclo = CICLOS_INFO[cicloIdx()];
 
+  const compVal = d.compEmFormacao
+    ? `em formação · ${d.semanasMensuraveis}/4 semanas mensuráveis`
+    : `Presença ${CARIMBO_LABEL[d.presenca]} · Aproveitamento ${CARIMBO_LABEL[d.aproveitamento]}`;
+
+  const detalhes = {
+    comportamento: `${compVal}${d.overstudying ? ` · ${NOTA_OVERSTUDYING}` : ''}`,
+    cobertura: d.cobMed != null ? `${Math.round(d.cobMed)}% do edital` : null,
+    dominio: d.domMed != null ? `${Math.round(d.domMed)}% de acerto` : null,
+  };
+
+  const resumo = [
+    d.compEmFormacao ? `comportamento em formação · ${d.semanasMensuraveis}/4 sem.` : null,
+    d.cobMed != null ? `${Math.round(d.cobMed)}% edital` : null,
+    d.domMed != null ? `${Math.round(d.domMed)}% acerto` : null,
+  ].filter(Boolean).join(' · ');
+
   const linhas = [
-    {
-      key: 'comportamento',
-      val: d.compEmFormacao
-        ? `em formação · ${d.semanasMensuraveis}/4 semanas mensuráveis`
-        : `Presença ${CARIMBO_LABEL[d.presenca]} · Aproveitamento ${CARIMBO_LABEL[d.aproveitamento]}`,
-      nota: d.overstudying ? '2+ semanas acima de 105% da meta — atenção à sustentabilidade (trava Mestre)' : null,
-    },
-    { key: 'cobertura', val: d.cobMed != null ? `${Math.round(d.cobMed)}% do edital` : '—' },
-    { key: 'dominio', val: d.domMed != null ? `${Math.round(d.domMed)}% de acerto` : '—' },
+    { key: 'comportamento', val: compVal, nota: d.overstudying ? NOTA_OVERSTUDYING : null },
+    { key: 'cobertura', val: detalhes.cobertura || '—' },
+    { key: 'dominio', val: detalhes.dominio || '—' },
   ];
 
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fases e Ciclos</p>
-          <span className="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider">{ciclo.id} {ciclo.nome}</span>
-          <span className="text-[9px] font-bold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Linguagem interna da equipe — não compartilhar com aluno/família nesta fase.">uso interno</span>
-        </div>
-        <div className="text-right shrink-0">
-          <CarimboBadge nivel={d.perfil} />
-          <p className="text-[9px] text-slate-400 font-medium mt-0.5">Perfil — leitura preliminar do ciclo</p>
-        </div>
-      </div>
+  const strip = (
+    <>
+      <span className="flex items-center gap-2 shrink-0" title="Linguagem interna da equipe — não compartilhar com aluno/família nesta fase.">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fases e Ciclos</span>
+        <span className="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider">{ciclo.id} {ciclo.nome}</span>
+      </span>
       {foraDoApp ? (
-        <p className="text-xs text-slate-400 font-medium">Sem dados dimensionais — aluno fora do app.</p>
+        <span className="text-xs text-slate-400 font-medium">Sem dados dimensionais — aluno fora do app.</span>
       ) : (
-        <div className="space-y-2.5">
+        <>
+          <CarimboDimensional d={d} detalhes={detalhes} alertas={{ comportamento: d.overstudying }} />
+          {d.overstudying && <span className="text-[10px] text-amber-600 font-semibold" title={NOTA_OVERSTUDYING}>⚠ overstudying</span>}
+          {resumo && <span className="text-[11px] text-slate-400 font-medium">{resumo}</span>}
+        </>
+      )}
+      <span className="ml-auto flex items-center gap-1.5 shrink-0" title="Perfil — leitura preliminar do ciclo">
+        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Perfil</span>
+        <CarimboBadge nivel={d.perfil} />
+        {!foraDoApp && <span className={`text-[10px] text-slate-400 transition-transform ${aberto ? 'rotate-180' : ''}`} aria-hidden="true">▾</span>}
+      </span>
+    </>
+  );
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
+      {foraDoApp ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">{strip}</div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAberto(v => !v)}
+          aria-expanded={aberto}
+          className="w-full flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 text-left cursor-pointer"
+        >
+          {strip}
+        </button>
+      )}
+      {aberto && !foraDoApp && (
+        <div className="px-5 pb-4 space-y-2.5 border-t border-slate-100 pt-3">
           {linhas.map(l => (
             <div key={l.key} className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-600 w-32 shrink-0">{DIM_LABEL[l.key]}</span>
@@ -104,7 +142,9 @@ export function CardCarimbosAluno({ registros, statusApp }) {
   );
 }
 
-export function CarimboDimensional({ d, tamanho = 'md' }) {
+// detalhes/alertas (opcionais, usados na faixa do /mentor/[id]): detalhes[key]
+// enriquece o title do chip; alertas[key] pinta um ponto âmbar de atenção.
+export function CarimboDimensional({ d, tamanho = 'md', detalhes, alertas }) {
   const DIMS = [
     { key: 'comportamento', curto: 'Com', nome: 'Comportamento' },
     { key: 'cobertura', curto: 'Cob', nome: 'Cobertura' },
@@ -118,11 +158,16 @@ export function CarimboDimensional({ d, tamanho = 'md' }) {
         const nivel = d?.[key];
         const inativo = key === 'simulado' && d?.simulado === null;
         const c = corDe(nivel); // null/ausente → cinza neutro
-        const aria = inativo ? 'Simulado inativo' : nivel ? `${nome}: ${CARIMBO_LABEL[nivel]}` : `${nome} sem dado`;
+        const base = inativo ? 'Simulado inativo' : nivel ? `${nome}: ${CARIMBO_LABEL[nivel]}` : `${nome} sem dado`;
+        const extra = detalhes?.[key];
+        const aria = extra ? (nivel ? `${base} — ${extra}` : `${nome}: ${extra}`) : base;
         return (
           <span key={key} aria-label={aria} title={aria}
-            className={`font-bold rounded ${cls} ${inativo ? 'opacity-70' : ''}`}
-            style={{ backgroundColor: c.bg, color: c.texto }}>{curto}</span>
+            className={`relative font-bold rounded ${cls} ${inativo ? 'opacity-70' : ''}`}
+            style={{ backgroundColor: c.bg, color: c.texto }}>
+            {curto}
+            {alertas?.[key] && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 border border-white" aria-hidden="true" />}
+          </span>
         );
       })}
     </span>
