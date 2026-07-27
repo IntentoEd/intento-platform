@@ -11,6 +11,7 @@ import { LoadingScreen, LoadingInline } from '@/components/Loading';
 import AbaProvas from '@/components/AbaProvas';
 import StatusAppSelect from '@/components/StatusAppSelect';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { CardCarimbosAluno } from '@/components/Carimbos';
 
 // ── Colunas do histórico (índices da array retornada pelo backend) ──────────
 // [0]Semana [1]Mês [2]Data [3]Meta [4]Horas [5]Domínio [6]Progresso [7]Revisões
@@ -1409,6 +1410,9 @@ export default function GestaoIndividualAluno() {
 
         {/* Cabeçalho de Visão Geral — sempre visível */}
         <VisaoGeral registros={historicoRegistros} diarios={historicoDiarios} simulados={dadosSimulados} tipoAluno={tipoAluno} escola={escolaAluno} />
+
+        {/* Carimbos Fases e Ciclos — uso interno; mesmas fórmulas do /lider (lib/carimbos.js) */}
+        <CardCarimbosAluno registros={historicoRegistros} statusApp={statusApp} />
 
         {/* Toast de status global */}
         {statusMsg && (
