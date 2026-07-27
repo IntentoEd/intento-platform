@@ -136,6 +136,66 @@ function smokeTest() {
     }
   });
 
+  // 12) Avaliações: leitura nega email não autorizado (nem líder, nem mentor, nem o aluno)
+  check('listarAvaliacoesAluno nega email não autorizado', function() {
+    var lista = JSON.parse(handleListaAlunosMentor({ email: SMOKE_EMAIL_LIDER }).getContent());
+    if (!lista.alunos || lista.alunos.length === 0) return 'sem alunos — SKIP';
+    var data = JSON.parse(handleListarAvaliacoesAluno({ email: SMOKE_EMAIL_NAO_AUTH, idAluno: lista.alunos[0].id }).getContent());
+    if (data.status !== 'erro' || data.codigo !== 403) return 'esperado 403: ' + JSON.stringify(data);
+    return true;
+  });
+
+  // 13) Avaliações: escrita nega email não autorizado (recusa antes de qualquer gravação)
+  check('cadastrarAvaliacoes nega email não autorizado', function() {
+    var lista = JSON.parse(handleListaAlunosMentor({ email: SMOKE_EMAIL_LIDER }).getContent());
+    if (!lista.alunos || lista.alunos.length === 0) return 'sem alunos — SKIP';
+    var data = JSON.parse(handleCadastrarAvaliacoes({
+      email: SMOKE_EMAIL_NAO_AUTH,
+      idAluno: lista.alunos[0].id,
+      avaliacoes: [{ data: '2099-01-01', materia: 'Smoke', tipo: 'mensal' }]
+    }).getContent());
+    if (data.status !== 'erro' || data.codigo !== 403) return 'esperado 403: ' + JSON.stringify(data);
+    return true;
+  });
+
+  // 14) Avaliações: update/delete negam email não autorizado (recusa antes de achar trava de aluno)
+  check('atualizar/deletarAvaliacao negam email não autorizado', function() {
+    var lista = JSON.parse(handleListaAlunosMentor({ email: SMOKE_EMAIL_LIDER }).getContent());
+    if (!lista.alunos || lista.alunos.length === 0) return 'sem alunos — SKIP';
+    var avs = JSON.parse(handleListarAvaliacoesAluno({ email: SMOKE_EMAIL_LIDER, idAluno: lista.alunos[0].id }).getContent());
+    if (!avs.avaliacoes || avs.avaliacoes.length === 0) {
+      // tenta achar QUALQUER aluno com avaliação
+      var alvo = null;
+      for (var i = 1; i < lista.alunos.length && !alvo; i++) {
+        var a = JSON.parse(handleListarAvaliacoesAluno({ email: SMOKE_EMAIL_LIDER, idAluno: lista.alunos[i].id }).getContent());
+        if (a.avaliacoes && a.avaliacoes.length > 0) alvo = a.avaliacoes[0];
+      }
+      if (!alvo) return 'nenhuma avaliação na base — SKIP';
+      avs = { avaliacoes: [alvo] };
+    }
+    var idAv = avs.avaliacoes[0].id;
+    var up = JSON.parse(handleAtualizarAvaliacao({ email: SMOKE_EMAIL_NAO_AUTH, idAvaliacao: idAv, observacao: 'smoke' }).getContent());
+    if (up.status !== 'erro' || up.codigo !== 403) return 'update: esperado 403: ' + JSON.stringify(up);
+    var del = JSON.parse(handleDeletarAvaliacao({ email: SMOKE_EMAIL_NAO_AUTH, idAvaliacao: idAv }).getContent());
+    if (del.status !== 'erro' || del.codigo !== 403) return 'delete: esperado 403: ' + JSON.stringify(del);
+    return true;
+  });
+
+  // 15) Avaliações: listagem expõe criadoPor e resultadoEm (contrato do Ciclo de Provas)
+  check('listarAvaliacoesAluno expõe criadoPor/resultadoEm', function() {
+    var lista = JSON.parse(handleListaAlunosMentor({ email: SMOKE_EMAIL_LIDER }).getContent());
+    if (!lista.alunos || lista.alunos.length === 0) return 'sem alunos — SKIP';
+    var achou = null;
+    for (var i = 0; i < lista.alunos.length && !achou; i++) {
+      var a = JSON.parse(handleListarAvaliacoesAluno({ email: SMOKE_EMAIL_LIDER, idAluno: lista.alunos[i].id }).getContent());
+      if (a.avaliacoes && a.avaliacoes.length > 0) achou = a.avaliacoes[0];
+    }
+    if (!achou) return 'nenhuma avaliação na base — SKIP';
+    if (!('criadoPor' in achou)) return 'criadoPor ausente: ' + JSON.stringify(achou);
+    if (!('resultadoEm' in achou)) return 'resultadoEm ausente (rodou migrarBDAvaliacoesFacSimile?): ' + JSON.stringify(achou);
+    return true;
+  });
+
   Logger.log('===== ' + ok + ' OK · ' + sk + ' SKIP · ' + ko + ' FALHAS =====');
 }
 

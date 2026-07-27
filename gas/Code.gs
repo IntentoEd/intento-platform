@@ -36,16 +36,22 @@ const COL_EXCECAO = {
   MOTIVO: 5, CRIADO_EM: 6, CRIADO_POR: 7
 };
 
-// BD_Avaliacoes (10 cols) — provas escolares de alunos EM. Cadastrada pelo mentor responsável.
-// nota (0-10) e observacao podem ser editadas após a prova vencer (post-mortem).
+// BD_Avaliacoes (11 cols) — provas de alunos EM (escolares) e ENEM (vestibulares).
+// Escrita: mentor responsável, líder ou o PRÓPRIO aluno (com travas — ver escolar.gs).
+// nota (0-10, só EM) e observacao podem ser editadas após a prova vencer (post-mortem).
 // substitui_id: id de outra avaliação que esta substitui (típico: recuperação substitui bimestral).
 //   Quando preenchido, o Boletim ignora a substituída e usa a nota desta.
+// resultado_em: timestamp de quando o resultado foi registrado (nota lançada, relato do aluno
+//   ou "sem nota divulgada"). Vazio + data passada = pendente na fila "A registrar".
+//   Setado SEMPRE por ação explícita — nunca inferido de edição de observacao.
+// Sabor ENEM: materia = nome do vestibular (ENEM, FUVEST...), tipo = fase, nota não se aplica.
 const COL_AV = {
   ID: 0, ID_ALUNO: 1, DATA: 2, MATERIA: 3, TIPO: 4,
   OBSERVACAO: 5, NOTA: 6, CRIADO_POR: 7, CRIADO_EM: 8,
-  SUBSTITUI_ID: 9
+  SUBSTITUI_ID: 9, RESULTADO_EM: 10
 };
 const TIPOS_AVAL = ['bimestral', 'mensal', 'semanal', 'recuperacao'];
+const TIPOS_AVAL_ENEM = ['fase1', 'fase2', 'dia1', 'dia2', 'unica'];
 
 const FOLDER_BACKUPS_ID = "1UZjX1mZSsjMBRDDTYHKDHJglAj5iMUmp";
 
@@ -2900,7 +2906,8 @@ function _acharAlunoPorId(idAluno) {
         linha: i + 1,
         mentor: emailNorm(matriz[i][COL_MESTRE.MENTOR_RESPONSAVEL]),
         email:  emailNorm(matriz[i][COL_MESTRE.EMAIL]),
-        nome:   txt(matriz[i][COL_MESTRE.NOME])
+        nome:   txt(matriz[i][COL_MESTRE.NOME]),
+        tipoAluno: txt(matriz[i][COL_MESTRE.TIPO_ALUNO]) || 'ENEM'
       };
     }
   }
