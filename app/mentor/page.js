@@ -232,6 +232,14 @@ export default function PainelGlobalMentor() {
                     </p>
                   )}
 
+                  {/* Próxima prova (Ciclo de Provas — EM: escolar, ENEM: vestibular) */}
+                  {aluno.proximaProva && (
+                    <p className={`text-[11px] font-semibold flex items-center gap-1.5 ${aluno.proximaProva.dias <= 3 ? 'text-red-600' : aluno.proximaProva.dias <= 7 ? 'text-amber-700' : 'text-slate-500'}`}>
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      Prova: {aluno.proximaProva.materia} · {aluno.proximaProva.dias === 0 ? 'hoje' : aluno.proximaProva.dias === 1 ? 'amanhã' : `em ${aluno.proximaProva.dias} dias`}
+                    </p>
+                  )}
+
                   {/* Ações */}
                   <div className="flex items-center justify-between gap-2 pt-1">
                     {ehDemo ? (
