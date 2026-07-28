@@ -2231,13 +2231,13 @@ export default function PainelDoAluno() {
       {/* ========================================================== */}
       {modalRegistroAberto && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg flex flex-col overflow-hidden">
-            <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg flex flex-col overflow-hidden max-h-full">
+            <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center shrink-0">
               <h2 className="text-base font-semibold text-intento-blue">{editandoSimuladoId ? 'Editar Simulado' : 'Novo Registro de Simulado'}</h2>
               <button onClick={fecharModalSimulado} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
 
-            <div className="p-7 space-y-5">
+            <div className="p-7 space-y-5 min-h-0 overflow-y-auto overscroll-contain">
               <div className="flex bg-slate-100 p-1 rounded-lg">
                 <button onClick={() => !editandoSimuladoId && setTipoModelo("ENEM")} disabled={!!editandoSimuladoId} className={`flex-1 py-2.5 rounded-md font-medium text-sm transition-all disabled:cursor-not-allowed ${tipoModelo === "ENEM" ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'} ${editandoSimuladoId && tipoModelo !== 'ENEM' ? 'opacity-40' : ''}`}>ENEM</button>
                 <button onClick={() => !editandoSimuladoId && setTipoModelo("Custom")} disabled={!!editandoSimuladoId} className={`flex-1 py-2.5 rounded-md font-medium text-sm transition-all disabled:cursor-not-allowed ${tipoModelo === "Custom" ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'} ${editandoSimuladoId && tipoModelo !== 'Custom' ? 'opacity-40' : ''}`}>Outros Vestibulares</button>
@@ -2316,7 +2316,7 @@ export default function PainelDoAluno() {
               )}
             </div>
 
-            <div className="px-7 py-5 border-t border-slate-100 flex justify-end gap-3">
+            <div className="px-7 py-5 border-t border-slate-100 flex justify-end gap-3 shrink-0">
               <button onClick={fecharModalSimulado} className={btnGhost}>Cancelar</button>
               <button onClick={salvarSimulado} disabled={salvandoSimulado} className={btnPrimary + ' disabled:opacity-60'}>{salvandoSimulado ? 'Salvando...' : (editandoSimuladoId ? 'Salvar Alterações' : 'Salvar Registro')}</button>            </div>
           </div>
@@ -2338,12 +2338,12 @@ export default function PainelDoAluno() {
       {/* MODAL CADERNO DE ERROS */}
       {modalCadernoAberto && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-xl shadow-lg flex flex-col overflow-hidden">
-            <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center">
+          <div className="bg-white w-full max-w-lg rounded-xl shadow-lg flex flex-col overflow-hidden max-h-full">
+            <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center shrink-0">
               <h2 className="text-base font-semibold text-intento-blue">Anotar erro — Caderno de Erros</h2>
               <button onClick={() => setModalCadernoAberto(false)} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
-            <div className="p-7 space-y-4">
+            <div className="p-7 space-y-4 min-h-0 overflow-y-auto overscroll-contain">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Disciplina</label>
@@ -2387,7 +2387,7 @@ export default function PainelDoAluno() {
                 <textarea rows={3} placeholder="Resposta correta ou explicação completa..." className={inputClass + " resize-none"} value={formCaderno.resposta} onChange={e => setFormCaderno({...formCaderno, resposta: e.target.value})} />
               </div>
             </div>
-            <div className="px-7 py-5 border-t border-slate-100 flex justify-end gap-3">
+            <div className="px-7 py-5 border-t border-slate-100 flex justify-end gap-3 shrink-0">
               <button onClick={() => setModalCadernoAberto(false)} className={btnGhost}>Cancelar</button>
               <button onClick={salvarCardCaderno} disabled={salvandoCaderno} className={btnPrimary + ' disabled:opacity-60'}>{salvandoCaderno ? 'Salvando...' : 'Anotar erro'}</button>
             </div>
