@@ -206,7 +206,7 @@ function CardDimensional({ a, d, ciclo, onClose }) {
           <CarimboBadge nivel={d.perfil} />
         </div>
         <div className="p-6 space-y-3">
-          {d.alerta && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs font-semibold text-red-700">🚨 Alerta clínico ativo</div>}
+          {d.alerta && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs font-semibold text-red-700">🚨 Alerta clínico ativo{d.alertaMotivo && <span className="font-medium"> — {d.alertaMotivo}</span>}</div>}
           {d.overstudying && <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs font-semibold text-amber-700">⚠️ Overstudying — 2+ semanas seguidas acima de 105% da meta (trava Mestre)</div>}
           {linhas.map(l => (
             <div key={l.key} className="flex items-center gap-3">
@@ -503,7 +503,7 @@ export default function PainelLider() {
     pendenciasDiagnostico.forEach(a => items.push({ prioridade: 1, tipo: 'diagnostico', a, motivo: 'sem diagnóstico', acao: (!a.mentor || !a.mentorAtivo) ? 'designar' : 'perfil' }));
     diagnostico.forEach(({ a, d }) => {
       if (!(a.mentor && a.mentorAtivo)) return; // sem mentor ativo → já entrou no 'designar'
-      if (d.alerta) items.push({ prioridade: 2, tipo: 'clinico', a, d, motivo: 'alerta clínico', acao: 'card' });
+      if (d.alerta) items.push({ prioridade: 2, tipo: 'clinico', a, d, motivo: d.alertaMotivo ? `alerta clínico · ${d.alertaMotivo}` : 'alerta clínico', acao: 'card' });
     });
     const seen = new Map();
     items.forEach(it => { const k = (it.a.idAluno || '') + it.a.nome; if (!seen.has(k) || it.prioridade < seen.get(k).prioridade) seen.set(k, it); });
