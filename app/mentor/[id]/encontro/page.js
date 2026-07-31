@@ -62,8 +62,11 @@ const serializeStatusMetas = (statusArr) =>
 
 const COL_ORIGEM = 20;
 const toPercent = (val) => {
-  const n = parseFloat(String(val ?? '').replace(',', '.'));
+  const s = String(val ?? '');
+  const n = parseFloat(s.replace(',', '.'));
   if (isNaN(n)) return null;
+  // Célula percent-formatada chega com "%" ("1%" → 1): já é percentual.
+  if (s.includes('%')) return Math.round(n);
   return n <= 1 ? Math.round(n * 100) : Math.round(n);
 };
 const toPercentCheckin = (val, origem) => {

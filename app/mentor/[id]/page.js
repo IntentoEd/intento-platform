@@ -60,8 +60,11 @@ function seloOrigem(origem) {
 }
 
 const toPercent = (val) => {
-  const n = parseFloat(String(val ?? '').replace(',', '.'));
+  const s = String(val ?? '');
+  const n = parseFloat(s.replace(',', '.'));
   if (isNaN(n)) return null;
+  // Célula percent-formatada chega com "%" ("1%" → 1): já é percentual.
+  if (s.includes('%')) return Math.round(n);
   // Se já for maior que 1, assume que veio formatado (ex: 68 = 68%)
   return n <= 1 ? Math.round(n * 100) : Math.round(n);
 };
