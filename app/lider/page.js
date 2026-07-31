@@ -901,12 +901,12 @@ export default function PainelLider() {
               </div>
               <div className={cardClass}>
                 <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Domínio médio por matéria</h3>
-                <p className="text-[10px] font-medium text-slate-400 mb-4">média · últimas 4 semanas</p>
+                <p className="text-[10px] font-medium text-slate-400 mb-4">média da base · último valor de cada aluno</p>
                 <div className="h-56"><Bar data={{ labels: ['Biologia', 'Química', 'Física', 'Matemática'], datasets: [{ data: [dominio.bio || 0, dominio.qui || 0, dominio.fis || 0, dominio.mat || 0], backgroundColor: ['#10b981', '#3b82f6', '#f97316', '#ef4444'], borderRadius: 4 }] }} options={{ ...chartOptions, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, grid: { color: 'rgba(150,150,150,0.1)' } } } }} /></div>
               </div>
               <div className={cardClass}>
                 <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Progresso médio por matéria</h3>
-                <p className="text-[10px] font-medium text-slate-400 mb-4">média · últimas 4 semanas</p>
+                <p className="text-[10px] font-medium text-slate-400 mb-4">média da base · último valor de cada aluno</p>
                 <div className="h-56"><Bar data={{ labels: ['Biologia', 'Química', 'Física', 'Matemática'], datasets: [{ data: [progresso.bio || 0, progresso.qui || 0, progresso.fis || 0, progresso.mat || 0], backgroundColor: ['#10b981', '#3b82f6', '#f97316', '#ef4444'], borderRadius: 4 }] }} options={{ ...chartOptions, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, grid: { color: 'rgba(150,150,150,0.1)' } } } }} /></div>
               </div>
               <div className={cardClass}>
