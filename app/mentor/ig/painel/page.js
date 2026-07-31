@@ -27,8 +27,11 @@ const CONS_ESTADO = {
 };
 // Converte valor (decimal 0–1, "73%" ou número) para inteiro 0–100.
 function toPct100(val) {
-  const n = parseFloat(String(val ?? '').replace('%', '').replace(',', '.'));
+  const s = String(val ?? '');
+  const n = parseFloat(s.replace('%', '').replace(',', '.'));
   if (isNaN(n)) return 0;
+  // Veio com "%" → já é percentual ("1%" → 1, sem heurística ×100).
+  if (s.includes('%')) return Math.round(n);
   return Math.round(n <= 1 ? n * 100 : n);
 }
 function toNum(val) {
