@@ -2341,6 +2341,18 @@ function agregarMetricasBase_(alunos) {
     return n <= 1 ? n * 100 : n;
   }
 
+  // Domínio/Progresso são ESTOQUES (valor semanal já vem acumulado do app):
+  // o que vale é o SNAPSHOT — último valor não-vazio da matéria no horizonte
+  // (carry-forward: semana sem dado não apaga o valor). Mesma regra do adapter
+  // do /mentor (lib/carimbos.js registrosParaMetricas) — manter em sincronia.
+  function snapUltimo(rows, col) {
+    for (var s = rows.length - 1; s >= 0; s--) {
+      var n = normPct(rows[s][col]);
+      if (n != null) return n;
+    }
+    return null;
+  }
+
   // Acumula em dois alvos ao mesmo tempo (global e por-aluno) pra que o front
   // possa recalcular agregado filtrado sem round-trip ao backend.
   function accDual(valor, campoSoma, campoCount, alvoGlobal, alvoAluno) {
@@ -2410,16 +2422,21 @@ function agregarMetricasBase_(alunos) {
           }
         }
 
+        // Matérias: snapshot por matéria (não média de janela) — cada aluno
+        // entra 1x por matéria no agregado, com o valor mais recente. Horizonte
+        // de 8 linhas espelha HORIZONTE_SEMANAS do front.
+        var ultimos8 = filtrados.slice(-8);
+        accDual(snapUltimo(ultimos8, COL_REG.DOM_BIO),  'domBio',  'cDomBio',  somas, alunoMaterias);
+        accDual(snapUltimo(ultimos8, COL_REG.DOM_QUI),  'domQui',  'cDomQui',  somas, alunoMaterias);
+        accDual(snapUltimo(ultimos8, COL_REG.DOM_FIS),  'domFis',  'cDomFis',  somas, alunoMaterias);
+        accDual(snapUltimo(ultimos8, COL_REG.DOM_MAT),  'domMat',  'cDomMat',  somas, alunoMaterias);
+        accDual(snapUltimo(ultimos8, COL_REG.PROG_BIO), 'progBio', 'cProgBio', somas, alunoMaterias);
+        accDual(snapUltimo(ultimos8, COL_REG.PROG_QUI), 'progQui', 'cProgQui', somas, alunoMaterias);
+        accDual(snapUltimo(ultimos8, COL_REG.PROG_FIS), 'progFis', 'cProgFis', somas, alunoMaterias);
+        accDual(snapUltimo(ultimos8, COL_REG.PROG_MAT), 'progMat', 'cProgMat', somas, alunoMaterias);
+
         for (var w = 0; w < ultimas4.length; w++) {
           var r = ultimas4[w];
-          accDual(normPct(r[COL_REG.DOM_BIO]),  'domBio',  'cDomBio',  somas, alunoMaterias);
-          accDual(normPct(r[COL_REG.DOM_QUI]),  'domQui',  'cDomQui',  somas, alunoMaterias);
-          accDual(normPct(r[COL_REG.DOM_FIS]),  'domFis',  'cDomFis',  somas, alunoMaterias);
-          accDual(normPct(r[COL_REG.DOM_MAT]),  'domMat',  'cDomMat',  somas, alunoMaterias);
-          accDual(normPct(r[COL_REG.PROG_BIO]), 'progBio', 'cProgBio', somas, alunoMaterias);
-          accDual(normPct(r[COL_REG.PROG_QUI]), 'progQui', 'cProgQui', somas, alunoMaterias);
-          accDual(normPct(r[COL_REG.PROG_FIS]), 'progFis', 'cProgFis', somas, alunoMaterias);
-          accDual(normPct(r[COL_REG.PROG_MAT]), 'progMat', 'cProgMat', somas, alunoMaterias);
           var rawEst = r[COL_REG.ESTRESSE], rawMot = r[COL_REG.MOTIVACAO], orig4 = r[COL_REG.ORIGEM];
           alunoCheckin4w.push({
             est: (rawEst === '' || rawEst == null) ? null : _checkinPct(rawEst, orig4),

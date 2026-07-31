@@ -131,8 +131,8 @@ export function CardCarimbosAluno({ registros, statusApp }) {
             <summary className="text-[10px] font-semibold text-slate-400 cursor-pointer select-none">Faixas dos carimbos</summary>
             <div className="text-[10px] text-slate-400 font-medium leading-relaxed mt-1 space-y-0.5">
               <p><b>Comportamento</b> — semanas válidas na janela de 4 mensuráveis (≥3 dias planejados): ≤2 Aprendiz · 3 Veterano · 4 (ou 3 + 1 rompida absorvida) Mestre. Presença: semana válida = no máx. 1 dia planejado sem registro. Aproveitamento: válida ≥70% da meta (Mestre exige ≥85%).</p>
-              <p><b>Cobertura</b> — % do edital validado: &lt;30 Aprendiz · 30–70 Veterano · &gt;70 Mestre.</p>
-              <p><b>Domínio</b> — % de acerto (média 4 semanas): &lt;70 Aprendiz · 70–80 Veterano · &gt;80 Mestre (nenhuma matéria &lt;70).</p>
+              <p><b>Cobertura</b> — % do edital validado (último valor informado): &lt;30 Aprendiz · 30–70 Veterano · &gt;70 Mestre.</p>
+              <p><b>Domínio</b> — % de acerto acumulado (último valor informado): &lt;70 Aprendiz · 70–80 Veterano · &gt;80 Mestre (nenhuma matéria &lt;70).</p>
               <p><b>Perfil</b> — a dimensão menos avançada (regra do elo mais fraco).</p>
             </div>
           </details>
