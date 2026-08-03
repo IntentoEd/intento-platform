@@ -5,6 +5,8 @@
 // Cobre 3 handlers (subscribe/unsubscribe/listar), helper _enviarPush
 // (chama /api/push/send no Next via UrlFetchApp), 3 crons semanais e
 // 1 disparo imediato (_notificarLiderAlunoAguardando).
+// O cron de terça é o "resumo do líder": registros faltantes + encontros
+// de 60 dias pendentes (1 push por assunto).
 //
 // Triggers do GAS apontam por NOME — manter exatamente os mesmos nomes
 // em cronLembreteAluno, cronLembreteMentor, cronAlertaLiderMentoresFaltantes.
@@ -181,7 +183,22 @@ function cronLembreteMentor() {
   Logger.log('cronLembreteMentor: ' + emails.length + ' mentores notificados');
 }
 
-// TERÇA 9h — Avisa o líder se algum mentor não fez registro semanal
+// Parse tolerante de data vinda do cache/planilha: "dd/MM/yyyy" (com ou sem
+// hora) ou string de Date JS. Retorna Date ou null.
+function _parseDataBR_(s) {
+  if (!s) return null;
+  var str = String(s).trim();
+  var p = str.split(' ')[0].split('/');
+  if (p.length === 3) {
+    var d = new Date(+p[2], +p[1] - 1, +p[0]);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  var d2 = new Date(str);
+  return isNaN(d2.getTime()) ? null : d2;
+}
+
+// TERÇA 9h — Resumo semanal do líder: mentores sem registro semanal +
+// encontros de 60 dias (líder↔mentorado) pendentes na janela de 60-90 dias.
 function cronAlertaLiderMentoresFaltantes() {
   Logger.log('===== cronAlertaLiderMentoresFaltantes =====');
   var semanaAtual = computarSemanaAnterior_();
@@ -191,16 +208,29 @@ function cronAlertaLiderMentoresFaltantes() {
   var cache = lerCacheTodos();
   var mentoresAtivos = lerMentoresAtivos();
 
-  // Conta alunos por mentor que não foram registrados
+  // Conta alunos por mentor que não foram registrados + junta pendências de
+  // encontro de 60 dias (mesma varrida da mestre)
   var faltantesPorMentor = {};
+  var pend60 = [];
+  var agora = new Date().getTime();
   for (var i = 1; i < matriz.length; i++) {
     if (txt(matriz[i][COL_MESTRE.STATUS_ONBOARDING]) !== 'Onboarding Completo') continue;
     if (matriz[i][COL_MESTRE.DT_SAIDA]) continue; // aluno que saiu não conta como faltante
     var idPlanilha = txt(matriz[i][COL_MESTRE.ID_PLANILHA]);
     if (!idPlanilha) continue;
+    var c = cache[idPlanilha] || {};
+
+    // Encontro de 60 dias: sem data registrada + 1º diário há 60-90 dias
+    if (!matriz[i][COL_MESTRE.ENCONTRO_LIDER]) {
+      var primeiro = _parseDataBR_(c.primeiroEncontro);
+      if (primeiro) {
+        var dias = Math.floor((agora - primeiro.getTime()) / 86400000);
+        if (dias >= 60 && dias <= 90) pend60.push(txt(matriz[i][COL_MESTRE.NOME]) + ' (' + dias + 'd)');
+      }
+    }
+
     var emailMentor = emailNorm(matriz[i][COL_MESTRE.MENTOR_RESPONSAVEL]);
     if (!emailMentor || !mentoresAtivos[emailMentor]) continue;
-    var c = cache[idPlanilha] || {};
     if (c.ultimaSemanaRegistro !== semanaAtual) {
       faltantesPorMentor[emailMentor] = (faltantesPorMentor[emailMentor] || 0) + 1;
     }
@@ -208,20 +238,29 @@ function cronAlertaLiderMentoresFaltantes() {
 
   var totalFaltantes = Object.values(faltantesPorMentor).reduce(function(s, n) { return s + n; }, 0);
   var totalMentoresFaltantes = Object.keys(faltantesPorMentor).length;
-  Logger.log('faltantes: ' + totalFaltantes + ' alunos · ' + totalMentoresFaltantes + ' mentores');
+  Logger.log('faltantes: ' + totalFaltantes + ' alunos · ' + totalMentoresFaltantes + ' mentores · pend60: ' + pend60.length);
 
-  if (totalFaltantes === 0) return;
+  if (totalFaltantes > 0) {
+    var nomesMentores = Object.keys(faltantesPorMentor).map(function(em) {
+      return (mentoresAtivos[em]?.nome || em) + ' (' + faltantesPorMentor[em] + ')';
+    }).join(', ');
 
-  var nomesMentores = Object.keys(faltantesPorMentor).map(function(em) {
-    return (mentoresAtivos[em]?.nome || em) + ' (' + faltantesPorMentor[em] + ')';
-  }).join(', ');
+    _enviarPush(
+      'filippe@metodointento.com.br',
+      '⚠️ ' + totalMentoresFaltantes + ' mentor(es) com registros pendentes',
+      totalFaltantes + ' aluno(s) sem registro da semana ' + semanaAtual + '. Mentores: ' + nomesMentores,
+      '/lider'
+    );
+  }
 
-  _enviarPush(
-    'filippe@metodointento.com.br',
-    '⚠️ ' + totalMentoresFaltantes + ' mentor(es) com registros pendentes',
-    totalFaltantes + ' aluno(s) sem registro da semana ' + semanaAtual + '. Mentores: ' + nomesMentores,
-    '/lider'
-  );
+  if (pend60.length > 0) {
+    _enviarPush(
+      'filippe@metodointento.com.br',
+      '🤝 ' + pend60.length + ' encontro(s) de 60 dias pendente(s)',
+      pend60.join(', ') + ' — na janela de 60-90 dias desde o 1º diário de bordo.',
+      '/lider'
+    );
+  }
 }
 
 // Push imediato quando aluno completa onboarding (chamado dentro de handleDiagnostico)

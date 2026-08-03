@@ -24,6 +24,7 @@ const ACOES_AUTENTICADAS = new Set([
   'listarExcecoesDisponibilidade',
   // Líder
   'dashboardLider', 'designarMentor', 'atualizarDadosAluno', 'inativarAluno',
+  'marcarEncontroLider',
   // Avaliações escolares (fac-símile EM)
   'cadastrarAvaliacoes', 'listarAvaliacoesAluno', 'atualizarAvaliacao', 'deletarAvaliacao',
   // Mentor — listagem e leitura de alunos
@@ -89,6 +90,8 @@ function chavesParaInvalidar(acaoEscrita, dados) {
     case 'atualizarDadosAluno':
     case 'inativarAluno':
       return ['listaAlunosMentor|*', 'dashboardLider|*'];
+    case 'marcarEncontroLider':
+      return ['dashboardLider|*'];
     case 'marcarAcompanhamento':
       // muda o sinal "enviado/pendente" exibido na lista do mentor
       return ['listaAlunosMentor|*', 'dashboardLider|*'];
