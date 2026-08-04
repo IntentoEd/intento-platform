@@ -494,9 +494,9 @@ export default function PainelLider() {
   const alunosAguardando = useMemo(() => (dados?.alunos || []).filter(a => !a.mentor || !a.mentorAtivo), [dados]);
 
   // ── Fila única "Precisa de você": só o que o líder resolve agindo ──
-  // designação > diagnóstico > alerta clínico. Trajetória (cobertura atrás do
-  // ciclo / perfil Aprendiz) NÃO entra na fila — é pauta de mentoria e fica
-  // acessível pelo chip "Precisam de ação" na aba Mentorados.
+  // designação > diagnóstico > alerta clínico > encontro de 60 dias. Trajetória
+  // (cobertura atrás do ciclo / perfil Aprendiz) NÃO entra na fila — é pauta de
+  // mentoria e fica acessível pelo chip "Precisam de ação" na aba Mentorados.
   const acoes = useMemo(() => {
     const items = [];
     alunosAguardando.forEach(a => items.push({ prioridade: 0, tipo: 'designar', a, motivo: a.mentor && !a.mentorAtivo ? 'mentor inativo' : 'aguardando designação', acao: 'designar' }));
@@ -505,10 +505,18 @@ export default function PainelLider() {
       if (!(a.mentor && a.mentorAtivo)) return; // sem mentor ativo → já entrou no 'designar'
       if (d.alerta) items.push({ prioridade: 2, tipo: 'clinico', a, d, motivo: d.alertaMotivo ? `alerta clínico · ${d.alertaMotivo}` : 'alerta clínico', acao: 'card' });
     });
+    // Encontro de 60 dias líder↔mentorado: janela 60-90 dias desde o 1º diário,
+    // sem data registrada. Vale pra toda a base (inclusive fora do app); some
+    // sozinho aos 90 dias se não realizado.
+    (dados?.alunos || []).forEach(a => {
+      if (a.encontroLider) return;
+      const dias = diasDesde(a.primeiroEncontro); // Infinity se sem diário → fora da janela
+      if (dias >= 60 && dias <= 90) items.push({ prioridade: 3, tipo: 'encontro60', a, motivo: `encontro de 60 dias · ${dias}d desde o 1º diário`, acao: 'encontro60' });
+    });
     const seen = new Map();
     items.forEach(it => { const k = (it.a.idAluno || '') + it.a.nome; if (!seen.has(k) || it.prioridade < seen.get(k).prioridade) seen.set(k, it); });
     return [...seen.values()].sort((x, y) => x.prioridade - y.prioridade);
-  }, [diagnostico, alunosAguardando, pendenciasDiagnostico]);
+  }, [diagnostico, alunosAguardando, pendenciasDiagnostico, dados]);
 
   // ── ETAPA 4: cards por mentor (camada de apresentação sobre o diagnóstico) ──
   // Reusa diagnostico (carimbos prontos) + acoes (pendências). Não recalcula carimbo.
@@ -617,6 +625,24 @@ export default function PainelLider() {
       setTimeout(() => setMensagemSucesso(''), 6000);
     } catch (e) { alert('Erro de conexão.'); }
     finally { setDesignando(false); }
+  };
+
+  // ── Encontro de 60 dias (líder↔mentorado) — botão "encontro feito" na fila ──
+  const [marcandoEncontro60, setMarcandoEncontro60] = useState(null);
+  const [mensagemEncontro60, setMensagemEncontro60] = useState('');
+  const marcarEncontro60 = async (aluno) => {
+    if (marcandoEncontro60) return;
+    if (ehDemo) { alert('Modo demo: ação desabilitada.'); return; }
+    setMarcandoEncontro60(aluno.idAluno);
+    try {
+      const res = await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'marcarEncontroLider', email: emailLogado, idAluno: aluno.idAluno }) });
+      const data = await res.json();
+      if (data.status !== 'sucesso') { alert('Erro: ' + (data.mensagem || 'falha ao registrar encontro')); return; }
+      setDados(prev => prev ? { ...prev, alunos: (prev.alunos || []).map(a => a.idAluno === aluno.idAluno ? { ...a, encontroLider: data.data } : a) } : prev);
+      setMensagemEncontro60(`Encontro de 60 dias registrado: ${aluno.nome}`);
+      setTimeout(() => setMensagemEncontro60(''), 5000);
+    } catch (e) { alert('Erro de conexão.'); }
+    finally { setMarcandoEncontro60(null); }
   };
 
   const abrirEdicao = (aluno) => { setAlunoEditando(aluno); setEditTipo(aluno.tipoAluno || 'ENEM'); setEditEscola(aluno.escola || ''); setMensagemEdicao(''); };
@@ -839,7 +865,7 @@ export default function PainelLider() {
         </div>
         </>)}
 
-        {/* ── PRECISA DE VOCÊ — fila única (clínico > trajetória > designação/diagnóstico) ── */}
+        {/* ── PRECISA DE VOCÊ — fila única (designação > diagnóstico > clínico > encontro 60d) ── */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -853,8 +879,8 @@ export default function PainelLider() {
           ) : (
             <div className="divide-y divide-slate-100">
               {acoes.map(it => {
-                const corDot = it.tipo === 'clinico' ? '#7F1D1D' : it.tipo === 'trajetoria' ? corDe(it.d?.perfil).solido : '#94A3B8';
-                const corMotivo = it.tipo === 'clinico' ? 'text-red-700' : it.tipo === 'trajetoria' ? 'text-amber-700' : 'text-slate-500';
+                const corDot = it.tipo === 'clinico' ? '#7F1D1D' : it.tipo === 'trajetoria' ? corDe(it.d?.perfil).solido : it.tipo === 'encontro60' ? '#D97706' : '#94A3B8';
+                const corMotivo = it.tipo === 'clinico' ? 'text-red-700' : it.tipo === 'trajetoria' || it.tipo === 'encontro60' ? 'text-amber-700' : 'text-slate-500';
                 return (
                   <div key={(it.a.idAluno || '') + it.a.nome} className="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50 transition">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -870,7 +896,9 @@ export default function PainelLider() {
                         ? <button onClick={() => setAlunoDiag({ a: it.a, d: it.d })} className="text-[11px] font-semibold text-intento-blue hover:underline">abrir →</button>
                         : it.acao === 'designar'
                           ? <button onClick={() => abrirDesignacao(it.a)} className="text-[11px] font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition">designar</button>
-                          : <button onClick={() => window.open(`/mentor/${it.a.idAluno}?nome=${encodeURIComponent(it.a.nome)}`, '_blank')} className="text-[11px] font-semibold text-intento-blue hover:underline">perfil ↗</button>}
+                          : it.acao === 'encontro60'
+                            ? <button onClick={() => marcarEncontro60(it.a)} disabled={marcandoEncontro60 === it.a.idAluno} className="text-[11px] font-semibold bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition disabled:opacity-40 disabled:cursor-not-allowed">{marcandoEncontro60 === it.a.idAluno ? 'Salvando...' : 'encontro feito ✓'}</button>
+                            : <button onClick={() => window.open(`/mentor/${it.a.idAluno}?nome=${encodeURIComponent(it.a.nome)}`, '_blank')} className="text-[11px] font-semibold text-intento-blue hover:underline">perfil ↗</button>}
                       {ehGestor && <button onClick={() => abrirSaida(it.a)} title="Registrar saída da mentoria" className="text-[11px] font-semibold text-slate-300 hover:text-red-600 transition">saída</button>}
                     </div>
                   </div>
@@ -884,6 +912,7 @@ export default function PainelLider() {
         {mensagemSucesso && <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-3"><span className="text-xs font-semibold text-emerald-800">Designado: {mensagemSucesso}</span></div>}
         {mensagemEdicao && <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-3"><span className="text-xs font-semibold text-emerald-800">{mensagemEdicao}</span></div>}
         {mensagemSaida && <div className="bg-slate-100 border border-slate-200 rounded-lg px-4 py-3 flex items-center gap-3"><span className="text-xs font-semibold text-slate-700">Saída registrada: {mensagemSaida}</span></div>}
+        {mensagemEncontro60 && <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-3"><span className="text-xs font-semibold text-emerald-800">{mensagemEncontro60}</span></div>}
 
         {/* ── EXPLORAR BASE — analytics sob demanda (drill) ── */}
         {explorar && (<>

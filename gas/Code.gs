@@ -87,7 +87,11 @@ const COL_MESTRE = {
   // Motivo da saída (um de MOTIVOS_SAIDA) + observação livre. Preenchidos
   // junto com DT_SAIDA pelo handleInativarAluno; vazios em aluno ativo.
   MOTIVO_SAIDA: 30,
-  OBS_SAIDA: 31
+  OBS_SAIDA: 31,
+  // Data (dd/MM/yyyy) do encontro individual líder↔mentorado do marco de 60 dias.
+  // Preenchida pelo handleMarcarEncontroLider (botão "encontro feito" no /lider).
+  // Vazio + 60-90 dias desde o 1º diário = alerta na fila do líder.
+  ENCONTRO_LIDER: 32
 };
 
 // Valores possíveis de COL_MESTRE.MOTIVO_SAIDA.
@@ -110,8 +114,12 @@ const COL_CACHE = {
   ID_PLANILHA: 0, ULTIMA_DATA_REGISTRO: 1, ULTIMA_SEMANA_REGISTRO: 2, ULTIMO_ENCONTRO: 3,
   // Data ISO do último .png exportado pelo mentor (acompanhamento enviado).
   // É o sinal de "mentor fez o trabalho da semana".
-  ULTIMA_EXPORTACAO: 4
+  ULTIMA_EXPORTACAO: 4,
+  // Data do 1º diário de bordo do aluno — âncora do encontro de 60 dias com o
+  // líder. Setada no 1º salvarNovoEncontro; legado via backfillPrimeiroEncontroCache().
+  PRIMEIRO_ENCONTRO: 5
 };
+const COL_CACHE_TOTAL = 6;
 
 // Push_Subscriptions: 1 linha por device subscrito
 const COL_PUSH = {
@@ -369,6 +377,7 @@ function doPost(e) {
     if (acao === "editarRegistro")          return handleEditarRegistro(dados);
     if (acao === "editarEncontro")          return handleEditarEncontro(dados);
     if (acao === "dashboardLider")          return handleDashboardLider(dados);
+    if (acao === "marcarEncontroLider")     return handleMarcarEncontroLider(dados);
     if (acao === "designarMentor")          return handleDesignarMentor(dados);
     if (acao === "atualizarDadosAluno")     return handleAtualizarDadosAluno(dados);
     if (acao === "inativarAluno")           return handleInativarAluno(dados);
@@ -1180,6 +1189,9 @@ function handleSalvarNovoEncontro(dados) {
 
     const dataHoje = Utilities.formatDate(new Date(), "GMT-3", "dd/MM/yyyy");
     const acoes    = Array.isArray(dados.acoes) ? dados.acoes : [];
+    // Antes do append: só header (lastRow < 2) ⇒ este é o 1º diário do aluno —
+    // âncora do encontro de 60 dias com o líder.
+    const ehPrimeiroEncontro = abaDiario.getLastRow() < 2;
     abaDiario.appendRow([
       dataHoje, txt(dados.autoavaliacao), txt(dados.vitorias), txt(dados.desafios),
       txt(dados.categoria), txt(dados.meta), txt(dados.exploracao),
@@ -1188,7 +1200,9 @@ function handleSalvarNovoEncontro(dados) {
       txt(dados.notasPrivadas),
       txt(dados.statusMetasAnteriores)
     ]);
-    atualizarCacheMestre(idPlanilha, { ULTIMO_ENCONTRO: dataHoje });
+    const cacheUpd = { ULTIMO_ENCONTRO: dataHoje };
+    if (ehPrimeiroEncontro) cacheUpd.PRIMEIRO_ENCONTRO = dataHoje;
+    atualizarCacheMestre(idPlanilha, cacheUpd);
     return responderJSON({ status: "sucesso" });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
   finally     { lock.releaseLock(); }
@@ -1260,6 +1274,10 @@ function atualizarCacheMestre(idPlanilha, updates) {
     const abaCache = ssMestre.getSheetByName(ABA.CACHE);
     if (!abaCache) { Logger.log('  aba ' + ABA.CACHE + ' não encontrada'); return; }
 
+    if (abaCache.getMaxColumns() < COL_CACHE_TOTAL) {
+      abaCache.insertColumnsAfter(abaCache.getMaxColumns(), COL_CACHE_TOTAL - abaCache.getMaxColumns());
+    }
+
     const lastRow = abaCache.getLastRow();
     let linhaAluno = -1;
     if (lastRow >= 2) {
@@ -1270,8 +1288,8 @@ function atualizarCacheMestre(idPlanilha, updates) {
     }
 
     if (linhaAluno === -1) {
-      // Cria nova linha de cache pra esse aluno (5 colunas: id + 4 timestamps)
-      const novaLinha = ['', '', '', '', ''];
+      // Cria nova linha de cache pra esse aluno (COL_CACHE_TOTAL colunas)
+      const novaLinha = new Array(COL_CACHE_TOTAL).fill('');
       novaLinha[COL_CACHE.ID_PLANILHA] = String(idPlanilha);
       Object.keys(updates).forEach(function(chave) {
         const col = COL_CACHE[chave];
@@ -1294,14 +1312,15 @@ function atualizarCacheMestre(idPlanilha, updates) {
   }
 }
 
-// Lê toda a Cache_Alunos e devolve mapa idPlanilha → { ultimaDataRegistro, ultimaSemanaRegistro, ultimoEncontro, ultimaExportacao }
+// Lê toda a Cache_Alunos e devolve mapa idPlanilha → { ultimaDataRegistro, ultimaSemanaRegistro, ultimoEncontro, ultimaExportacao, primeiroEncontro }
 function lerCacheTodos() {
   const ssMestre = SpreadsheetApp.getActiveSpreadsheet();
   const abaCache = ssMestre.getSheetByName(ABA.CACHE);
   if (!abaCache) return {};
   const lastRow = abaCache.getLastRow();
   if (lastRow < 2) return {};
-  const matriz = abaCache.getRange(2, 1, lastRow - 1, 5).getValues();
+  const nCols = Math.min(COL_CACHE_TOTAL, abaCache.getMaxColumns());
+  const matriz = abaCache.getRange(2, 1, lastRow - 1, nCols).getValues();
   const mapa = {};
   for (let i = 0; i < matriz.length; i++) {
     const id = String(matriz[i][COL_CACHE.ID_PLANILHA]).trim();
@@ -1310,10 +1329,42 @@ function lerCacheTodos() {
       ultimaDataRegistro:   txt(matriz[i][COL_CACHE.ULTIMA_DATA_REGISTRO]),
       ultimaSemanaRegistro: txt(matriz[i][COL_CACHE.ULTIMA_SEMANA_REGISTRO]),
       ultimoEncontro:       txt(matriz[i][COL_CACHE.ULTIMO_ENCONTRO]),
-      ultimaExportacao:     txt(matriz[i][COL_CACHE.ULTIMA_EXPORTACAO])
+      ultimaExportacao:     txt(matriz[i][COL_CACHE.ULTIMA_EXPORTACAO]),
+      primeiroEncontro:     txt(matriz[i][COL_CACHE.PRIMEIRO_ENCONTRO] || '')
     };
   }
   return mapa;
+}
+
+// One-shot idempotente — rode 1× no editor após o deploy do encontro de 60 dias.
+// Preenche Cache_Alunos.PRIMEIRO_ENCONTRO dos alunos ativos lendo a 1ª linha de
+// dados do BD_Diario (append-only ⇒ linha 2 é o 1º encontro). Alunos sem diário
+// ficam vazios (sem âncora → sem alerta).
+function backfillPrimeiroEncontroCache() {
+  var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
+  var abaMestre = ssMestre.getSheetByName(ABA.MESTRE);
+  if (!abaMestre) return;
+  var matriz = abaMestre.getDataRange().getValues();
+  var cache = lerCacheTodos();
+  var atualizados = 0;
+  for (var i = 1; i < matriz.length; i++) {
+    var idPlanilha = txt(matriz[i][COL_MESTRE.ID_PLANILHA]);
+    if (!idPlanilha) continue;
+    if (matriz[i][COL_MESTRE.DT_SAIDA]) continue;
+    if ((cache[idPlanilha] || {}).primeiroEncontro) continue;
+    try {
+      var abaDiario = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.ENCONTROS);
+      if (!abaDiario || abaDiario.getLastRow() < 2) continue;
+      var raw = abaDiario.getRange(2, COL_ENC.DATA + 1).getValue();
+      if (!raw) continue;
+      var data = (raw instanceof Date)
+        ? Utilities.formatDate(raw, 'GMT-3', 'dd/MM/yyyy')
+        : txt(raw).split(' ')[0];
+      atualizarCacheMestre(idPlanilha, { PRIMEIRO_ENCONTRO: data });
+      atualizados++;
+    } catch (e) { Logger.log('backfillPrimeiroEncontro: erro em ' + idPlanilha + ' — ' + e.message); }
+  }
+  Logger.log('backfillPrimeiroEncontroCache: ' + atualizados + ' aluno(s) atualizado(s)');
 }
 
 // Lê BD_Registro do aluno e identifica a SEMANA mais recente registrada
@@ -2602,7 +2653,13 @@ function handleDashboardLider(dados) {
         tipoAluno: txt(row[COL_MESTRE.TIPO_ALUNO]) || 'ENEM',
         escola: txt(row[COL_MESTRE.ESCOLA]),
         statusApp: txt(row[COL_MESTRE.STATUS_APP]) || '',
-        ultimaExportacao: c.ultimaExportacao || ''
+        ultimaExportacao: c.ultimaExportacao || '',
+        // Encontro de 60 dias com o líder: âncora (1º diário, via cache) + data
+        // do encontro realizado (BD_Alunos). Vazios ⇒ front decide se alerta.
+        primeiroEncontro: c.primeiroEncontro || '',
+        encontroLider: (row[COL_MESTRE.ENCONTRO_LIDER] instanceof Date)
+          ? Utilities.formatDate(row[COL_MESTRE.ENCONTRO_LIDER], 'GMT-3', 'dd/MM/yyyy')
+          : txt(row[COL_MESTRE.ENCONTRO_LIDER] || '')
       });
     }
 
@@ -2622,6 +2679,41 @@ function handleDashboardLider(dados) {
     return responderJSON({ status: 'sucesso', semanaAtual: semanaAtual, alunos: alunos, pendencias: pendencias, mentoresAtivos: listaMentoresAtivos, agregado: agregado });
   } catch (e) {
     Logger.log('dashboardLider EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
+}
+
+// Registra a data do encontro individual líder↔mentorado do marco de 60 dias
+// (botão "encontro feito" na fila do /lider). Sobrescreve se já houver data.
+function handleMarcarEncontroLider(dados) {
+  try {
+    var email = emailNorm(dados.email);
+    if (email !== 'filippe@metodointento.com.br' && email !== 'rafael@metodointento.com.br') {
+      return responderJSON({ status: 'erro', codigo: 403, mensagem: 'Não autorizado' });
+    }
+    var idAluno = txt(dados.idAluno);
+    if (!idAluno) return responderJSON({ status: 'erro', mensagem: 'idAluno obrigatório' });
+
+    var abaMestre = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ABA.MESTRE);
+    if (!abaMestre) throw new Error('Aba mestre não encontrada');
+    if (abaMestre.getMaxColumns() < COL_MESTRE.ENCONTRO_LIDER + 1) {
+      abaMestre.insertColumnsAfter(abaMestre.getMaxColumns(), COL_MESTRE.ENCONTRO_LIDER + 1 - abaMestre.getMaxColumns());
+    }
+    if (!txt(abaMestre.getRange(1, COL_MESTRE.ENCONTRO_LIDER + 1).getValue())) {
+      abaMestre.getRange(1, COL_MESTRE.ENCONTRO_LIDER + 1).setValue('encontro_lider');
+    }
+
+    var ids = abaMestre.getRange(2, COL_MESTRE.ID_PLANILHA + 1, Math.max(abaMestre.getLastRow() - 1, 1), 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (txt(ids[i][0]) === idAluno) {
+        var data = Utilities.formatDate(new Date(), 'GMT-3', 'dd/MM/yyyy');
+        abaMestre.getRange(i + 2, COL_MESTRE.ENCONTRO_LIDER + 1).setValue(data);
+        return responderJSON({ status: 'sucesso', data: data });
+      }
+    }
+    return responderJSON({ status: 'erro', mensagem: 'Aluno não encontrado' });
+  } catch (e) {
+    Logger.log('marcarEncontroLider EXCEPTION: ' + e.message);
     return responderJSON({ status: 'erro', mensagem: e.message });
   }
 }
