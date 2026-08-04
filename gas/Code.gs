@@ -1337,9 +1337,11 @@ function lerCacheTodos() {
 }
 
 // One-shot idempotente — rode 1× no editor após o deploy do encontro de 60 dias.
-// Preenche Cache_Alunos.PRIMEIRO_ENCONTRO dos alunos ativos lendo a 1ª linha de
-// dados do BD_Diario (append-only ⇒ linha 2 é o 1º encontro). Alunos sem diário
-// ficam vazios (sem âncora → sem alerta).
+// Preenche Cache_Alunos.PRIMEIRO_ENCONTRO dos alunos ativos com a PRIMEIRA
+// célula da coluna DATA do BD_Diario que é data de verdade. Não dá pra confiar
+// na linha 2: planilhas legadas têm scaffold antes dos encontros (legenda de
+// categorias, título "Encontros", 2º header). Alunos sem diário ficam vazios
+// (sem âncora → sem alerta). Re-execução corrige valores-lixo de runs antigas.
 function backfillPrimeiroEncontroCache() {
   var ssMestre = SpreadsheetApp.getActiveSpreadsheet();
   var abaMestre = ssMestre.getSheetByName(ABA.MESTRE);
@@ -1351,15 +1353,20 @@ function backfillPrimeiroEncontroCache() {
     var idPlanilha = txt(matriz[i][COL_MESTRE.ID_PLANILHA]);
     if (!idPlanilha) continue;
     if (matriz[i][COL_MESTRE.DT_SAIDA]) continue;
-    if ((cache[idPlanilha] || {}).primeiroEncontro) continue;
+    var atual = (cache[idPlanilha] || {}).primeiroEncontro;
+    if (atual && _parseDataBR_(atual)) continue; // âncora válida — não sobrescreve
     try {
       var abaDiario = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.ENCONTROS);
       if (!abaDiario || abaDiario.getLastRow() < 2) continue;
-      var raw = abaDiario.getRange(2, COL_ENC.DATA + 1).getValue();
-      if (!raw) continue;
-      var data = (raw instanceof Date)
-        ? Utilities.formatDate(raw, 'GMT-3', 'dd/MM/yyyy')
-        : txt(raw).split(' ')[0];
+      var coluna = abaDiario.getRange(2, COL_ENC.DATA + 1, abaDiario.getLastRow() - 1, 1).getValues();
+      var data = null;
+      for (var r = 0; r < coluna.length; r++) {
+        var raw = coluna[r][0];
+        if (raw instanceof Date) { data = Utilities.formatDate(raw, 'GMT-3', 'dd/MM/yyyy'); break; }
+        var s = txt(raw).split(' ')[0];
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) { data = s; break; }
+      }
+      if (!data) { Logger.log('backfillPrimeiroEncontro: ' + idPlanilha + ' sem data válida no diário'); continue; }
       atualizarCacheMestre(idPlanilha, { PRIMEIRO_ENCONTRO: data });
       atualizados++;
     } catch (e) { Logger.log('backfillPrimeiroEncontro: erro em ' + idPlanilha + ' — ' + e.message); }
