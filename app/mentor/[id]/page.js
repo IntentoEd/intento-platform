@@ -956,6 +956,11 @@ export default function GestaoIndividualAluno() {
   const router = useRouter();
 
   const [carregando, setCarregando] = useState(true);
+  // Erro no buscarDadosAluno — bloqueia a página com tela de erro + retry.
+  // Sem isso, falha do backend renderizava o empty state ("sem registros
+  // ainda"), indistinguível de aluno realmente sem dados.
+  const [erroCarregar, setErroCarregar] = useState('');
+  const [tentativaCarregar, setTentativaCarregar] = useState(0);
   const [historicoDiarios, setHistoricoDiarios] = useState([]);
   const [historicoRegistros, setHistoricoRegistros] = useState([]);
   const [dadosSimulados, setDadosSimulados] = useState({ kpi: null, hist: null, lista: [] });
@@ -1148,8 +1153,10 @@ export default function GestaoIndividualAluno() {
   }, [modalAberto, encontroEdit, simuladoAberto, formDiario]);
 
   useEffect(() => {
+    let redirecionando = false;
     const carregarDados = async () => {
       setCarregando(true);
+      setErroCarregar('');
       try {
         let data;
         if (ehDemo) {
@@ -1160,6 +1167,15 @@ export default function GestaoIndividualAluno() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ acao: 'buscarDadosAluno', idPlanilhaAluno: params.id })
           });
+          if (res.status === 401) {
+            // Sessão quebrada de verdade — mesmo tratamento do MentorContext:
+            // volta pro login em vez de mostrar erro genérico.
+            redirecionando = true;
+            auth.signOut().catch(() => {});
+            sessionStorage.removeItem('emailLogado');
+            router.push('/');
+            return;
+          }
           data = await res.json();
         }
 
@@ -1197,16 +1213,19 @@ export default function GestaoIndividualAluno() {
             const ultimo = diariosCarregados[0];
             setMetasPassadas(parseMetas(ultimo.meta)); // Puxa as metas antigas para os Placeholders
           }
+        } else {
+          setErroCarregar(data.mensagem || 'O servidor respondeu com erro.');
         }
       } catch (e) {
         console.error(e);
+        setErroCarregar('Falha de conexão ao carregar os dados.');
       } finally {
-        setCarregando(false);
+        if (!redirecionando) setCarregando(false);
       }
     };
     carregarDados();
     carregarProvasAluno(); // paralelo — não bloqueia o dossiê
-  }, [params.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [params.id, tentativaCarregar]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // =========================================================================
   // SALVAR NOVO DIÁRIO
@@ -1431,6 +1450,31 @@ export default function GestaoIndividualAluno() {
   };
 
   if (carregando) return <LoadingScreen mensagem="Carregando dados do aluno..." />;
+
+  if (erroCarregar) return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans p-6">
+      <div className="bg-white border border-red-200 rounded-xl shadow-sm p-8 max-w-md w-full text-center">
+        <p className="text-red-600 font-semibold text-sm mb-1">
+          Não foi possível carregar os dados{nomeAluno ? ` de ${nomeAluno}` : ' do aluno'}.
+        </p>
+        <p className="text-slate-500 text-xs mb-6">{erroCarregar}</p>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => setTentativaCarregar(t => t + 1)}
+            className="bg-intento-blue hover:opacity-90 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-all"
+          >
+            Tentar novamente
+          </button>
+          <button
+            onClick={() => router.push('/mentor')}
+            className="text-slate-500 hover:text-intento-blue font-medium text-sm px-3 py-2.5 transition-colors"
+          >
+            ← Voltar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 lg:p-8 font-sans" onMouseUp={finalizarSelecao}>
