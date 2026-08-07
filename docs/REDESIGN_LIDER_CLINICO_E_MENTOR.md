@@ -51,25 +51,28 @@ Mudanças vs hoje:
 
 ## 4. Aba Mentores (perfil por mentor + alertas clínicos)
 
+> Ajuste 07/08 (v2 → v3): os alunos em risco saem do card standalone no topo e entram
+> **dentro do card de cada mentor**, abaixo da linha de métricas, no mesmo enquadramento
+> visual dos outros elementos do card.
+
 ```
-┌ 🚨 ALUNOS EM RISCO (3)          ← casa canônica do clínico            │
-│  ● Maria · Ana · motivação despencou          [Aprendiz] [abrir card] │
-│  ● João · Bruno · overstudying (2+ sem >105%) [Veterano] [abrir card] │
-│  ● Lia · SEM MENTOR · estresse ≤40 em 2+ sem  [designar] [abrir card] │
-├───────────────────────────────────────────────────────────────────────┤
+┌ [🚨 Em risco sem mentor — só quando existir: nome · motivo · designar] │
 │ Ordenar: Carga | Alertas                                              │
-│ ┌ Ana ───────────────────┐ ┌ Bruno ─────────────────┐                 │
-│ │ Carga 6 · Acomp 83% ·  │ │ ...                    │                 │
-│ │ Encontros 75% · 🚨 1   │ │                        │                 │
-│ │ Perfis ▓▓▓░░░          │ │                        │                 │
-│ └────────────────────────┘ └────────────────────────┘                 │
+│ ┌ Ana ────────────────────────────┐ ┌ Bruno ────────────────┐          │
+│ │ Carga 6 · Acomp 83% ·           │ │ ...                   │          │
+│ │ Encontros 75% · Alertas 1       │ │                       │          │
+│ │ ┌ 🚨 Alunos em risco ─────────┐ │ │                       │          │
+│ │ │ Maria — motivação despencou │ │ │                       │          │
+│ │ └─────────────────────────────┘ │ │                       │          │
+│ │ Perfis ▓▓▓░░░                   │ │                       │          │
+│ └─────────────────────────────────┘ └───────────────────────┘          │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Fila clínica no topo da aba**, ordenada por gravidade (nº de motivos, depois nome), com motivo sempre visível e ações inline (abrir card dimensional / perfil / designar quando sem mentor / saída p/ gestor).
-- **Aluno sem mentor ativo COM alerta clínico aparece na fila clínica** (tag "sem mentor" + botão designar) — hoje o dedup administrativo engole o clínico.
-- **Cards de mentor perdem a métrica "Pendências"** (o administrativo mora na Visão Geral): ficam Carga · Acomp. · Encontros · Alertas + distribuição de perfis.
-- Ordenação: Carga | Alertas (opção "Pendências" removida).
+- **Alunos em risco dentro do card do mentor**, abaixo de Carga · Acomp. · Encontros · Alertas: nome + motivo + abrir card dimensional. Enquadramento discreto (borda/acento vermelho), consistente com o resto do card.
+- **Aluno sem mentor ativo COM alerta clínico** aparece num card compacto "Em risco sem mentor" acima dos cards (designar inline) — só renderiza quando existe o caso.
+- **Cards de mentor sem a métrica "Pendências"** (o administrativo mora na Visão Geral).
+- Ordenação: Carga | Alertas.
 
 ## 5. Aba Mentorados — critérios no chip "Precisam de ação"
 
@@ -83,7 +86,7 @@ Implementação: nova função **`motivosAcao(d, ciclo)`** em `lib/carimbos.js` 
 
 ## 6. Painel do mentor (/mentor) — Fase B
 
-Faixa **"Prioridades da semana"** no topo da home do mentor, invisível quando vazia:
+Faixa **"Alerta"** no topo da home do mentor (nome decidido pelo Filippe em 07/08; era "Prioridades da semana" no plano), invisível quando vazia:
 
 - **Em risco** (clínico) dos alunos dele, **com motivo visível** (decisão: o mentor é quem age; só a nota privada é privada).
 - **Precisam de ação** (trajetória) com os mesmos critérios de §5.
@@ -100,19 +103,21 @@ Faixa **"Prioridades da semana"** no topo da home do mentor, invisível quando v
 
 ## 7. Fases
 
-**Fase A — frontend-only, /lider (sem GAS):**
+**Fase A — frontend-only, /lider (sem GAS):** ✅ em prod (PR #78, merged 07/08).
 1. Visão Geral: KPIs reordenados (Operação primeiro, alertas como ponteiro) + fila Operação + remoção do Perfil por mentor.
 2. Aba Mentores: fila clínica no topo + cards sem métrica Pendências.
 3. Aba Mentorados: coluna Motivo no chip.
 4. `motivosAcao()` em lib/carimbos.js.
 
-**Fase B — /mentor (GAS + Vercel casados):**
+**Fase B — /mentor (GAS + Vercel):**
 5. `dashboardMentor` no GAS + allowlist no proxy.
-6. Faixa "Prioridades da semana" no /mentor; extração de componentes compartilhados (FilaClinica, CardDimensional) na hora em que o segundo consumidor aparece.
+6. Faixa "Alerta" no /mentor — degrada silenciosamente (some) se o GAS ainda não tiver a ação, então o deploy não precisa ser rigorosamente casado; ordem segura: GAS primeiro, Vercel depois.
 
 ## 8. Decisões fechadas (Filippe, 07/08/2026)
 
 1. **Encontro 60d e sem diagnóstico** ficam na Operação da Visão Geral (sem diagnóstico é etapa prévia ao mentor; encontro 60d é agenda do líder).
-2. **Motivo do alerta clínico visível ao mentor** no /mentor.
+2. **Motivo do alerta clínico visível ao mentor** no /mentor, na faixa **"Alerta"**.
 3. **Coluna Motivo** só quando o chip "Precisam de ação" está ativo.
 4. **Rafael**: mesma página, sem diferenciação.
+5. **Alunos em risco moram dentro do card do mentor** (aba Mentores), não num card próprio.
+6. **Check-in zerado (0%) = "sem check-in", não sofrimento**: o app grava 0 quando o aluno pula o check-in. Semana zerada sai da conta de estresse/motivação baixa e o alerta ganha linguagem própria ("sem check-in em N das últimas 4 semanas") — continua alertando, mas pelo motivo certo (`sinalCheckin` em lib/carimbos.js).

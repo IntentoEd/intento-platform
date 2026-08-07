@@ -377,6 +377,7 @@ function doPost(e) {
     if (acao === "editarRegistro")          return handleEditarRegistro(dados);
     if (acao === "editarEncontro")          return handleEditarEncontro(dados);
     if (acao === "dashboardLider")          return handleDashboardLider(dados);
+    if (acao === "dashboardMentor")         return handleDashboardMentor(dados);
     if (acao === "marcarEncontroLider")     return handleMarcarEncontroLider(dados);
     if (acao === "designarMentor")          return handleDesignarMentor(dados);
     if (acao === "atualizarDadosAluno")     return handleAtualizarDadosAluno(dados);
@@ -2679,6 +2680,46 @@ function handleDashboardLider(dados) {
     return responderJSON({ status: 'sucesso', semanaAtual: semanaAtual, alunos: alunos, pendencias: pendencias, mentoresAtivos: listaMentoresAtivos, agregado: agregado });
   } catch (e) {
     Logger.log('dashboardLider EXCEPTION: ' + e.message);
+    return responderJSON({ status: 'erro', mensagem: e.message });
+  }
+}
+
+// Recorte do dashboard pro mentor autenticado: só os alunos DELE, cada um com
+// `metricas` (mesma shape do dashboardLider → diagnosticoDimensional do front
+// funciona sem adaptação). Alimenta a faixa "Alerta" da home do /mentor.
+// Autorização por construção: dados.email vem do token verificado no proxy
+// (ACOES_AUTENTICADAS) e o filtro é por MENTOR_RESPONSAVEL — quem não é mentor
+// de ninguém recebe lista vazia. Sem agregado da base (não é necessário).
+function handleDashboardMentor(dados) {
+  try {
+    var emailMentor = emailNorm(dados.email);
+    if (!emailMentor) return responderJSON({ status: 'erro', codigo: 400, mensagem: 'E-mail não fornecido' });
+
+    var abaMestre = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ABA.MESTRE);
+    if (!abaMestre) throw new Error('Aba mestre não encontrada');
+    var matriz = abaMestre.getDataRange().getValues();
+
+    var alunos = [];
+    for (var i = 1; i < matriz.length; i++) {
+      var row = matriz[i];
+      if (row[COL_MESTRE.DT_SAIDA]) continue;
+      if (emailNorm(row[COL_MESTRE.MENTOR_RESPONSAVEL]) !== emailMentor) continue;
+      if (txt(row[COL_MESTRE.STATUS_ONBOARDING]) !== 'Onboarding Completo') continue;
+      var idPlanilha = txt(row[COL_MESTRE.ID_PLANILHA]);
+      if (!idPlanilha) continue;
+      alunos.push({
+        idAluno: idPlanilha,
+        nome: txt(row[COL_MESTRE.NOME]),
+        statusApp: txt(row[COL_MESTRE.STATUS_APP]) || ''
+      });
+    }
+
+    // Abre a planilha de cada aluno — subconjunto do mentor (~6-10) fica bem
+    // abaixo do teto de execução do GAS. Anexa .metricas em cada aluno.
+    agregarMetricasBase_(alunos);
+    return responderJSON({ status: 'sucesso', alunos: alunos });
+  } catch (e) {
+    Logger.log('dashboardMentor EXCEPTION: ' + e.message);
     return responderJSON({ status: 'erro', mensagem: e.message });
   }
 }

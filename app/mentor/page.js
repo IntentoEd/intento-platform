@@ -4,9 +4,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/firebase';
+import { apiFetch } from '@/lib/api';
 import { useMentor } from '@/lib/MentorContext';
 import { LoadingScreen } from '@/components/Loading';
 import PushToggle from '@/components/PushToggle';
+import { diagnosticoDimensional, motivosAcao, CICLOS_INFO, cicloIdx } from '@/lib/carimbos';
 
 // Semana de trabalho do mentor (Dom-Sáb que ACABOU de fechar; o mentor
 // entra na segunda pra revisar/exportar). Usado pra display.
@@ -42,6 +44,65 @@ function rotaExportacao(aluno) {
   const semApp = aluno?.statusApp === 'Não se adaptou' || aluno?.statusApp === 'Nunca vai usar';
   const base = semApp ? '/mentor/ig/diario' : '/mentor/ig/painel';
   return `${base}?id=${aluno.id}&nome=${encodeURIComponent(aluno.nome || '')}`;
+}
+
+// ── Faixa "Alerta" — mesma leitura do líder, recortada pros alunos do mentor ──
+// (docs/REDESIGN_LIDER_CLINICO_E_MENTOR.md §6). Busca dashboardMentor e roda o
+// motor compartilhado (lib/carimbos.js). Invisível quando vazia, em demo ou em
+// falha de rede/GAS sem a ação (degradação silenciosa — o resto da home é o
+// fluxo de trabalho e não pode depender disso).
+const naoUsaAppAlerta = (a) => a.statusApp === 'Não se adaptou' || a.statusApp === 'Nunca vai usar';
+
+function useAlertaMentor(ehDemo) {
+  const [itens, setItens] = useState([]);
+  useEffect(() => {
+    if (ehDemo) return;
+    let vivo = true;
+    (async () => {
+      try {
+        const r = await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'dashboardMentor' }) });
+        const d = await r.json();
+        if (!vivo || d.status !== 'sucesso') return;
+        const ciclo = CICLOS_INFO[cicloIdx()];
+        const lista = (d.alunos || [])
+          .filter(a => !naoUsaAppAlerta(a))
+          .map(a => ({ a, motivos: motivosAcao(diagnosticoDimensional(a), ciclo) }))
+          .filter(it => it.motivos.length > 0)
+          .sort((x, y) => (y.motivos.some(m => m.tipo === 'clinico') - x.motivos.some(m => m.tipo === 'clinico'))
+            || (x.a.nome || '').localeCompare(y.a.nome || ''));
+        if (vivo) setItens(lista);
+      } catch { /* rede/GAS indisponível → faixa fica oculta */ }
+    })();
+    return () => { vivo = false; };
+  }, [ehDemo]);
+  return itens;
+}
+
+function FaixaAlerta({ itens, perfilHref }) {
+  if (!itens.length) return null;
+  return (
+    <div className="bg-white rounded-xl border shadow-sm overflow-hidden" style={{ borderColor: '#F1D2D2' }}>
+      <div className="px-5 py-3.5 flex items-center gap-2" style={{ backgroundColor: '#FBEAEA' }}>
+        <h2 className="text-sm font-bold" style={{ color: '#9B1C1C' }}>🚨 Alerta</h2>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">{itens.length}</span>
+      </div>
+      <div className="divide-y divide-slate-100">
+        {itens.map(({ a, motivos }) => (
+          <div key={a.idAluno + a.nome} className="px-5 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-slate-700 truncate">{a.nome}</p>
+              {motivos.map(m => (
+                <p key={m.tipo} className={`text-[11px] font-medium ${m.tipo === 'clinico' ? 'text-red-700' : 'text-amber-700'}`}>
+                  {m.tipo === 'clinico' ? '🚨 ' : ''}{m.texto}
+                </p>
+              ))}
+            </div>
+            <Link href={perfilHref({ id: a.idAluno, nome: a.nome })} className="text-xs font-semibold text-intento-blue hover:underline shrink-0">Perfil →</Link>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // ── Dados de exemplo (/mentor?demo=1): revisão offline da lista ──────────────
@@ -95,6 +156,8 @@ export default function PainelGlobalMentor() {
   const perfilHref = (aluno) => ehDemo ? '/mentor/demo' : `/mentor/${aluno.id}?nome=${encodeURIComponent(aluno.nome || '')}`;
   const irParaPerfil = (aluno) => router.push(perfilHref(aluno));
 
+  const alertaItens = useAlertaMentor(ehDemo);
+
   if (carregando) return <LoadingScreen mensagem="Sincronizando Painel..." />;
 
   return (
@@ -125,6 +188,9 @@ export default function PainelGlobalMentor() {
             </button>
           </div>
         </div>
+
+        {/* Alerta — alunos em risco / precisando de ação (motor compartilhado c/ o líder) */}
+        <FaixaAlerta itens={alertaItens} perfilHref={perfilHref} />
 
         {/* Resumo enxuto da semana */}
         {alunos.length > 0 && (

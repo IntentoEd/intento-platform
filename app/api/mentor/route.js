@@ -29,6 +29,7 @@ const ACOES_AUTENTICADAS = new Set([
   'cadastrarAvaliacoes', 'listarAvaliacoesAluno', 'atualizarAvaliacao', 'deletarAvaliacao',
   // Mentor — listagem e leitura de alunos
   'listaAlunosMentor', 'buscarDadosAluno', 'buscarOnboarding', 'buscarMetaAnterior',
+  'dashboardMentor',
   // Mentor — escrita de registros/encontros/simulados
   'salvarDiario', 'salvarSemanaLote', 'salvarRegistroGlobal', 'deletarRegistro',
   'verificarRegistroSemana', 'editarRegistro', 'salvarStatusApp', 'registrarExportacao',
@@ -51,6 +52,7 @@ const TTL_MS = {
   buscarDadosAluno:     60 * 1000,           // 60s
   buscarMetaAnterior:   60 * 1000,           // 60s — meta da última semana registrada
   dashboardLider:       2  * 60 * 1000,      // 2min — dashboard do líder, dados mudam a cada write
+  dashboardMentor:      5  * 60 * 1000,      // 5min — faixa Alerta do /mentor (chave inclui email do caller)
   listarLeads:          60 * 1000,           // 60s — pipeline de vendas, alta frequência
   dashboardCrm:         2  * 60 * 1000,      // 2min
   // listarAvaliacoesAluno: NÃO cacheia — chave seria por idAluno (compartilhada entre
@@ -82,14 +84,14 @@ function chavesParaInvalidar(acaoEscrita, dados) {
     case 'registrarRevisaoCaderno':
       return [
         ...ids.flatMap(id => [`buscarDadosAluno|*|${id}`, `buscarOnboarding|*|${id}`, `buscarMetaAnterior|*|${id}`]),
-        'dashboardLider|*',
+        'dashboardLider|*', 'dashboardMentor|*',
       ];
     case 'onboarding':
     case 'diagnostico':
     case 'designarMentor':
     case 'atualizarDadosAluno':
     case 'inativarAluno':
-      return ['listaAlunosMentor|*', 'dashboardLider|*'];
+      return ['listaAlunosMentor|*', 'dashboardLider|*', 'dashboardMentor|*'];
     case 'marcarEncontroLider':
       return ['dashboardLider|*'];
     case 'marcarAcompanhamento':
