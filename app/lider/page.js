@@ -13,7 +13,7 @@ import PushToggle from '@/components/PushToggle';
 import { corDe, CARIMBO_LABEL } from '@/lib/carimboCores';
 import {
   CARIMBOS, ORD_CAR, DIM_LABEL, CICLOS_INFO, cicloIdx,
-  diagnosticoDimensional, sinalCheckin, ultimaSemanaHist,
+  diagnosticoDimensional, sinalCheckin, ultimaSemanaHist, motivosAcao,
 } from '@/lib/carimbos';
 import { CarimboBadge, BarraCarimbo, CarimboDimensional } from '@/components/Carimbos';
 
@@ -132,14 +132,6 @@ const FAIXAS_HORAS = [
 // Avatar de iniciais (até 2 palavras)
 const iniciais = (nome) => String(nome || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
 
-// "Precisa de ação" = mesmo critério da fila acoes: alerta clínico OU Cobertura abaixo
-// do piso do Ciclo OU perfil Aprendiz. (Só Cobertura tem piso por Ciclo — CICLOS_INFO.cobMin.)
-function precisaAcao(d, ciclo) {
-  if (!d) return false;
-  const atrasadoCiclo = d.cobMed != null && d.cobMed < ciclo.cobMin;
-  return !!d.alerta || atrasadoCiclo || d.perfil === 'aprendiz';
-}
-
 // Célula de métrica pequena (cards de mentor)
 function Metrica({ label, valor, sub, tom }) {
   const bg = tom === 'ambar' ? '#FEF3C7' : tom === 'vermelho' ? '#FEE2E2' : '#F8FAFC';
@@ -165,9 +157,6 @@ function BarraSegmentos({ dist, total, altura = 'h-2.5' }) {
     </span>
   );
 }
-// Tons de avatar — ciclam pelas 3 famílias da marca pra dar variedade visual
-const AVATAR_TINTS = ['veterano', 'mestre', 'aprendiz'];
-
 // Barra empilhada de distribuição (heatmap dimensional): Aprendiz/Veterano/Mestre
 function DistribDim({ label, dist, total }) {
   const seg = (n, nivel) => n > 0 ? <span className="h-full" style={{ width: `${(n / total) * 100}%`, backgroundColor: corDe(nivel).solido }} /> : null;
@@ -317,7 +306,7 @@ export default function PainelLider() {
   const [alunoDiag, setAlunoDiag] = useState(null); // {a, d} aberto no card dimensional
   const [explorar, setExplorar] = useState(false);  // drill da base (analytics) sob demanda
   const [subAba, setSubAba] = useState('visao');           // visao | mentores | mentorados
-  const [mentoresOrder, setMentoresOrder] = useState('carga'); // carga | pendencias | alertas
+  const [mentoresOrder, setMentoresOrder] = useState('carga'); // carga | alertas
   const [mentoradosChip, setMentoradosChip] = useState('todos'); // todos | acao | aprendiz | veterano | mestre
 
   const [seccoesAbertas, setSeccoesAbertas] = useState({ mentores: true, analitica: false });
@@ -493,37 +482,41 @@ export default function PainelLider() {
   const pendenciasDiagnostico = useMemo(() => dados?.pendencias || [], [dados]);
   const alunosAguardando = useMemo(() => (dados?.alunos || []).filter(a => !a.mentor || !a.mentorAtivo), [dados]);
 
-  // ── Fila única "Precisa de você": só o que o líder resolve agindo ──
-  // designação > diagnóstico > alerta clínico > encontro de 60 dias. Trajetória
-  // (cobertura atrás do ciclo / perfil Aprendiz) NÃO entra na fila — é pauta de
-  // mentoria e fica acessível pelo chip "Precisam de ação" na aba Mentorados.
-  const acoes = useMemo(() => {
+  // ── Fila OPERAÇÃO (Visão Geral): só o administrativo que o líder resolve ──
+  // designação > sem diagnóstico > encontro de 60 dias. O clínico mora na fila
+  // da aba Mentores; trajetória (cobertura/Aprendiz) fica no chip "Precisam de
+  // ação" em Mentorados. Ver docs/REDESIGN_LIDER_CLINICO_E_MENTOR.md.
+  const operacao = useMemo(() => {
     const items = [];
     alunosAguardando.forEach(a => items.push({ prioridade: 0, tipo: 'designar', a, motivo: a.mentor && !a.mentorAtivo ? 'mentor inativo' : 'aguardando designação', acao: 'designar' }));
+    // Sem diagnóstico fica aqui mesmo com mentor ativo — é etapa prévia à mentoria.
     pendenciasDiagnostico.forEach(a => items.push({ prioridade: 1, tipo: 'diagnostico', a, motivo: 'sem diagnóstico', acao: (!a.mentor || !a.mentorAtivo) ? 'designar' : 'perfil' }));
-    diagnostico.forEach(({ a, d }) => {
-      if (!(a.mentor && a.mentorAtivo)) return; // sem mentor ativo → já entrou no 'designar'
-      if (d.alerta) items.push({ prioridade: 2, tipo: 'clinico', a, d, motivo: d.alertaMotivo ? `alerta clínico · ${d.alertaMotivo}` : 'alerta clínico', acao: 'card' });
-    });
     // Encontro de 60 dias líder↔mentorado: janela 60-90 dias desde o 1º diário,
     // sem data registrada. Vale pra toda a base (inclusive fora do app); some
     // sozinho aos 90 dias se não realizado.
     (dados?.alunos || []).forEach(a => {
       if (a.encontroLider) return;
       const dias = diasDesde(a.primeiroEncontro); // Infinity se sem diário → fora da janela
-      if (dias >= 60 && dias <= 90) items.push({ prioridade: 3, tipo: 'encontro60', a, motivo: `encontro de 60 dias · ${dias}d desde o 1º diário`, acao: 'encontro60' });
+      if (dias >= 60 && dias <= 90) items.push({ prioridade: 2, tipo: 'encontro60', a, motivo: `encontro de 60 dias · ${dias}d desde o 1º diário`, acao: 'encontro60' });
     });
     const seen = new Map();
     items.forEach(it => { const k = (it.a.idAluno || '') + it.a.nome; if (!seen.has(k) || it.prioridade < seen.get(k).prioridade) seen.set(k, it); });
     return [...seen.values()].sort((x, y) => x.prioridade - y.prioridade);
-  }, [diagnostico, alunosAguardando, pendenciasDiagnostico, dados]);
+  }, [alunosAguardando, pendenciasDiagnostico, dados]);
+
+  // ── Fila CLÍNICA (aba Mentores): casa canônica dos alertas, com nomes ──
+  // Inclui aluno sem mentor ativo (tag + designar inline) — o administrativo
+  // não engole mais o clínico. Gravidade = nº de motivos ativos.
+  const filaClinica = useMemo(() =>
+    diagnostico.filter(({ d }) => d.alerta)
+      .map(({ a, d }) => ({ a, d, semMentor: !(a.mentor && a.mentorAtivo) }))
+      .sort((x, y) => (y.d.alertaMotivo || '').split(' + ').length - (x.d.alertaMotivo || '').split(' + ').length
+        || (x.a.nome || '').localeCompare(y.a.nome || '')),
+  [diagnostico]);
 
   // ── ETAPA 4: cards por mentor (camada de apresentação sobre o diagnóstico) ──
-  // Reusa diagnostico (carimbos prontos) + acoes (pendências). Não recalcula carimbo.
+  // Reusa diagnostico (carimbos prontos). Não recalcula carimbo.
   const mentoresCards = useMemo(() => {
-    // Pendências do mentor = itens da fila dele que NÃO são alerta clínico (decisão do Filippe).
-    const pendPorMentor = {};
-    acoes.forEach(it => { if (it.tipo !== 'clinico' && it.a?.mentor) pendPorMentor[it.a.mentor] = (pendPorMentor[it.a.mentor] || 0) + 1; });
     const g = {};
     diagnostico.forEach(({ a, d }) => {
       if (!(a.mentor && a.mentorAtivo)) return; // casa com dados.mentoresAtivos
@@ -539,7 +532,6 @@ export default function PainelLider() {
     });
     return Object.values(g).map(grp => {
       grp.carga = grp.alunos.length;
-      grp.pendencias = pendPorMentor[grp.email] || 0;
       grp.atrasados = grp.alunos.filter(({ d }) => d.cobMed != null && d.cobMed < ciclo.cobMin).length;
       grp.acompPct = grp.acompTot ? Math.round(grp.acompVerde / grp.acompTot * 100) : null;
       grp.encPct = grp.encEsp ? Math.round(grp.encFeitos / grp.encEsp * 100) : null;
@@ -548,26 +540,29 @@ export default function PainelLider() {
       grp.planosArr = [...grp.planos];
       return grp;
     });
-  }, [diagnostico, acoes, ciclo]);
+  }, [diagnostico, ciclo]);
 
   const mentoresCardsOrdenados = useMemo(() => {
     const arr = [...mentoresCards];
-    arr.sort((x, y) => mentoresOrder === 'pendencias' ? y.pendencias - x.pendencias
-      : mentoresOrder === 'alertas' ? y.alertas - x.alertas
-        : y.carga - x.carga);
+    arr.sort((x, y) => mentoresOrder === 'alertas' ? y.alertas - x.alertas : y.carga - x.carga);
     return arr;
   }, [mentoresCards, mentoresOrder]);
 
   // ── ETAPA 5: linhas de Mentorados (diagnostico já filtrado) + chip de perfil/ação ──
+  // Com o chip "Precisam de ação" ativo, cada linha carrega os motivos que dispararam.
   const mentoradosFiltrados = useMemo(() => {
-    if (mentoradosChip === 'acao') return diagnostico.filter(({ d }) => precisaAcao(d, ciclo));
+    if (mentoradosChip === 'acao') {
+      return diagnostico
+        .map(({ a, d }) => ({ a, d, motivos: motivosAcao(d, ciclo) }))
+        .filter(({ motivos }) => motivos.length > 0);
+    }
     if (['aprendiz', 'veterano', 'mestre'].includes(mentoradosChip)) return diagnostico.filter(({ d }) => d.perfil === mentoradosChip);
     return diagnostico;
   }, [diagnostico, mentoradosChip, ciclo]);
 
   const mentoradosContagens = useMemo(() => ({
     todos: diagnostico.length,
-    acao: diagnostico.filter(({ d }) => precisaAcao(d, ciclo)).length,
+    acao: diagnostico.filter(({ d }) => motivosAcao(d, ciclo).length > 0).length,
     aprendiz: diagnostico.filter(({ d }) => d.perfil === 'aprendiz').length,
     veterano: diagnostico.filter(({ d }) => d.perfil === 'veterano').length,
     mestre: diagnostico.filter(({ d }) => d.perfil === 'mestre').length,
@@ -765,9 +760,15 @@ export default function PainelLider() {
         </div>
 
         {subAba === 'visao' && (<>
-        {diagResumo && (<>
-        {/* ── SCOREBOARD (4 KPIs) — processo primeiro: encontros e relatórios ── */}
+        {/* ── SCOREBOARD (4 KPIs) — administrativo primeiro (decisão 07/08):
+            Operação > processo (encontros, acompanhamentos). Alertas clínicos
+            é só ponteiro — a casa dos nomes é a aba Mentores. ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+          <div className="rounded-xl border p-5 shadow-sm" style={{ backgroundColor: '#FAEEDA', borderColor: '#EFDFBC' }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#92400E' }}>⚙ Operação</p>
+            <p className="text-3xl font-bold leading-none" style={{ color: '#854F0B' }}>{operacao.length}</p>
+            <p className="text-[11px] font-medium mt-2" style={{ color: '#92400E' }}>pendências administrativas</p>
+          </div>
           <div className={cardClass}>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Encontros do mês</p>
             <p className="text-3xl font-bold text-intento-blue leading-none">{encontrosMes.pct != null ? `${encontrosMes.pct}%` : '—'}</p>
@@ -778,22 +779,52 @@ export default function PainelLider() {
             <p className="text-3xl font-bold text-intento-blue leading-none">{acompStats.pct != null ? `${acompStats.pct}%` : '—'}</p>
             <p className="text-[11px] text-slate-400 font-medium mt-2">{acompStats.total > 0 ? `${acompStats.verde} de ${acompStats.total} enviados` : 'sem dado'}</p>
           </div>
-          <div className="rounded-xl border p-5 shadow-sm" style={{ backgroundColor: '#FAEEDA', borderColor: '#EFDFBC' }}>
-            <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#92400E' }}>Pendências</p>
-            <p className="text-3xl font-bold leading-none" style={{ color: '#854F0B' }}>{acoes.length}</p>
-            <p className="text-[11px] font-medium mt-2" style={{ color: '#92400E' }}>precisam de você</p>
-          </div>
-          <div className="rounded-xl border p-5 shadow-sm" style={{ backgroundColor: '#FBEAEA', borderColor: '#F1D2D2' }}>
-            <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#9B1C1C' }}>Alertas clínicos</p>
-            <p className="text-3xl font-bold leading-none" style={{ color: '#B91C1C' }}>{diagResumo.alertas}</p>
-            <p className="text-[11px] font-medium mt-2" style={{ color: '#9B1C1C' }}>ativos na base</p>
-          </div>
+          <button onClick={() => setSubAba('mentores')} className="rounded-xl border p-5 shadow-sm text-left hover:brightness-95 transition cursor-pointer" style={{ backgroundColor: '#FBEAEA', borderColor: '#F1D2D2' }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#9B1C1C' }}>🚨 Alertas clínicos</p>
+            <p className="text-3xl font-bold leading-none" style={{ color: '#B91C1C' }}>{filaClinica.length}</p>
+            <p className="text-[11px] font-medium mt-2" style={{ color: '#9B1C1C' }}>ver na aba Mentores →</p>
+          </button>
         </div>
 
-        {/* ── DISTRIBUIÇÃO POR DIMENSÃO · PERFIL POR MENTOR ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Distribuição por dimensão (+ perfil da base) */}
-          <div className={cardClass}>
+        {/* ── OPERAÇÃO — fila administrativa (designação > sem diagnóstico > encontro 60d) ── */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-intento-blue">⚙ Operação</h2>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${operacao.length ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{operacao.length}</span>
+            </div>
+            <button onClick={() => setExplorar(v => !v)} className="text-[11px] font-semibold text-intento-blue hover:underline">{explorar ? 'fechar base' : 'explorar base →'}</button>
+          </div>
+          {operacao.length === 0 ? (
+            <p className="text-sm text-slate-400 font-medium text-center py-8">Sem pendências administrativas nos filtros atuais.</p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {operacao.map(it => (
+                <div key={(it.a.idAluno || '') + it.a.nome} className="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50 transition">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: it.tipo === 'encontro60' ? '#D97706' : '#94A3B8' }} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 truncate">{it.a.nome} <span className="text-slate-400 font-normal">· {it.a.mentorNome || it.a.mentor || 'sem mentor'}</span></p>
+                      <p className={`text-[11px] font-medium truncate ${it.tipo === 'encontro60' ? 'text-amber-700' : 'text-slate-500'}`}>{it.motivo}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {it.acao === 'designar'
+                      ? <button onClick={() => abrirDesignacao(it.a)} className="text-[11px] font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition">designar</button>
+                      : it.acao === 'encontro60'
+                        ? <button onClick={() => marcarEncontro60(it.a)} disabled={marcandoEncontro60 === it.a.idAluno} className="text-[11px] font-semibold bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition disabled:opacity-40 disabled:cursor-not-allowed">{marcandoEncontro60 === it.a.idAluno ? 'Salvando...' : 'encontro feito ✓'}</button>
+                        : <button onClick={() => window.open(`/mentor/${it.a.idAluno}?nome=${encodeURIComponent(it.a.nome)}`, '_blank')} className="text-[11px] font-semibold text-intento-blue hover:underline">perfil ↗</button>}
+                    {ehGestor && <button onClick={() => abrirSaida(it.a)} title="Registrar saída da mentoria" className="text-[11px] font-semibold text-slate-300 hover:text-red-600 transition">saída</button>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {diagResumo && (<>
+        {/* ── DISTRIBUIÇÃO POR DIMENSÃO (perfil da base, largura cheia) ── */}
+        <div className={cardClass}>
             <div className="flex items-center justify-between gap-3 mb-4">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Perfil da base · por dimensão</p>
               <div className="flex items-center gap-3 shrink-0">
@@ -832,81 +863,7 @@ export default function PainelLider() {
             </div>
           </div>
 
-          {/* Perfil por mentor */}
-          <div className={cardClass}>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-4">Perfil por mentor</p>
-            {mentoresCards.length === 0 ? (
-              <p className="text-sm text-slate-400 font-medium py-6 text-center">Nenhum mentor com alunos no app.</p>
-            ) : (
-              <div className="space-y-3.5">
-                {mentoresCards.slice(0, 6).map((m, i) => {
-                  const tint = corDe(AVATAR_TINTS[i % AVATAR_TINTS.length]);
-                  const nota = m.alertas > 0 ? { txt: `${m.alertas} alerta${m.alertas > 1 ? 's' : ''}`, cor: '#B91C1C' }
-                    : m.atrasados > 0 ? { txt: `${m.atrasados} atrás p/ ${ciclo.id}`, cor: '#92400E' }
-                      : m.pendencias > 0 ? { txt: `${m.pendencias} em ação`, cor: '#92400E' }
-                        : { txt: 'tudo em dia', cor: corDe('mestre').texto };
-                  return (
-                    <div key={m.email} className="flex items-center gap-3">
-                      <span className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0" style={{ backgroundColor: tint.bg, color: tint.texto }}>{iniciais(m.nome)}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <span className="text-[13px] font-bold text-intento-blue truncate">{m.nome}</span>
-                          <span className="text-[11px] font-semibold shrink-0" style={{ color: nota.cor }}>{nota.txt}</span>
-                        </div>
-                        <BarraSegmentos dist={m.distrib} total={m.distTotal} altura="h-2" />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <button onClick={() => setSubAba('mentores')} className="mt-4 w-full text-center text-[12px] font-semibold text-intento-blue border border-slate-200 rounded-lg py-2.5 hover:bg-slate-50 transition">Ver detalhe dos mentores →</button>
-          </div>
-        </div>
         </>)}
-
-        {/* ── PRECISA DE VOCÊ — fila única (designação > diagnóstico > clínico > encontro 60d) ── */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-intento-blue">Precisa de você</h2>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${acoes.length ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{acoes.length}</span>
-            </div>
-            <button onClick={() => setExplorar(v => !v)} className="text-[11px] font-semibold text-intento-blue hover:underline">{explorar ? 'fechar base' : 'explorar base →'}</button>
-          </div>
-          {acoes.length === 0 ? (
-            <p className="text-sm text-slate-400 font-medium text-center py-8">Sem pendências nos filtros atuais.</p>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {acoes.map(it => {
-                const corDot = it.tipo === 'clinico' ? '#7F1D1D' : it.tipo === 'trajetoria' ? corDe(it.d?.perfil).solido : it.tipo === 'encontro60' ? '#D97706' : '#94A3B8';
-                const corMotivo = it.tipo === 'clinico' ? 'text-red-700' : it.tipo === 'trajetoria' || it.tipo === 'encontro60' ? 'text-amber-700' : 'text-slate-500';
-                return (
-                  <div key={(it.a.idAluno || '') + it.a.nome} className="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50 transition">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: corDot }} />
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-700 truncate">{it.a.nome} <span className="text-slate-400 font-normal">· {it.a.mentorNome || it.a.mentor || 'sem mentor'}</span></p>
-                        <p className={`text-[11px] font-medium truncate ${corMotivo}`}>{it.motivo}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {it.d?.perfil && <CarimboBadge nivel={it.d.perfil} />}
-                      {it.acao === 'card'
-                        ? <button onClick={() => setAlunoDiag({ a: it.a, d: it.d })} className="text-[11px] font-semibold text-intento-blue hover:underline">abrir →</button>
-                        : it.acao === 'designar'
-                          ? <button onClick={() => abrirDesignacao(it.a)} className="text-[11px] font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition">designar</button>
-                          : it.acao === 'encontro60'
-                            ? <button onClick={() => marcarEncontro60(it.a)} disabled={marcandoEncontro60 === it.a.idAluno} className="text-[11px] font-semibold bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition disabled:opacity-40 disabled:cursor-not-allowed">{marcandoEncontro60 === it.a.idAluno ? 'Salvando...' : 'encontro feito ✓'}</button>
-                            : <button onClick={() => window.open(`/mentor/${it.a.idAluno}?nome=${encodeURIComponent(it.a.nome)}`, '_blank')} className="text-[11px] font-semibold text-intento-blue hover:underline">perfil ↗</button>}
-                      {ehGestor && <button onClick={() => abrirSaida(it.a)} title="Registrar saída da mentoria" className="text-[11px] font-semibold text-slate-300 hover:text-red-600 transition">saída</button>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
         {/* Toasts */}
         {mensagemSucesso && <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-3"><span className="text-xs font-semibold text-emerald-800">Designado: {mensagemSucesso}</span></div>}
@@ -992,13 +949,49 @@ export default function PainelLider() {
         </>)}
         </>)}
 
-        {/* ── MENTORES (Etapa 4) ── */}
+        {/* ── MENTORES (Etapa 4): fila clínica (casa dos alertas) + cards ── */}
         {subAba === 'mentores' && (<>
+          {/* Alunos em risco — casa canônica do alerta clínico, com nomes e motivo */}
+          <div className="bg-white rounded-xl border shadow-sm overflow-hidden" style={{ borderColor: filaClinica.length ? '#F1D2D2' : '#E2E8F0' }}>
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2" style={filaClinica.length ? { backgroundColor: '#FBEAEA' } : undefined}>
+              <h2 className="text-base font-semibold" style={{ color: filaClinica.length ? '#9B1C1C' : '#1E3A8A' }}>🚨 Alunos em risco</h2>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${filaClinica.length ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{filaClinica.length}</span>
+            </div>
+            {filaClinica.length === 0 ? (
+              <p className="text-sm text-slate-400 font-medium text-center py-8">Nenhum alerta clínico ativo nos filtros atuais.</p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {filaClinica.map(({ a, d, semMentor }) => (
+                  <div key={(a.idAluno || '') + a.nome} className="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50 transition">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#7F1D1D' }} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-700 truncate">
+                          {a.nome}{' '}
+                          {semMentor
+                            ? <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-wider">sem mentor</span>
+                            : <span className="text-slate-400 font-normal">· {a.mentorNome || a.mentor}</span>}
+                        </p>
+                        <p className="text-[11px] font-medium truncate text-red-700">{d.alertaMotivo || 'alerta clínico'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {d.perfil && <CarimboBadge nivel={d.perfil} />}
+                      {semMentor && <button onClick={() => abrirDesignacao(a)} className="text-[11px] font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition">designar</button>}
+                      <button onClick={() => setAlunoDiag({ a, d })} className="text-[11px] font-semibold text-intento-blue hover:underline">abrir →</button>
+                      {ehGestor && <button onClick={() => abrirSaida(a)} title="Registrar saída da mentoria" className="text-[11px] font-semibold text-slate-300 hover:text-red-600 transition">saída</button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{mentoresCardsOrdenados.length} mentores</p>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ordenar</span>
-              {[['carga', 'Carga'], ['pendencias', 'Pendências'], ['alertas', 'Alertas']].map(([k, l]) => (
+              {[['carga', 'Carga'], ['alertas', 'Alertas']].map(([k, l]) => (
                 <button key={k} onClick={() => setMentoresOrder(k)} className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition ${mentoresOrder === k ? 'text-white border-transparent bg-intento-blue' : 'text-slate-500 bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>{l}</button>
               ))}
             </div>
@@ -1016,11 +1009,10 @@ export default function PainelLider() {
                       <p className="text-[11px] text-slate-400 font-medium truncate">{m.planosArr.join(' · ') || 'sem plano'}</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                     <Metrica label="Carga" valor={m.carga} />
                     <Metrica label="Acomp." valor={m.acompPct != null ? `${m.acompPct}%` : '—'} sub="enviado" />
                     <Metrica label="Encontros" valor={m.encPct != null ? `${m.encPct}%` : '—'} sub="do mês" />
-                    <Metrica label="Pendências" valor={m.pendencias} tom={m.pendencias ? 'ambar' : null} />
                     <Metrica label="Alertas" valor={m.alertas} tom={m.alertas ? 'vermelho' : null} />
                   </div>
                   <DistribDim label="Perfis" dist={m.distrib} total={m.distTotal || 1} />
@@ -1053,13 +1045,14 @@ export default function PainelLider() {
                     <th className="text-left font-bold p-3">Mentor</th>
                     <th className="text-left font-bold p-3">Perfil</th>
                     <th className="text-left font-bold p-3">Carimbos</th>
+                    {mentoradosChip === 'acao' && <th className="text-left font-bold p-3">Motivo</th>}
                     <th className="font-bold p-3"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {mentoradosFiltrados.length === 0 ? (
-                    <tr><td colSpan={5} className="text-center text-sm text-slate-400 font-medium py-8">Nenhum aluno nos filtros atuais.</td></tr>
-                  ) : mentoradosFiltrados.map(({ a, d }) => {
+                    <tr><td colSpan={mentoradosChip === 'acao' ? 6 : 5} className="text-center text-sm text-slate-400 font-medium py-8">Nenhum aluno nos filtros atuais.</td></tr>
+                  ) : mentoradosFiltrados.map(({ a, d, motivos }) => {
                     return (
                       <tr key={(a.idAluno || '') + a.nome} className="border-b border-slate-50 hover:bg-slate-50">
                         <td className="p-3">
@@ -1071,6 +1064,13 @@ export default function PainelLider() {
                         <td className="p-3 text-slate-500 truncate max-w-[120px]">{a.mentorNome || a.mentor || '—'}</td>
                         <td className="p-3"><CarimboBadge nivel={d.perfil} /></td>
                         <td className="p-3"><CarimboDimensional d={d} /></td>
+                        {mentoradosChip === 'acao' && (
+                          <td className="p-3">
+                            {(motivos || []).map(m => (
+                              <p key={m.tipo} className={`text-[11px] font-medium whitespace-normal ${m.tipo === 'clinico' ? 'text-red-700' : 'text-amber-700'}`}>{m.tipo === 'clinico' ? '🚨 ' : ''}{m.texto}</p>
+                            ))}
+                          </td>
+                        )}
                         <td className="p-3 text-right">
                           <div className="flex items-center justify-end gap-3">
                             <button onClick={() => setAlunoDiag({ a, d })} className="text-[11px] font-semibold text-intento-azul hover:underline">abrir</button>
