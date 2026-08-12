@@ -2,18 +2,27 @@
 
 import { apiFetch } from '@/lib/api';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { auth, googleProvider } from '@/lib/firebase';
 import {
   signInWithPopup,
+  signInWithRedirect,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   getRedirectResult,
+  onAuthStateChanged,
 } from 'firebase/auth';
+
+// App instalado na tela de início (PWA standalone)? No iOS, popups abrem num
+// overlay sem canal de volta pro app — signInWithPopup nunca resolve e a tela
+// fica presa em "Processando...". Nesse modo o login Google vai por redirect.
+const emStandalone = () =>
+  typeof window !== 'undefined' &&
+  (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true);
 
 export default function Home() {
   const router = useRouter();
@@ -31,6 +40,10 @@ export default function Home() {
   const labelClasse =
     'block text-xs font-semibold text-slate-400 uppercase mb-2 tracking-wider';
 
+  // Evita processar o mesmo login duas vezes quando getRedirectResult e
+  // onAuthStateChanged resolvem pro mesmo usuário.
+  const processouAutoLogin = useRef(false);
+
   // Consome qualquer redirect pendente do Firebase Auth.
   // Em browsers com storage particionado (Safari ITP, Brave) o sessionStorage
   // pode ser limpo durante o redirect, fazendo `getRedirectResult` jogar
@@ -42,15 +55,46 @@ export default function Home() {
                      /missing initial state/i.test(err?.message || '');
       if (benign) {
         console.warn('[auth] missing initial state — ignorando');
+        // No app instalado isso significa que o retorno do Google se perdeu —
+        // sem mensagem o usuário só vê a tela de login de novo, sem explicação.
+        if (emStandalone()) {
+          setErro('Não foi possível concluir o login com Google aqui no app. Entre com e-mail e senha, ou faça o login uma vez pelo Safari.');
+        }
         return;
       }
       console.error('[auth] getRedirectResult error:', err);
     });
   }, []);
 
+  // No app instalado, o Firebase persiste a sessão (IndexedDB) mas ninguém a
+  // consumia: o usuário caía na tela de login toda vez que abria o app — e o
+  // retorno do signInWithRedirect também chega por aqui. Só em standalone pra
+  // não mudar o comportamento do site no browser.
+  useEffect(() => {
+    if (!emStandalone()) return;
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user?.email || processouAutoLogin.current) return;
+      processouAutoLogin.current = true;
+      setCarregando(true);
+      processarAcessoNoSistema(user.email, user.displayName || 'Novo Aluno');
+    });
+    return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const efetuarLoginComGoogle = async () => {
     setCarregando(true);
     setErro('');
+    if (emStandalone()) {
+      try {
+        await signInWithRedirect(auth, googleProvider);
+      } catch (e) {
+        console.error('[loginGoogle/redirect] code=' + (e?.code || '?') + ' msg=' + (e?.message || '?'));
+        setErro('Falha ao abrir o login do Google. Tente e-mail + senha.');
+        setCarregando(false);
+      }
+      return;
+    }
     try {
       const resultado = await signInWithPopup(auth, googleProvider);
       await processarAcessoNoSistema(resultado.user.email, resultado.user.displayName || 'Novo Aluno');
