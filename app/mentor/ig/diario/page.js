@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMentor } from '@/lib/MentorContext';
 import { LoadingInline } from '@/components/Loading';
+import { salvarPngDoCanvas } from '../exportarPng';
 
 const CATEGORIA_COR = {
   'Codificação': { bg: '#dbeafe', fg: '#1e3a8a' },
@@ -78,16 +79,13 @@ function ExportarDiario() {
         backgroundColor: '#ffffff',
         logging: false,
       });
-      const link = document.createElement('a');
       const slug = (nomeAluno || 'aluno').replace(/\s+/g, '-').toLowerCase();
       const dataSlug = formatarData(encontro.data).replace(/\//g, '-');
-      link.download = `intento-${slug}-diario-${dataSlug}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      const salvou = await salvarPngDoCanvas(canvas, `intento-${slug}-diario-${dataSlug}.png`);
 
       // Registra que o mentor exportou — sinal de "acompanhamento enviado"
       // (não-bloqueante: erro aqui não atrapalha o download).
-      if (idPlanilha) {
+      if (salvou && idPlanilha) {
         marcarAcompanhamentoExportado(idPlanilha); // otimista: badge atualiza no /mentor sem F5
         apiFetch('/api/mentor', {
           method: 'POST',

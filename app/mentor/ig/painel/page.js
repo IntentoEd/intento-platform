@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMentor } from '@/lib/MentorContext';
 import { LoadingInline } from '@/components/Loading';
+import { salvarPngDoCanvas } from '../exportarPng';
 
 // Cor por disciplina (Bio verde, Qui roxo, Fis azul, Mat vermelho):
 // main = título + barra; bg/border = fundo suave do mini card.
@@ -238,14 +239,11 @@ function ExportarAcompanhamento() {
         backgroundColor: '#ffffff',
         logging: false,
       });
-      const link = document.createElement('a');
-      link.download = `intento-${nomeAluno.replace(/\s+/g, '-')}-semana.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      const salvou = await salvarPngDoCanvas(canvas, `intento-${nomeAluno.replace(/\s+/g, '-')}-semana.png`);
 
       // Registra que o mentor exportou — sinal de "acompanhamento enviado"
       // (não-bloqueante: erro aqui não atrapalha o download).
-      if (alunoId) {
+      if (salvou && alunoId) {
         marcarAcompanhamentoExportado(alunoId); // otimista: badge atualiza no /mentor sem F5
         apiFetch('/api/mentor', {
           method: 'POST',
