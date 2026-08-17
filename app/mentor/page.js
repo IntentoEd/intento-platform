@@ -53,6 +53,44 @@ function rotaExportacao(aluno) {
 // fluxo de trabalho e não pode depender disso).
 const naoUsaAppAlerta = (a) => a.statusApp === 'Não se adaptou' || a.statusApp === 'Nunca vai usar';
 
+// ── Check "ciente" da faixa Alerta ───────────────────────────────────────────
+// O mentor marca um alerta como ciente e ele some até segunda-feira 00h: a
+// chave guarda a segunda da semana corrente, então na virada a chave muda e os
+// checks da semana anterior expiram sozinhos (sem cron). Por device+mentor
+// (localStorage). Guarda os TIPOS de motivo no momento do check: se surgir um
+// motivo novo no meio da semana (ex: alerta clínico num aluno checado por
+// cobertura), o alerta volta a aparecer.
+function segundaAtualISO() {
+  const hoje = new Date();
+  const seg = new Date(hoje);
+  seg.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7));
+  seg.setHours(0, 0, 0, 0);
+  return seg.toISOString().slice(0, 10);
+}
+
+const chaveCientes = (email) => `alertaCientes:${email || 'anon'}`;
+
+function lerCientes(email) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(chaveCientes(email)) || 'null');
+    return raw && raw.semana === segundaAtualISO() ? (raw.alunos || {}) : {};
+  } catch { return {}; }
+}
+
+function salvarCientes(email, alunos) {
+  try { localStorage.setItem(chaveCientes(email), JSON.stringify({ semana: segundaAtualISO(), alunos })); } catch { /* modo privado/quota → check só não persiste */ }
+}
+
+function useCientesAlerta(email) {
+  const [cientes, setCientes] = useState({});
+  useEffect(() => { setCientes(lerCientes(email)); }, [email]);
+  const marcarCiente = useCallback((chaveAluno, tipos) => {
+    setCientes(prev => { const nx = { ...prev, [chaveAluno]: tipos }; salvarCientes(email, nx); return nx; });
+  }, [email]);
+  const desfazerCientes = useCallback(() => { setCientes({}); salvarCientes(email, {}); }, [email]);
+  return { cientes, marcarCiente, desfazerCientes };
+}
+
 function useAlertaMentor(ehDemo) {
   const [itens, setItens] = useState([]);
   useEffect(() => {
@@ -78,16 +116,24 @@ function useAlertaMentor(ehDemo) {
   return itens;
 }
 
-function FaixaAlerta({ itens, perfilHref }) {
-  if (!itens.length) return null;
+const chaveAlunoAlerta = (a) => a.idAluno || a.nome;
+
+function FaixaAlerta({ itens, perfilHref, cientes, marcarCiente, desfazerCientes }) {
+  // Some da faixa quem foi marcado ciente E não ganhou motivo novo desde o check.
+  const visiveis = itens.filter(({ a, motivos }) => {
+    const vistos = cientes[chaveAlunoAlerta(a)];
+    return !(vistos && motivos.every(m => vistos.includes(m.tipo)));
+  });
+  const numCientes = itens.length - visiveis.length;
+  if (!visiveis.length) return null;
   return (
     <div className="bg-white rounded-xl border shadow-sm overflow-hidden" style={{ borderColor: '#F1D2D2' }}>
       <div className="px-5 py-3.5 flex items-center gap-2" style={{ backgroundColor: '#FBEAEA' }}>
         <h2 className="text-sm font-bold" style={{ color: '#9B1C1C' }}>🚨 Alerta</h2>
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">{itens.length}</span>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">{visiveis.length}</span>
       </div>
       <div className="divide-y divide-slate-100">
-        {itens.map(({ a, motivos }) => (
+        {visiveis.map(({ a, motivos }) => (
           <div key={a.idAluno + a.nome} className="px-5 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-slate-700 truncate">{a.nome}</p>
@@ -98,9 +144,25 @@ function FaixaAlerta({ itens, perfilHref }) {
               ))}
             </div>
             <Link href={perfilHref({ id: a.idAluno, nome: a.nome })} className="text-xs font-semibold text-intento-blue hover:underline shrink-0">Perfil →</Link>
+            <button
+              type="button"
+              onClick={() => marcarCiente(chaveAlunoAlerta(a), motivos.map(m => m.tipo))}
+              title="Ciente — ocultar este alerta até segunda-feira"
+              aria-label={`Marcar alerta de ${a.nome} como ciente até segunda-feira`}
+              className="shrink-0 w-7 h-7 rounded-full border border-slate-200 text-slate-400 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center justify-center"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+            </button>
           </div>
         ))}
       </div>
+      {numCientes > 0 && (
+        <div className="px-5 py-2 border-t border-slate-100 bg-slate-50/60">
+          <button type="button" onClick={desfazerCientes} className="text-[11px] font-medium text-slate-400 hover:text-slate-600 hover:underline">
+            {numCientes} alerta{numCientes > 1 ? 's' : ''} ciente{numCientes > 1 ? 's' : ''} nesta semana · desfazer
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -157,6 +219,7 @@ export default function PainelGlobalMentor() {
   const irParaPerfil = (aluno) => router.push(perfilHref(aluno));
 
   const alertaItens = useAlertaMentor(ehDemo);
+  const { cientes, marcarCiente, desfazerCientes } = useCientesAlerta(emailMentor);
 
   if (carregando) return <LoadingScreen mensagem="Sincronizando Painel..." />;
 
@@ -190,7 +253,7 @@ export default function PainelGlobalMentor() {
         </div>
 
         {/* Alerta — alunos em risco / precisando de ação (motor compartilhado c/ o líder) */}
-        <FaixaAlerta itens={alertaItens} perfilHref={perfilHref} />
+        <FaixaAlerta itens={alertaItens} perfilHref={perfilHref} cientes={cientes} marcarCiente={marcarCiente} desfazerCientes={desfazerCientes} />
 
         {/* Resumo enxuto da semana */}
         {alunos.length > 0 && (

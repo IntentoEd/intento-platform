@@ -2430,6 +2430,7 @@ function agregarMetricasBase_(alunos) {
     var alunoFaixa    = -1;
     var alunoSim4W    = 0;
     var alunoCheckin4w = []; // [{est, mot}] últimas semanas — pro sinal de tendência do líder
+    var alunoRevAtrasadas = null; // snapshot Revisões Atrasadas do app (carry-forward no horizonte)
 
     try {
       var ss = SpreadsheetApp.openById(alunos[a].idAluno);
@@ -2494,6 +2495,14 @@ function agregarMetricasBase_(alunos) {
         accDual(snapUltimo(ultimos8, COL_REG.PROG_FIS), 'progFis', 'cProgFis', somas, alunoMaterias);
         accDual(snapUltimo(ultimos8, COL_REG.PROG_MAT), 'progMat', 'cProgMat', somas, alunoMaterias);
 
+        // Revisões Atrasadas: contagem (não percentual — sem normPct), último
+        // valor não-vazio no horizonte; 0 é válido e interrompe o carry-forward.
+        // Alimenta o alerta clínico >REVISOES_ATRASADAS_ALERTA em lib/carimbos.js.
+        for (var rv = ultimos8.length - 1; rv >= 0; rv--) {
+          var rvN = parseFloat(ultimos8[rv][COL_REG.REVISOES]);
+          if (!isNaN(rvN)) { alunoRevAtrasadas = rvN; break; }
+        }
+
         for (var w = 0; w < ultimas4.length; w++) {
           var r = ultimas4[w];
           var rawEst = r[COL_REG.ESTRESSE], rawMot = r[COL_REG.MOTIVACAO], orig4 = r[COL_REG.ORIGEM];
@@ -2553,7 +2562,8 @@ function agregarMetricasBase_(alunos) {
       materias: alunoMaterias,
       historico: alunoHist,
       simulados4w: alunoSim4W,
-      checkin4w: alunoCheckin4w
+      checkin4w: alunoCheckin4w,
+      revisoesAtrasadas: alunoRevAtrasadas
     };
   }
 
