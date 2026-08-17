@@ -2,8 +2,8 @@
 // ESCOLAR — Provas (Ciclo de Provas: EM escolar + ENEM vestibular)
 // =====================================================================
 // Domínio: Filippe (mentoria/escolar). Tudo de BD_Avaliacoes (provas
-// escolares de alunos EM e vestibulares de alunos ENEM) + enriquecimento
-// da listaAlunosMentor com próxima prova mora aqui.
+// escolares e vestibulares — aluno EM pode ter os dois sabores; aluno ENEM
+// só vestibular) + enriquecimento da listaAlunosMentor com próxima prova.
 //
 // Escrita aberta ao PRÓPRIO aluno com travas:
 //   - cadastro: sem nota e sem substituiId (nota entra no fluxo de resultado);
@@ -32,13 +32,20 @@ function _acharAvaliacaoPorId(idAv) {
   return { linha: -1 };
 }
 
-// Tipos válidos por sabor: EM = provas escolares, ENEM = fases de vestibular.
+// Tipos válidos por aluno. O sabor é da PROVA (derivado do tipo — os dois
+// vocabulários são disjuntos): aluno EM aceita os dois sabores na mesma lista
+// (prova escolar + vestibular, caso do 3º ano); aluno ENEM só vestibular.
 function _tiposAvalPara(tipoAluno) {
-  return tipoAluno === 'EM' ? TIPOS_AVAL : TIPOS_AVAL_ENEM;
+  return tipoAluno === 'EM' ? TIPOS_AVAL.concat(TIPOS_AVAL_ENEM) : TIPOS_AVAL_ENEM;
+}
+
+// Prova escolar (tipo em TIPOS_AVAL) aceita nota 0-10; fase de vestibular não.
+function _ehTipoEscolar(tipo) {
+  return TIPOS_AVAL.indexOf(tipo) !== -1;
 }
 
 // Valida uma avaliação a cadastrar. Retorna { ok, erro?, normalizada? }
-// tipoAluno decide o conjunto de tipos válidos; nota só existe no sabor EM.
+// tipoAluno decide o conjunto de tipos válidos; nota só existe em prova escolar.
 function _validarAvaliacao(av, idx, tipoAluno) {
   var prefix = 'avaliação #' + (idx + 1) + ': ';
   var dataStr = txt(av && av.data);
@@ -57,7 +64,7 @@ function _validarAvaliacao(av, idx, tipoAluno) {
 
   var nota = '';
   if (av.nota !== undefined && av.nota !== null && av.nota !== '') {
-    if (tipoAluno !== 'EM') return { ok: false, erro: prefix + 'nota 0-10 não se aplica a vestibular' };
+    if (!_ehTipoEscolar(tipo)) return { ok: false, erro: prefix + 'nota 0-10 não se aplica a vestibular' };
     var n = Number(av.nota);
     if (isNaN(n) || n < 0 || n > 10) return { ok: false, erro: prefix + 'nota deve ser número entre 0 e 10' };
     nota = n;
@@ -308,6 +315,9 @@ function handleAtualizarAvaliacao(dados) {
     }
 
     var atualizacoes = [];
+    // Sabor da prova pós-update: se o tipo está sendo trocado nesta chamada,
+    // o guard de nota abaixo tem que valer pro tipo NOVO, não pro gravado.
+    var tipoEfetivo = txt(av.row[COL_AV.TIPO]);
     if (Object.prototype.hasOwnProperty.call(dados, 'data')) {
       var d = new Date(txt(dados.data));
       if (isNaN(d.getTime())) return responderJSON({ status: 'erro', mensagem: 'data inválida' });
@@ -326,6 +336,7 @@ function handleAtualizarAvaliacao(dados) {
         return responderJSON({ status: 'erro', mensagem: 'tipo inválido' });
       }
       atualizacoes.push({ col: COL_AV.TIPO + 1, valor: t });
+      tipoEfetivo = t;
     }
     if (Object.prototype.hasOwnProperty.call(dados, 'observacao')) {
       atualizacoes.push({ col: COL_AV.OBSERVACAO + 1, valor: txt(dados.observacao) });
@@ -339,7 +350,7 @@ function handleAtualizarAvaliacao(dados) {
         // nota:null sempre, e isso não pode desfazer um relato registrado.
         notaLimpando = temNotaLancada;
       } else {
-        if (aluno.tipoAluno !== 'EM') return responderJSON({ status: 'erro', mensagem: 'nota 0-10 não se aplica a vestibular' });
+        if (!_ehTipoEscolar(tipoEfetivo)) return responderJSON({ status: 'erro', mensagem: 'nota 0-10 não se aplica a vestibular' });
         var n = Number(dados.nota);
         if (isNaN(n) || n < 0 || n > 10) return responderJSON({ status: 'erro', mensagem: 'nota deve ser número entre 0 e 10' });
         atualizacoes.push({ col: COL_AV.NOTA + 1, valor: n });
