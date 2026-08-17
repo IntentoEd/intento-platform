@@ -199,6 +199,7 @@ export default function ModoEncontro() {
   const [explorExpandida, setExplorExpandida] = useState(false);
   const [modalSemana, setModalSemana] = useState(false);
   const [modalRegistros, setModalRegistros] = useState(false);
+  const [diarioExpandido, setDiarioExpandido] = useState(false);
   const [salvandoSemana, setSalvandoSemana] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
@@ -470,13 +471,55 @@ export default function ModoEncontro() {
               <p className="text-xs text-slate-400 font-medium">Primeiro encontro registrado — sem histórico anterior.</p>
             ) : (
               <div className="space-y-2">
-                <p className="text-[11px] font-bold text-slate-500">Último encontro · {ultimo.data ? new Date(ultimo.data).toLocaleDateString('pt-BR') : '—'}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold text-slate-500">Último encontro · {ultimo.data ? new Date(ultimo.data).toLocaleDateString('pt-BR') : '—'}</p>
+                  {ultimo.categoria && <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border shrink-0 ${CAT_COR[ultimo.categoria] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>{ultimo.categoria}</span>}
+                </div>
                 {(ultimo.metas || []).filter(m => String(m || '').trim()).map((m, i) => (
                   <div key={i} className="flex gap-1.5 items-start text-xs text-slate-600">
                     <span className="text-intento-yellow font-black shrink-0">•</span>
                     <span className="font-medium leading-snug">{m}</span>
                   </div>
                 ))}
+                {diarioExpandido && (
+                  <div className="max-h-[45vh] overflow-y-auto space-y-3 border-t border-slate-100 pt-3 mt-1 pr-1">
+                    {(parseInt(ultimo.autoavaliacao) || 0) > 0 && (
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Autoavaliação</p>
+                        <StarRating rating={parseInt(ultimo.autoavaliacao) || 0} readOnly small />
+                      </div>
+                    )}
+                    <CampoDiario label="Vitórias" texto={ultimo.vitorias} />
+                    <CampoDiario label="Maiores desafios" texto={ultimo.desafios} />
+                    <CampoDiario label="Exploração" texto={ultimo.exploracao} />
+                    {(ultimo.acoes || []).some(a => String(a || '').trim()) && (
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Plano de ação</p>
+                        <div className="space-y-1">
+                          {(ultimo.acoes || [])
+                            .map((a, i) => ({ acao: a, resultado: form.resultadosAnteriores?.[i] || '' }))
+                            .filter(x => String(x.acao || '').trim())
+                            .map((x, i) => (
+                              <div key={i} className="flex items-start justify-between gap-2 bg-slate-50 rounded-lg px-2.5 py-1.5">
+                                <span className="text-xs text-slate-600 font-medium leading-snug">{x.acao}</span>
+                                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${COR_RESULTADO[x.resultado] || 'bg-slate-100 text-slate-400'}`}>{x.resultado || 'aguardando'}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                    {ultimo.notasPrivadas && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                        <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider mb-1">🔒 Anotação privada</p>
+                        <p className="text-xs text-slate-600 font-medium whitespace-pre-wrap leading-snug">{ultimo.notasPrivadas}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <button onClick={() => setDiarioExpandido(v => !v)}
+                  className="w-full mt-1 bg-intento-blue/5 text-intento-blue font-bold text-xs py-2 rounded-lg hover:bg-intento-blue/10 transition-all">
+                  {diarioExpandido ? 'recolher ▴' : 'Ver diário completo ▾'}
+                </button>
               </div>
             )}
           </div>
@@ -586,6 +629,17 @@ function Metric({ label, valor, delta, pct, invertido }) {
   );
 }
 
+// ── Campo de texto do diário expandido em "Onde paramos" ──────────────────────
+function CampoDiario({ label, texto }) {
+  if (!String(texto || '').trim()) return null;
+  return (
+    <div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-xs text-slate-600 font-medium whitespace-pre-wrap leading-snug">{texto}</p>
+    </div>
+  );
+}
+
 // ── Heatmap compacto da Semana Padrão (read-only) ─────────────────────────────
 function SemanaHeatmap({ grade }) {
   const linhas = HORARIOS
@@ -634,6 +688,24 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
     });
   };
 
+  // Arrasto por toque (iPad): as células têm touch-action none (cabeçalho e
+  // coluna de horas continuam rolando a página) e o dedo é mapeado pra célula
+  // via elementFromPoint, já que touchmove não dispara mouseenter.
+  const keyDoToque = (e) => {
+    const t = e.touches[0] || e.changedTouches[0];
+    if (!t) return null;
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    return el?.closest?.('[data-cel]')?.dataset?.cel || null;
+  };
+  const aoTocar = (e) => { const k = keyDoToque(e); if (k) iniciar(k); };
+  const aoArrastarToque = (e) => { const k = keyDoToque(e); if (k) estender(k); };
+  const aoSoltarToque = (e) => {
+    if (!arrastando) return;
+    e.preventDefault();   // suprime os eventos de mouse sintéticos pós-toque
+    const t = e.changedTouches[0];
+    finalizar({ clientX: t?.clientX ?? 0, clientY: t?.clientY ?? 0 });
+  };
+
   const fechar = () => { setPopover(null); setSel(new Set()); setTxt(''); };
   const aplicar = (categoria) => {
     if (sel.size === 0) return;
@@ -666,11 +738,11 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
   return (
     <div role="dialog" aria-modal="true" onMouseUp={finalizar}
       className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden select-none">
+      <div className="bg-white w-full max-w-6xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden select-none">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-intento-blue">Editar Semana Padrão</h2>
-            <p className="text-[11px] text-slate-400 font-medium">Arraste pra selecionar os horários e escolha a atividade no balão</p>
+            <p className="text-[11px] text-slate-400 font-medium">Arraste (mouse ou dedo) pra selecionar os horários e escolha a atividade no balão</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-red-500 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -678,28 +750,39 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
         </div>
 
         <div className="flex-1 overflow-auto p-4">
-          <table className="w-full border-collapse">
-            <thead><tr>
-              <th className="text-[9px] text-slate-300 p-1"></th>
-              {DIAS_CURTO.map(d => <th key={d} className="text-[10px] text-slate-500 font-bold p-1">{d}</th>)}
-            </tr></thead>
+          <table className="w-full text-xs border-collapse min-w-[700px]"
+            onTouchStart={aoTocar} onTouchMove={aoArrastarToque} onTouchEnd={aoSoltarToque}>
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="p-2 w-14 text-[10px] text-slate-400 font-medium border-r text-center">Hora</th>
+                {DIAS.map(dia => (
+                  <th key={dia} className="p-2 font-semibold text-intento-blue border-r last:border-0 text-center">
+                    <span className="hidden sm:inline">{dia.split('-')[0]}</span>
+                    <span className="sm:hidden">{dia.slice(0, 3)}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
               {HORARIOS.map(hora => (
-                <tr key={hora}>
-                  <td className="text-[9px] text-slate-400 font-bold p-1 whitespace-nowrap">{hora}</td>
+                <tr key={hora} className="border-b border-slate-100 last:border-0">
+                  <td className="p-2 text-center text-[10px] font-bold text-slate-400 border-r bg-slate-50 whitespace-nowrap">{hora}</td>
                   {DIAS.map(dia => {
                     const key = `${dia}_${hora}`;
                     const cel = grade[key];
                     const selecionado = sel.has(key);
+                    const desc = cel ? cel.label.replace(/\[.*?\]\s*-?\s*/, '').trim() : '';
                     return (
-                      <td key={key} className="p-0.5">
-                        <button
-                          onMouseDown={(e) => { e.preventDefault(); iniciar(key); }}
-                          onMouseEnter={() => estender(key)}
-                          title={cel?.label || ''}
-                          className={`w-full h-7 rounded text-[8px] font-bold border transition-all ${selecionado ? 'ring-2 ring-intento-blue ring-offset-1 bg-intento-blue/10' : ''} ${cel ? CAT_COR[cel.categoria] : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}>
-                          {cel ? cel.categoria.slice(0, 3) : ''}
-                        </button>
+                      <td key={key} data-cel={key}
+                        onMouseDown={(e) => { e.preventDefault(); iniciar(key); }}
+                        onMouseEnter={() => estender(key)}
+                        className={`border-r last:border-0 cursor-crosshair transition-all duration-75 h-10 p-0.5 touch-none ${selecionado ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : 'hover:bg-slate-50'}`}>
+                        {cel && (
+                          <div className={`h-full w-full px-1.5 rounded-md font-semibold flex flex-col justify-center leading-tight border ${CAT_COR[cel.categoria] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                            <span className="text-[9px] font-bold uppercase tracking-wide opacity-70 leading-none">{cel.categoria.slice(0, 3)}</span>
+                            {desc && <span className="text-[9px] mt-0.5 leading-tight truncate">{desc}</span>}
+                          </div>
+                        )}
                       </td>
                     );
                   })}
