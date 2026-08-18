@@ -23,6 +23,7 @@ const ABA = {
   SEMANA:           "BD_Semana",
   SIMULADOS:        "BD_Sim_ENEM",
   CADERNO:          "BD_Caderno",
+  MARCOS:           "BD_Marcos",
   TOPICOS:          "BD_Topicos",
   LGPD_ACEITES:     "LGPD_Aceites",
   DISPONIBILIDADE_EXCECOES: "BD_Disponibilidade_Excecoes",
@@ -1172,7 +1173,8 @@ function handleSalvarNovoEncontro(dados) {
     lock.waitLock(10000);
     const idPlanilha = exigirIdPlanilha(dados);
     _exigirAcessoAluno(dados.email, idPlanilha);
-    const abaDiario  = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.ENCONTROS);
+    const ssAluno    = SpreadsheetApp.openById(idPlanilha);
+    const abaDiario  = ssAluno.getSheetByName(ABA.ENCONTROS);
     if (!abaDiario) throw new Error("Aba '" + ABA.ENCONTROS + "' não encontrada.");
     _garantirColunasEnc(abaDiario);
 
@@ -1202,10 +1204,23 @@ function handleSalvarNovoEncontro(dados) {
       txt(dados.notasPrivadas),
       txt(dados.statusMetasAnteriores)
     ]);
-    const cacheUpd = { ULTIMO_ENCONTRO: dataHoje };
-    if (ehPrimeiroEncontro) cacheUpd.PRIMEIRO_ENCONTRO = dataHoje;
-    atualizarCacheMestre(idPlanilha, cacheUpd);
-    return responderJSON({ status: "sucesso" });
+    // Pós-append em try próprio: o diário JÁ está gravado — falha aqui não pode
+    // virar {status:'erro'}, senão o client (que preserva o rascunho e oferece
+    // retry) re-salvaria e DUPLICARIA a linha do diário. Fechamento de Ciclo:
+    // dados.marco (opcional) chega quando este é o 1º diário após a fronteira
+    // do trimestre sem marco gravado. Mesmo lock ⇒ diário + marco atômicos;
+    // upsert idempotente em gas/marcos.gs.
+    let marcoSalvo = false, avisoMarco = '';
+    try {
+      const cacheUpd = { ULTIMO_ENCONTRO: dataHoje };
+      if (ehPrimeiroEncontro) cacheUpd.PRIMEIRO_ENCONTRO = dataHoje;
+      atualizarCacheMestre(idPlanilha, cacheUpd);
+      if (dados.marco) marcoSalvo = _upsertMarco(ssAluno, dados.marco);
+    } catch (ePos) {
+      avisoMarco = ePos.message;
+      Logger.log('handleSalvarNovoEncontro: pós-append falhou (diário gravado): ' + ePos.message);
+    }
+    return responderJSON({ status: "sucesso", marcoSalvo: marcoSalvo, avisoMarco: avisoMarco });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
   finally     { lock.releaseLock(); }
 }
@@ -1689,6 +1704,13 @@ function handleBuscarDadosAluno(dados) {
     }
     pacoteDeDados.diarios = encontros.reverse();
     pacoteDeDados.simulados = lerSimulados(ssAluno);
+    // Marcos de Ciclo (BD_Marcos): a PRESENÇA do campo sinaliza ao front que o
+    // GAS novo está no ar — gate do fluxo de Fechamento de Ciclo. Em falha, NÃO
+    // setar o campo (ausente = dormente): devolver [] aqui inventaria pendência
+    // falsa e o mentor poderia sobrescrever um marco já congelado. O [] legítimo
+    // (aba ainda não existe) vem de dentro do _lerMarcos.
+    try { pacoteDeDados.marcos = _lerMarcos(ssAluno); }
+    catch (eMarcos) { Logger.log('handleBuscarDadosAluno: _lerMarcos falhou (não-bloqueante): ' + eMarcos.message); }
     return responderJSON(pacoteDeDados);
   } catch (erro) { return responderJSON({ status: "erro", mensagem: erro.message }); }
 }

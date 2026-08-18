@@ -986,6 +986,9 @@ export default function GestaoIndividualAluno() {
   const [escolaAluno, setEscolaAluno] = useState('');
   const [provasAluno, setProvasAluno] = useState(null);
   const [erroProvas, setErroProvas] = useState('');
+  // Marcos de Ciclo (BD_Marcos): undefined = payload sem o campo (GAS antigo ou
+  // demo) ⇒ Linha do Ano e chip de fechamento pendente ficam dormentes.
+  const [marcosAluno, setMarcosAluno] = useState(undefined);
 
   const carregarProvasAluno = async () => {
     if (ehDemo) { setProvasAluno([]); return; }
@@ -1183,6 +1186,7 @@ export default function GestaoIndividualAluno() {
           setTipoAluno(data.tipoAluno || 'ENEM');
           setEscolaAluno(data.escola || '');
           setStatusApp(data.statusApp || '');
+          setMarcosAluno(data.marcos);
 
           // GRADE DA SEMANA
           const novaGrade = {};
@@ -1519,8 +1523,10 @@ export default function GestaoIndividualAluno() {
         {/* Cabeçalho de Visão Geral — sempre visível */}
         <VisaoGeral registros={historicoRegistros} diarios={historicoDiarios} simulados={dadosSimulados} tipoAluno={tipoAluno} escola={escolaAluno} proximaProva={proximaProva} />
 
-        {/* Carimbos Fases e Ciclos — uso interno; mesmas fórmulas do /lider (lib/carimbos.js) */}
-        <CardCarimbosAluno registros={historicoRegistros} statusApp={statusApp} />
+        {/* Carimbos Fases e Ciclos + Linha do Ano — mesmas fórmulas do /lider
+            (lib/carimbos.js); marcos/diarios acionam a timeline e o chip de
+            fechamento pendente (docs/GAMIFICACAO_MARCOS.md) */}
+        <CardCarimbosAluno registros={historicoRegistros} statusApp={statusApp} marcos={marcosAluno} diarios={historicoDiarios} tipoAluno={tipoAluno} />
 
         {/* Toast de status global */}
         {statusMsg && (
