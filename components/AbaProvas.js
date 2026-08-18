@@ -25,7 +25,7 @@ const TIPOS_EM = [
   { value: 'recuperacao', label: 'Recuperação' },
 ];
 
-// Sabor ENEM: a "matéria" é o vestibular e o "tipo" é a fase.
+// Sabor vestibular: a "matéria" é o vestibular e o "tipo" é a fase.
 const VESTIBULARES = ['ENEM', 'SSA (UPE)', 'FUVEST', 'UNICAMP', 'UNESP', 'UERJ', 'Outra'];
 const TIPOS_ENEM = [
   { value: 'unica', label: 'Fase única' },
@@ -34,6 +34,17 @@ const TIPOS_ENEM = [
   { value: 'dia1', label: 'Dia 1' },
   { value: 'dia2', label: 'Dia 2' },
 ];
+
+// O sabor é da PROVA, não do aluno: aluno EM pode misturar prova escolar e
+// vestibular na mesma lista (3º ano). Os vocabulários de tipo são disjuntos,
+// então o tipo identifica o sabor de cada linha.
+const TIPOS_TODOS = [...TIPOS_EM, ...TIPOS_ENEM];
+const TIPOS_VESTIBULAR = new Set(TIPOS_ENEM.map(t => t.value));
+const ehProvaVestibular = (p) => TIPOS_VESTIBULAR.has(p.tipo);
+// Sentinela do "Outro vestibular" no select combinado do aluno EM — 'Outra'
+// segue sendo a matéria escolar livre.
+const OUTRO_VEST = '__outro_vest__';
+const VESTIBULARES_BASE = VESTIBULARES.filter(v => v !== 'Outra');
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -106,10 +117,35 @@ const linhaVazia = () => ({
 // aba — um fetch só. Todo write chama onRecarregar().
 export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM', provas, onRecarregar, erro }) {
   const ehEM = tipoAluno === 'EM';
-  const materias = ehEM ? MATERIAS_EM : VESTIBULARES;
-  const tipos = ehEM ? TIPOS_EM : TIPOS_ENEM;
-  const tipoLabel = (tipo) => (tipos.find(t => t.value === tipo) || { label: tipo }).label;
+  const tipoLabel = (tipo) => (TIPOS_TODOS.find(t => t.value === tipo) || { label: tipo }).label;
   const rotuloEntidade = ehEM ? 'Matéria' : 'Vestibular';
+
+  // Sabor de uma SELEÇÃO no select de matéria (antes da prova existir).
+  const selecaoVest = (sel) => !ehEM || sel === OUTRO_VEST || VESTIBULARES_BASE.includes(sel);
+  const ehSelecaoOutra = (sel) => sel === 'Outra' || sel === OUTRO_VEST;
+  const tiposPara = (sel) => (selecaoVest(sel) ? TIPOS_ENEM : TIPOS_EM);
+  const placeholderOutra = (sel) => (selecaoVest(sel) ? 'Nome do vestibular' : 'Nome da matéria');
+  // Ao trocar a matéria, o tipo escolhido só sobrevive se ainda for válido no
+  // vocabulário do novo sabor; senão zera (quem chama decide o default).
+  const tipoAoTrocarMateria = (tipoAtual, selNova) =>
+    tiposPara(selNova).some(t => t.value === tipoAtual) ? tipoAtual : '';
+  // Chip do card: no EM a lista é mista, o 🎯 distingue vestibular à vista.
+  const chipTipo = (p) => (ehEM && ehProvaVestibular(p) ? '🎯 ' : '') + tipoLabel(p.tipo);
+
+  // Options do select de matéria: EM ganha o grupo Vestibular; ENEM fica igual.
+  const opcoesMateria = () => (ehEM ? (
+    <>
+      <optgroup label="Escola">
+        {MATERIAS_EM.map(m => <option key={m} value={m}>{m === 'Outra' ? 'Outra matéria' : m}</option>)}
+      </optgroup>
+      <optgroup label="Vestibular">
+        {VESTIBULARES_BASE.map(v => <option key={v} value={v}>{v}</option>)}
+        <option value={OUTRO_VEST}>Outro vestibular</option>
+      </optgroup>
+    </>
+  ) : (
+    VESTIBULARES.map(m => <option key={m} value={m}>{m}</option>)
+  ));
 
   const [historicoAberto, setHistoricoAberto] = useState(false);
   const [boletimAberto, setBoletimAberto] = useState(false);
@@ -165,11 +201,11 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
     return { aRegistrar, proximas, historico };
   }, [provas]);
 
-  // Pra recuperação (só EM): provas da mesma matéria (exceto a própria).
+  // Pra recuperação (só prova escolar): provas da mesma matéria (exceto a própria).
   const opcoesParaSubstituir = (materia, exceptId) => {
     if (!materia || !provas) return [];
     return provas
-      .filter(p => p.materia === materia && p.id !== exceptId)
+      .filter(p => p.materia === materia && p.id !== exceptId && !ehProvaVestibular(p))
       .sort((a, b) => new Date(b.data) - new Date(a.data));
   };
 
@@ -186,10 +222,10 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
   // ====== Quick-add ======
   const salvarQuickAdd = async () => {
     if (salvandoQa) return;
-    const materia = qa.materiaSelect === 'Outra' ? qa.materiaTexto.trim() : qa.materiaSelect;
+    const materia = ehSelecaoOutra(qa.materiaSelect) ? qa.materiaTexto.trim() : qa.materiaSelect;
     if (!qa.data) { setErroQa('Data é obrigatória.'); return; }
     if (!materia) { setErroQa(`${rotuloEntidade} é obrigatório(a).`); return; }
-    if (!qa.tipo) { setErroQa(ehEM ? 'Tipo é obrigatório.' : 'Fase é obrigatória.'); return; }
+    if (!qa.tipo) { setErroQa(selecaoVest(qa.materiaSelect) ? 'Fase é obrigatória.' : 'Tipo é obrigatório.'); return; }
     setSalvandoQa(true);
     setErroQa('');
     try {
@@ -206,7 +242,15 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
       const data = await res.json();
       if (data.status !== 'sucesso') { setErroQa(data.mensagem || 'Erro ao salvar.'); return; }
       // Mantém data e tipo: semana de provas entra em sequência sem re-selecionar.
-      setQa(prev => ({ ...prev, materiaSelect: '', materiaTexto: '', observacao: '' }));
+      // Mas o select volta pro sabor default — tipo de vestibular não pode vazar
+      // pra próxima prova escolar (e vice-versa), então revalida contra ele.
+      setQa(prev => ({
+        ...prev,
+        materiaSelect: '',
+        materiaTexto: '',
+        observacao: '',
+        tipo: tipoAoTrocarMateria(prev.tipo, '') || (selecaoVest('') ? 'unica' : 'mensal'),
+      }));
       await onRecarregar?.();
     } catch (e) {
       setErroQa('Erro de conexão.');
@@ -221,7 +265,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
     setFechandoId(p.id);
     try {
       const body = { acao: 'atualizarAvaliacao', email: emailRequester(), idAvaliacao: p.id, resultadoRegistrado: true };
-      if (!ehEM) body.observacao = p.observacao ? `${p.observacao} — não compareceu` : 'Não compareceu';
+      if (ehProvaVestibular(p)) body.observacao = p.observacao ? `${p.observacao} — não compareceu` : 'Não compareceu';
       const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -249,15 +293,19 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
   const atualizarLinha = (idx, campo, valor) => {
     setLinhas(prev => prev.map((l, i) => i === idx ? { ...l, [campo]: valor } : l));
   };
+  // Troca de matéria pode trocar o sabor da linha — tipo inválido no novo vocabulário zera.
+  const atualizarLinhaMateria = (idx, sel) => {
+    setLinhas(prev => prev.map((l, i) => i === idx ? { ...l, materiaSelect: sel, tipo: tipoAoTrocarMateria(l.tipo, sel) } : l));
+  };
 
   const validarLinhas = () => {
     if (!Array.isArray(linhas) || linhas.length === 0) return 'Adicione pelo menos uma prova.';
     for (let i = 0; i < linhas.length; i++) {
       const l = linhas[i];
       if (!l.data) return `Linha ${i + 1}: data é obrigatória.`;
-      const materia = l.materiaSelect === 'Outra' ? l.materiaTexto.trim() : l.materiaSelect;
+      const materia = ehSelecaoOutra(l.materiaSelect) ? l.materiaTexto.trim() : l.materiaSelect;
       if (!materia) return `Linha ${i + 1}: ${rotuloEntidade.toLowerCase()} é obrigatório(a).`;
-      if (!l.tipo) return `Linha ${i + 1}: ${ehEM ? 'tipo' : 'fase'} é obrigatório(a).`;
+      if (!l.tipo) return `Linha ${i + 1}: ${selecaoVest(l.materiaSelect) ? 'fase' : 'tipo'} é obrigatório(a).`;
     }
     return null;
   };
@@ -272,10 +320,10 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
     try {
       const avaliacoes = linhas.map(l => ({
         data: inputParaIso(l.data),
-        materia: l.materiaSelect === 'Outra' ? l.materiaTexto.trim() : l.materiaSelect,
+        materia: ehSelecaoOutra(l.materiaSelect) ? l.materiaTexto.trim() : l.materiaSelect,
         tipo: l.tipo,
         observacao: l.observacao,
-        substituiId: ehEM && l.tipo === 'recuperacao' ? l.substituiId : '',
+        substituiId: l.tipo === 'recuperacao' ? l.substituiId : '',
       }));
       const res = await apiFetch('/api/mentor', {
         method: 'POST',
@@ -302,8 +350,10 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
     setProvaEditando(prova);
     setEditModoResultado(modoResultado);
     setEditData(isoParaInput(prova.data));
-    const materiaConhecida = materias.includes(prova.materia);
-    setEditMateriaSel(materiaConhecida ? prova.materia : 'Outra');
+    const vest = ehProvaVestibular(prova);
+    const conhecidas = ehEM ? (vest ? VESTIBULARES_BASE : MATERIAS_EM) : VESTIBULARES;
+    const materiaConhecida = conhecidas.includes(prova.materia);
+    setEditMateriaSel(materiaConhecida ? prova.materia : (ehEM && vest ? OUTRO_VEST : 'Outra'));
     setEditMateriaTxt(materiaConhecida ? '' : prova.materia);
     setEditTipo(prova.tipo);
     setEditObs(prova.observacao || '');
@@ -314,10 +364,11 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
   const salvarEdit = async () => {
     if (salvandoEdit || !provaEditando) return;
     if (!editData) { alert('Data é obrigatória.'); return; }
-    const materia = editMateriaSel === 'Outra' ? editMateriaTxt.trim() : editMateriaSel;
+    const materia = ehSelecaoOutra(editMateriaSel) ? editMateriaTxt.trim() : editMateriaSel;
+    const vestSel = selecaoVest(editMateriaSel);
     if (!materia) { alert(`${rotuloEntidade} é obrigatório(a).`); return; }
-    if (!editTipo) { alert(ehEM ? 'Tipo é obrigatório.' : 'Fase é obrigatória.'); return; }
-    if (ehEM && editNota !== '' && (isNaN(Number(editNota)) || Number(editNota) < 0 || Number(editNota) > 10)) {
+    if (!editTipo) { alert(vestSel ? 'Fase é obrigatória.' : 'Tipo é obrigatório.'); return; }
+    if (!vestSel && editNota !== '' && (isNaN(Number(editNota)) || Number(editNota) < 0 || Number(editNota) > 10)) {
       alert('Nota deve ser número entre 0 e 10.');
       return;
     }
@@ -333,13 +384,13 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
         tipo: editTipo,
         observacao: editObs,
       };
-      if (ehEM) {
+      if (!vestSel) {
         // Number garante coerção; null = nota ainda não lançada (vs 0 = zero real).
         body.nota = editNota === '' ? null : Number(editNota);
         body.substituiId = editTipo === 'recuperacao' ? editSubstituiId : '';
       }
-      // Fluxo "registrar como foi" do sabor ENEM: salvar fecha o ciclo.
-      if (editModoResultado && !ehEM) body.resultadoRegistrado = true;
+      // Fluxo "registrar como foi" do sabor vestibular: salvar fecha o ciclo.
+      if (editModoResultado && vestSel) body.resultadoRegistrado = true;
       const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -431,18 +482,26 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
           />
           <select
             value={qa.materiaSelect}
-            onChange={e => setQa(prev => ({ ...prev, materiaSelect: e.target.value }))}
+            onChange={e => {
+              const sel = e.target.value;
+              setQa(prev => ({
+                ...prev,
+                materiaSelect: sel,
+                // Sem tipo válido no novo sabor, cai no default dele.
+                tipo: tipoAoTrocarMateria(prev.tipo, sel) || (selecaoVest(sel) ? 'unica' : 'mensal'),
+              }));
+            }}
             className="text-xs font-medium text-intento-blue px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white"
           >
             <option value="">{rotuloEntidade}…</option>
-            {materias.map(m => <option key={m} value={m}>{m}</option>)}
+            {opcoesMateria()}
           </select>
           <select
             value={qa.tipo}
             onChange={e => setQa(prev => ({ ...prev, tipo: e.target.value }))}
             className="text-xs font-medium text-intento-blue px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white"
           >
-            {tipos.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            {tiposPara(qa.materiaSelect).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
           <input
             type="text"
@@ -460,12 +519,12 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
             {salvandoQa ? 'Salvando…' : 'Adicionar'}
           </button>
         </div>
-        {qa.materiaSelect === 'Outra' && (
+        {ehSelecaoOutra(qa.materiaSelect) && (
           <input
             type="text"
             value={qa.materiaTexto}
             onChange={e => setQa(prev => ({ ...prev, materiaTexto: e.target.value }))}
-            placeholder={ehEM ? 'Nome da matéria' : 'Nome do vestibular'}
+            placeholder={placeholderOutra(qa.materiaSelect)}
             className="mt-2 w-full sm:w-64 text-xs font-medium text-intento-blue px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white"
           />
         )}
@@ -485,7 +544,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
               <div key={p.id} className="bg-amber-50/60 border border-amber-200 border-l-4 border-l-amber-500 rounded-lg p-3 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">{tipoLabel(p.tipo)}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">{chipTipo(p)}</span>
                     <span className="text-sm font-semibold text-slate-800">{p.materia}</span>
                     {chipAutoria(p)}
                   </div>
@@ -496,14 +555,14 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                       onClick={() => abrirEdicao(p, true)}
                       className="text-[11px] font-bold text-intento-blue bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:border-intento-blue transition"
                     >
-                      {ehEM ? '+ adicionar nota e "Como foi?"' : '+ registrar "Como foi?"'}
+                      {ehProvaVestibular(p) ? '+ registrar "Como foi?"' : '+ adicionar nota e "Como foi?"'}
                     </button>
                     <button
                       onClick={() => fecharSemNota(p)}
                       disabled={fechandoId === p.id}
                       className="text-[11px] font-medium text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition disabled:opacity-40"
                     >
-                      {fechandoId === p.id ? 'Registrando…' : ehEM ? 'sem nota divulgada' : 'não compareceu'}
+                      {fechandoId === p.id ? 'Registrando…' : ehProvaVestibular(p) ? 'não compareceu' : 'sem nota divulgada'}
                     </button>
                   </div>
                 </div>
@@ -529,7 +588,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                 <div key={p.id} className={`bg-white border border-slate-200 border-l-4 ${corBordaPorDias(dias)} rounded-lg p-3 flex items-start justify-between gap-3 hover:bg-slate-50 transition`}>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{tipoLabel(p.tipo)}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{chipTipo(p)}</span>
                       <span className="text-sm font-semibold text-slate-800">{p.materia}</span>
                       {chipAutoria(p)}
                     </div>
@@ -566,12 +625,12 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                 <div key={p.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{tipoLabel(p.tipo)}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{chipTipo(p)}</span>
                       <span className="text-sm font-semibold text-slate-700">{p.materia}</span>
                       {p.nota !== null && p.nota !== undefined ? (
                         <span className="text-[11px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">Nota {p.nota}</span>
                       ) : p.resultadoEm ? (
-                        <span className="text-[11px] font-bold bg-slate-200 text-slate-600 border border-slate-300 px-2 py-0.5 rounded-full">{ehEM ? 'sem nota' : 'registrada'}</span>
+                        <span className="text-[11px] font-bold bg-slate-200 text-slate-600 border border-slate-300 px-2 py-0.5 rounded-full">{ehProvaVestibular(p) ? 'registrada' : 'sem nota'}</span>
                       ) : null}
                       {chipAutoria(p)}
                     </div>
@@ -615,7 +674,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
 
             <div className="p-6 space-y-3 overflow-y-auto flex-1">
               {linhas.map((l, idx) => {
-                const ehOutra = l.materiaSelect === 'Outra';
+                const ehOutra = ehSelecaoOutra(l.materiaSelect);
                 return (
                   <div key={idx} className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
@@ -633,19 +692,19 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                       />
                       <select
                         value={l.materiaSelect}
-                        onChange={e => atualizarLinha(idx, 'materiaSelect', e.target.value)}
+                        onChange={e => atualizarLinhaMateria(idx, e.target.value)}
                         className="text-xs font-medium text-intento-blue px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white"
                       >
                         <option value="">{rotuloEntidade}…</option>
-                        {materias.map(m => <option key={m} value={m}>{m}</option>)}
+                        {opcoesMateria()}
                       </select>
                       <select
                         value={l.tipo}
                         onChange={e => atualizarLinha(idx, 'tipo', e.target.value)}
                         className="text-xs font-medium text-intento-blue px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white"
                       >
-                        <option value="">{ehEM ? 'Tipo…' : 'Fase…'}</option>
-                        {tipos.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        <option value="">{selecaoVest(l.materiaSelect) ? 'Fase…' : 'Tipo…'}</option>
+                        {tiposPara(l.materiaSelect).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                       </select>
                     </div>
                     {ehOutra && (
@@ -653,7 +712,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                         type="text"
                         value={l.materiaTexto}
                         onChange={e => atualizarLinha(idx, 'materiaTexto', e.target.value)}
-                        placeholder={ehEM ? 'Nome da matéria' : 'Nome do vestibular'}
+                        placeholder={placeholderOutra(l.materiaSelect)}
                         className="w-full text-xs font-medium text-intento-blue px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white"
                       />
                     )}
@@ -744,23 +803,28 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{rotuloEntidade}</label>
-                <select value={editMateriaSel} onChange={e => setEditMateriaSel(e.target.value)}
+                <select value={editMateriaSel}
+                        onChange={e => {
+                          const sel = e.target.value;
+                          setEditMateriaSel(sel);
+                          setEditTipo(tipoAoTrocarMateria(editTipo, sel));
+                        }}
                         className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue">
                   <option value="">— escolha —</option>
-                  {materias.map(m => <option key={m} value={m}>{m}</option>)}
+                  {opcoesMateria()}
                 </select>
-                {editMateriaSel === 'Outra' && (
+                {ehSelecaoOutra(editMateriaSel) && (
                   <input type="text" value={editMateriaTxt} onChange={e => setEditMateriaTxt(e.target.value)}
-                         placeholder={ehEM ? 'Nome da matéria' : 'Nome do vestibular'}
+                         placeholder={placeholderOutra(editMateriaSel)}
                          className="w-full mt-2 text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400"/>
                 )}
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{ehEM ? 'Tipo' : 'Fase'}</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{selecaoVest(editMateriaSel) ? 'Fase' : 'Tipo'}</label>
                 <select value={editTipo} onChange={e => setEditTipo(e.target.value)}
                         className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue">
                   <option value="">— escolha —</option>
-                  {tipos.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {tiposPara(editMateriaSel).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
               {ehEM && editTipo === 'recuperacao' && (() => {
@@ -795,7 +859,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                           rows={2} placeholder="Antes da prova: capítulos cobrados. Depois: comentário sobre desempenho."
                           className="w-full text-sm font-medium text-slate-700 px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400 resize-none"/>
               </div>
-              {ehEM && (
+              {!selecaoVest(editMateriaSel) && (
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nota (0–10, opcional)</label>
                   <input type="number" min="0" max="10" step="0.1" value={editNota}
@@ -804,7 +868,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                          className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400"/>
                 </div>
               )}
-              {editModoResultado && !ehEM && (
+              {editModoResultado && selecaoVest(editMateriaSel) && (
                 <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
                   Salvar registra o resultado — a prova sai da fila &quot;A registrar&quot;.
                 </p>
@@ -827,7 +891,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
         aberto={!!provaParaDeletar}
         titulo="Deletar prova?"
         descricao={provaParaDeletar
-          ? `Prova de ${provaParaDeletar.materia} de ${formatarData(provaParaDeletar.data)} será removida${ehEM ? ' do boletim' : ''}. Não dá pra desfazer.`
+          ? `Prova de ${provaParaDeletar.materia} de ${formatarData(provaParaDeletar.data)} será removida${ehEM && !ehProvaVestibular(provaParaDeletar) ? ' do boletim' : ''}. Não dá pra desfazer.`
           : ''}
         textoConfirmar="Deletar"
         tom="danger"

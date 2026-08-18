@@ -28,7 +28,7 @@ const TIPOS_EM = [
   { value: 'recuperacao', label: 'Recuperação' },
 ];
 
-// Sabor ENEM: vestibular + fase. Lista curada + "Outro" (texto livre).
+// Sabor vestibular: vestibular + fase. Lista curada + "Outro" (texto livre).
 const VESTIBULARES = ['ENEM', 'SSA (UPE)', 'FUVEST', 'UNICAMP', 'UNESP', 'UERJ'];
 const TIPOS_ENEM = [
   { value: 'unica', label: 'Fase única' },
@@ -37,6 +37,13 @@ const TIPOS_ENEM = [
   { value: 'dia1', label: 'Dia 1' },
   { value: 'dia2', label: 'Dia 2' },
 ];
+
+// O sabor é da PROVA, não do aluno: aluno EM (3º ano) também planeja vestibular,
+// então a lista dele mistura os dois sabores. Os vocabulários de tipo são
+// disjuntos — o tipo identifica o sabor de cada prova.
+const TIPOS_TODOS = [...TIPOS_EM, ...TIPOS_ENEM];
+const TIPOS_VESTIBULAR = new Set(TIPOS_ENEM.map(t => t.value));
+const ehProvaVestibular = (p) => TIPOS_VESTIBULAR.has(p.tipo);
 
 function inicioDoDia(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
 function formatarData(iso) {
@@ -88,8 +95,14 @@ const LS_ULTIMO_TIPO = 'provas_ultimo_tipo';
 
 export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
   const ehEM = tipoAluno === 'EM';
-  const tipos = ehEM ? TIPOS_EM : TIPOS_ENEM;
-  const tipoLabel = (t) => (tipos.find(x => x.value === t) || { label: t }).label;
+  const tipoLabel = (t) => (TIPOS_TODOS.find(x => x.value === t) || { label: t }).label;
+
+  // Sabor da SELEÇÃO no quick-add: pro aluno EM, o chip escolhido decide se a
+  // prova é escolar ou vestibular ('__outro__' só existe no grupo vestibular).
+  const selecaoVest = (sel) => !ehEM || VESTIBULARES.includes(sel) || sel === '__outro__';
+  const tiposPara = (sel) => (selecaoVest(sel) ? TIPOS_ENEM : TIPOS_EM);
+  // Na lista mista do EM, o 🎯 marca as provas de vestibular.
+  const chipTipo = (p) => (ehEM && ehProvaVestibular(p) ? '🎯 ' : '') + tipoLabel(p.tipo);
 
   const [provas, setProvas] = useState(null);
   const [erro, setErro] = useState('');
@@ -184,10 +197,18 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
     setQaOutraData(false);
     setQaObs('');
     setErroSheet('');
+    const tiposIniciais = tiposPara('');
     const ultimoTipo = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_ULTIMO_TIPO + '_' + tipoAluno) : '';
-    setQaTipo(tipos.some(t => t.value === ultimoTipo) ? ultimoTipo : tipos[0].value);
+    setQaTipo(tiposIniciais.some(t => t.value === ultimoTipo) ? ultimoTipo : tiposIniciais[0].value);
     setChipsExpandidos(false);
     setSheetAberto(true);
+  };
+
+  // Escolher chip pode trocar o sabor — tipo que não existe no novo vocabulário
+  // cai no default dele (mensal pra escola, fase única pra vestibular).
+  const escolherMateria = (m) => {
+    setQaMateria(m);
+    setQaTipo(prev => (tiposPara(m).some(t => t.value === prev) ? prev : tiposPara(m)[0].value));
   };
 
   const salvarQuickAdd = async () => {
@@ -229,7 +250,8 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
 
   const salvarResultado = async (semNota) => {
     if (salvandoRes || !resultadoProva) return;
-    if (ehEM && !semNota && resNota !== '' && (isNaN(Number(resNota)) || Number(resNota) < 0 || Number(resNota) > 10)) {
+    const provaEscolar = !ehProvaVestibular(resultadoProva);
+    if (provaEscolar && !semNota && resNota !== '' && (isNaN(Number(resNota)) || Number(resNota) < 0 || Number(resNota) > 10)) {
       mostrarToast('Nota deve ser entre 0 e 10.');
       return;
     }
@@ -242,7 +264,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
         observacao: resRelato.trim(),
         resultadoRegistrado: true,
       };
-      if (ehEM && !semNota && resNota !== '') body.nota = Number(resNota);
+      if (provaEscolar && !semNota && resNota !== '') body.nota = Number(resNota);
       const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -318,7 +340,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
       {banner && (
         <div className="bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500 rounded-xl p-4">
           <p className="text-sm font-bold text-amber-800">
-            {ehEM
+            {!ehProvaVestibular(banner)
               ? `Como foi a prova de ${banner.materia}${diasAte(banner.data) === -1 ? ' de ontem' : ` de ${formatarData(banner.data)}`}?`
               : `Como foi ${banner.materia} (${tipoLabel(banner.tipo)})${diasAte(banner.data) === -1 ? ' ontem' : ` em ${formatarData(banner.data)}`}?`}
           </p>
@@ -375,7 +397,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
                   <div className="min-w-0">
                     <p className="text-base font-bold text-slate-900 truncate">{heroi.materia}</p>
                     <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                      {tipoLabel(heroi.tipo)} · {formatarData(heroi.data)}
+                      {chipTipo(heroi)} · {formatarData(heroi.data)}
                       {heroi.observacao ? ` · ${heroi.observacao}` : ''}
                       {criadaPorMim(heroi) ? ' · você' : ''}
                     </p>
@@ -408,7 +430,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex items-baseline gap-2 flex-wrap">
                       <span className="text-sm font-semibold text-slate-800">{p.materia}</span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{tipoLabel(p.tipo)}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{chipTipo(p)}</span>
                       {criadaPorMim(p) && <span className="text-[10px] font-medium text-slate-400">você</span>}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -462,7 +484,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
             </p>
             <div className="flex flex-wrap gap-1.5 mb-4">
               {chipsVisiveis.map(m => (
-                <button key={m} onClick={() => setQaMateria(m)}
+                <button key={m} onClick={() => escolherMateria(m)}
                         className={`text-xs font-medium px-3 py-1.5 rounded-full border transition ${qaMateria === m ? 'bg-intento-blue text-white border-intento-blue font-bold' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}>
                   {m}
                 </button>
@@ -474,12 +496,31 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
                 </button>
               )}
               {!ehEM && (
-                <button onClick={() => setQaMateria('__outro__')}
+                <button onClick={() => escolherMateria('__outro__')}
                         className={`text-xs font-medium px-3 py-1.5 rounded-full border transition ${qaMateria === '__outro__' ? 'bg-intento-blue text-white border-intento-blue font-bold' : 'bg-white text-slate-600 border-slate-200'}`}>
                   Outro
                 </button>
               )}
             </div>
+            {/* Aluno EM (3º ano) também planeja vestibular — grupo próprio pra
+                não misturar com as matérias da escola. */}
+            {ehEM && (
+              <>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">🎯 Ou um vestibular?</p>
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {VESTIBULARES.map(v => (
+                    <button key={v} onClick={() => escolherMateria(v)}
+                            className={`text-xs font-medium px-3 py-1.5 rounded-full border transition ${qaMateria === v ? 'bg-intento-blue text-white border-intento-blue font-bold' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}>
+                      {v}
+                    </button>
+                  ))}
+                  <button onClick={() => escolherMateria('__outro__')}
+                          className={`text-xs font-medium px-3 py-1.5 rounded-full border transition ${qaMateria === '__outro__' ? 'bg-intento-blue text-white border-intento-blue font-bold' : 'bg-white text-slate-600 border-slate-200'}`}>
+                    Outro
+                  </button>
+                </div>
+              </>
+            )}
             {qaMateria === '__outro__' && (
               <input type="text" value={qaMateriaTxt} onChange={e => setQaMateriaTxt(e.target.value)}
                      placeholder="Nome do vestibular"
@@ -513,16 +554,16 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
 
             <div className="flex gap-2 mb-4">
               <div className="flex-1">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{ehEM ? 'Tipo' : 'Fase'}</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{selecaoVest(qaMateria) ? 'Fase' : 'Tipo'}</label>
                 <select value={qaTipo} onChange={e => setQaTipo(e.target.value)}
                         className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white">
-                  {tipos.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {tiposPara(qaMateria).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
               <div className="flex-[2]">
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Observação (opcional)</label>
                 <input type="text" value={qaObs} onChange={e => setQaObs(e.target.value)}
-                       placeholder={ehEM ? 'ex: caps 5–8' : 'ex: levar caneta preta'}
+                       placeholder={selecaoVest(qaMateria) ? 'ex: levar caneta preta' : 'ex: caps 5–8'}
                        className="w-full text-sm font-medium text-slate-600 px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400" />
               </div>
             </div>
@@ -551,7 +592,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
             <textarea value={resRelato} onChange={e => setResRelato(e.target.value)} rows={3}
                       placeholder="ex: achei difícil a parte de função…"
                       className="w-full text-sm font-medium text-slate-700 px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400 resize-none" />
-            {ehEM && (
+            {!ehProvaVestibular(resultadoProva) && (
               <>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-3 mb-1.5">Nota (0–10, se já souber)</label>
                 <input type="number" min="0" max="10" step="0.1" value={resNota} onChange={e => setResNota(e.target.value)}
@@ -563,7 +604,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
                     className="w-full mt-4 py-3 bg-intento-blue text-white font-semibold rounded-lg hover:bg-blue-900 transition-all disabled:opacity-50 text-sm">
               {salvandoRes ? 'Salvando…' : 'Salvar'}
             </button>
-            {ehEM && (
+            {!ehProvaVestibular(resultadoProva) && (
               <button onClick={() => salvarResultado(true)} disabled={salvandoRes}
                       className="w-full mt-2 py-2 text-xs font-medium text-slate-400 hover:text-intento-blue transition">
                 ainda não sei a nota — salvar só o relato

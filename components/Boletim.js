@@ -10,6 +10,11 @@ const TIPO_LABEL = {
   recuperacao: 'Recuperação',
 };
 
+// Aluno EM pode ter provas de vestibular na mesma lista (tipo = fase). Elas não
+// têm nota 0-10 e a "matéria" é o vestibular — fora do boletim, senão "ENEM"
+// viraria uma matéria fantasma na tabela.
+const TIPOS_VESTIBULAR = new Set(['unica', 'fase1', 'fase2', 'dia1', 'dia2']);
+
 // Brasil padrão escolar: bimestres por mês (1-indexed)
 const BIMESTRES = {
   '1': { nome: '1º bimestre', meses: [2, 3, 4] },     // Fev-Abr
@@ -51,6 +56,7 @@ export default function Boletim({ provas }) {
   const provasFiltradas = useMemo(() => {
     const anoAtual = new Date().getFullYear();
     return provas.filter(p => {
+      if (TIPOS_VESTIBULAR.has(p.tipo)) return false;
       if (substituidos.has(p.id)) return false;
       const d = new Date(p.data);
       if (isNaN(d.getTime())) return false;
