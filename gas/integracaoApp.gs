@@ -111,6 +111,12 @@ function _bqQuery(sql, parameters) {
   }
   if (body.error) throw new Error('BQ erro: ' + JSON.stringify(body.error));
   if (!body.jobComplete) throw new Error('BQ job não completou em 60s');
+  // Só lemos a 1ª página do jobs.query — se paginar, linhas sumiriam SEM erro
+  // (semana ausente viraria célula vazia "não-mensurável" pra sempre). Falhar
+  // alto: quem chamar com resultado aberto precisa restringir a query.
+  if (body.pageToken) {
+    throw new Error('BQ resultado paginado (' + (body.totalRows || '?') + ' linhas) — _bqQuery só lê a 1ª página; restrinja a query');
+  }
 
   var fields = (body.schema && body.schema.fields) || [];
   var rows = body.rows || [];
@@ -333,6 +339,20 @@ var _SQL_REGISTRO_APP = [
   '  WHERE DATE(TIMESTAMP_SECONDS(date), \'America/Sao_Paulo\') BETWEEN @semana_inicio AND @semana_fim',
   '  GROUP BY usuarioId',
   '),',
+  // QUESTÕES — soma right+wrong das atividades DA SEMANA, direto do raw
+  // (mesma semântica do gráfico "questões por dia" do app). NUNCA derivar do
+  // delta dos snapshots de domínio: cada atividade nova SUBSTITUI a anterior
+  // na soma por tópico (delta pode até ser negativo). Fuso America/Sao_Paulo
+  // igual a semana_dias — o backfill (backfillColunaQuestoes) usa o MESMO
+  // fuso pra semanas passadas e futuras baterem.
+  'semana_questoes AS (',
+  '  SELECT',
+  '    REGEXP_EXTRACT(__key__.path, r\'"u",\\s*"([^"]+)"\') AS usuarioId,',
+  '    SUM(COALESCE(rightAnswers, 0) + COALESCE(wrongAnswers, 0)) AS questoes',
+  '  FROM `intento-edu.app.atividade`',
+  '  WHERE DATE(TIMESTAMP_SECONDS(date), \'America/Sao_Paulo\') BETWEEN @semana_inicio AND @semana_fim',
+  '  GROUP BY usuarioId',
+  '),',
   // CHECK-IN — direto do raw (app.checkin). A tabela analise.atividadesSemanais
   // replica o check-in por linha de disciplina, gerando médias enviesadas (e
   // pra alunos com disciplinas faltando na tabela, perde check-ins inteiros).
@@ -393,15 +413,17 @@ var _SQL_REGISTRO_APP = [
   '  ROUND(AVG(m.prog), 2) AS prog_TOTAL,',
   '  COALESCE(sh.horas, 0) AS horas,',
   '  COALESCE(sd.dias_estudo, 0) AS dias_estudo,',
+  '  COALESCE(sq.questoes, 0) AS questoes,',
   '  sc.estresse, sc.ansiedade, sc.motivacao, sc.sono,',
   '  COALESCE(ra.revisoes_atrasadas, 0) AS revisoes_atrasadas',
   'FROM alunos a',
   'LEFT JOIN metrica m ON m.usuarioId = a.uid',
   'LEFT JOIN semana_horas sh ON sh.usuarioId = a.uid',
   'LEFT JOIN semana_dias sd ON sd.usuarioId = a.uid',
+  'LEFT JOIN semana_questoes sq ON sq.usuarioId = a.uid',
   'LEFT JOIN semana_checkin sc ON sc.usuarioId = a.uid',
   'LEFT JOIN rev_atrasadas ra ON ra.usuarioId = a.uid',
-  'GROUP BY a.email, sh.horas, sd.dias_estudo, sc.estresse, sc.ansiedade, sc.motivacao, sc.sono, ra.revisoes_atrasadas',
+  'GROUP BY a.email, sh.horas, sd.dias_estudo, sq.questoes, sc.estresse, sc.ansiedade, sc.motivacao, sc.sono, ra.revisoes_atrasadas',
   'ORDER BY a.email',
 ].join('\n');
 
@@ -491,6 +513,7 @@ function _garantirColunaOrigem(abaDB) {
     [COL_REG.ORIGEM, 'origem_registro'],
     [COL_REG.DIAS_ESTUDO, 'dias_estudo'],
     [COL_REG.DIAS_PLANEJADOS, 'dias_planejados'],
+    [COL_REG.QUESTOES, 'questoes'],
   ];
   headers.forEach(function (h) {
     if (!txt(abaDB.getRange(1, h[0] + 1).getValue())) {
@@ -627,6 +650,7 @@ function cronGerarRegistrosApp(dryRun, semanaStrOverride) {
         ORIGEM_REG.AUTO,
         num(r.dias_estudo),           // dias com atividade no app (fuso SP)
         metaDias.dias,                // dias planejados na Semana Padrão (0 = grade vazia → não-mensurável)
+        num(r.questoes),              // questões respondidas na semana (raw app, fuso SP)
       ];
 
       if (ehDryRun) {
@@ -710,6 +734,163 @@ function migrarColunaOrigemRegistro() {
   });
   Logger.log('migrarColunaOrigemRegistro: ' + migrados + ' migrados · ' + jaTinha +
              ' já tinham · ' + semAba + ' sem aba · ' + erros + ' erros');
+}
+
+// Backfill da coluna `questoes` (COL_REG.QUESTOES) em BD_Registro de todas as
+// planilhas individuais. 1 query BQ única agrupando email × semana — DATE_TRUNC
+// WEEK(SUNDAY) no fuso America/Sao_Paulo, o MESMO da CTE semana_questoes do
+// cron (senão atividade de sábado ~21h-24h BRT cairia em semanas diferentes no
+// backfill vs nas semanas futuras). Escreve SÓ células vazias, preservando
+// qualquer origem (auto/revisado/manual) — NÃO usa recomporSemanasAuto, que
+// apagaria edições do mentor e pularia semanas revisadas. Semana sem linha no
+// BQ fica VAZIA (não 0): vazio = não-mensurável, 0 = usou o app e não fez nada.
+// Linha dupla da mesma semana: só a 1ª recebe (front deve agregar por max).
+// Gate de header posicional antes de escrever (padrão escolar.gs).
+// Ao final loga a distribuição (calibração do selo Quilometragem: T1 ≈ P40 do
+// volume de 4 semanas; topo ≈ P90 do acumulado anual por aluno).
+// COMO USAR (editor GAS, arquivo integracaoApp.gs):
+//   1. backfillColunaQuestoes(true)  — dry run, só loga
+//   2. backfillColunaQuestoes()      — grava
+function backfillColunaQuestoes(dryRun) {
+  var ehDryRun = dryRun === true;
+  Logger.log('===== backfillColunaQuestoes ' + (ehDryRun ? '(DRY RUN)' : '') + ' =====');
+
+  // Emails da MESTRE primeiro: a query é FILTRADA por eles. Sem o filtro, a
+  // base inteira do Aplicativo entraria (produto separado, tem usuários fora
+  // da mentoria): o resultado poderia paginar e truncar silencioso, e a
+  // distribuição de calibração sairia da população errada. Ex-alunos
+  // (DT_SAIDA) entram DE PROPÓSITO: histórico legítimo pra calibração.
+  var matriz = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ABA.MESTRE).getDataRange().getValues();
+  var alunos = [];
+  for (var i = 1; i < matriz.length; i++) {
+    var idP = txt(matriz[i][COL_MESTRE.ID_PLANILHA]);
+    var em = emailNorm(matriz[i][COL_MESTRE.EMAIL]);
+    if (idP && em) alunos.push({ email: em, idPlanilha: idP });
+  }
+  Logger.log(alunos.length + ' alunos na MESTRE');
+
+  // Semana corrente (parcial) fica FORA da query: um valor parcial gravado
+  // hoje nunca seria corrigido (política só-célula-vazia + dedupe do cron).
+  var sql = [
+    'SELECT u.email,',
+    '  FORMAT_DATE(\'%Y-%m-%d\', DATE_TRUNC(DATE(TIMESTAMP_SECONDS(a.date), \'America/Sao_Paulo\'), WEEK(SUNDAY))) AS semana_inicio,',
+    '  SUM(COALESCE(a.rightAnswers, 0) + COALESCE(a.wrongAnswers, 0)) AS questoes',
+    'FROM `intento-edu.app.atividade` a',
+    'JOIN `intento-edu.app.usuario` u',
+    '  ON REGEXP_EXTRACT(a.__key__.path, r\'"u",\\s*"([^"]+)"\') = u.uid',
+    'WHERE u.email IN UNNEST(@alvos)',
+    '  AND DATE(TIMESTAMP_SECONDS(a.date), \'America/Sao_Paulo\')',
+    '      < DATE_TRUNC(CURRENT_DATE(\'America/Sao_Paulo\'), WEEK(SUNDAY))',
+    'GROUP BY 1, 2',
+  ].join('\n');
+  var parameters = [{
+    name: 'alvos',
+    parameterType: { type: 'ARRAY', arrayType: { type: 'STRING' } },
+    parameterValue: { arrayValues: alunos.map(function (a) { return { value: a.email }; }) },
+  }];
+  var linhas = _bqQuery(sql, parameters);
+
+  // mapa email → { ts do domingo (local) → questões da semana }
+  var mapa = {};
+  var valoresSemanais = [];
+  linhas.forEach(function (l) {
+    var email = emailNorm(l.email);
+    if (!email) return;
+    var p = String(l.semana_inicio).split('-');
+    if (p.length !== 3) return;
+    var ts = new Date(+p[0], +p[1] - 1, +p[2]).getTime();
+    if (!mapa[email]) mapa[email] = {};
+    var q = parseInt(l.questoes, 10) || 0;
+    mapa[email][ts] = q;
+    valoresSemanais.push(q);
+  });
+  Logger.log(linhas.length + ' semanas-aluno no BQ · ' + Object.keys(mapa).length + ' de ' + alunos.length + ' alunos com dado');
+
+  // Guarda defensiva local equivalente ao corte da query (domingo corrente).
+  var hoje = new Date();
+  var domingoCorrenteTs = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - hoje.getDay()).getTime();
+
+  var escritas = 0, zerosAuto = 0, jaTinha = 0, alunosSemBQ = 0, semAba = 0,
+      headerRuim = 0, semanaIlegivel = 0, erros = 0;
+  alunos.forEach(function (aluno) {
+    var porSemana = mapa[aluno.email] || {};
+    if (!Object.keys(porSemana).length) alunosSemBQ++;
+    try {
+      var abaDB = SpreadsheetApp.openById(aluno.idPlanilha).getSheetByName(ABA.REGISTROS);
+      if (!abaDB) { semAba++; return; }
+      if (!ehDryRun) _garantirColunaOrigem(abaDB); // cria a coluna/header se faltar
+      // gate posicional: se a col 24 tem header de OUTRA coisa, não escrever nela
+      var header = abaDB.getMaxColumns() >= COL_REG.QUESTOES + 1
+        ? txt(abaDB.getRange(1, COL_REG.QUESTOES + 1).getValue()) : '';
+      if (header && header !== 'questoes') {
+        headerRuim++;
+        Logger.log('  header inesperado (' + aluno.email + '): "' + header + '" — planilha pulada');
+        return;
+      }
+      var dados = abaDB.getDataRange().getValues();
+      if (dados.length < 2) return;
+      // Coluna nova montada em memória: 1 write por planilha (quota dos 6 min).
+      var col = [];
+      var vistos = {};
+      var escritasAluno = 0;
+      for (var j = 1; j < dados.length; j++) {
+        var atual = dados[j][COL_REG.QUESTOES];
+        col.push([(atual === undefined || atual === null) ? '' : atual]);
+        var semanaRaw = dados[j][COL_REG.SEMANA];
+        var ts = _semanaInicioTs(semanaRaw);
+        if (ts === null) { if (txt(semanaRaw)) semanaIlegivel++; continue; }
+        if (ts >= domingoCorrenteTs) continue;      // semana corrente parcial: fora
+        if (vistos[ts]) continue;                   // linha dupla: só a 1ª recebe
+        vistos[ts] = true;
+        if (col[col.length - 1][0] !== '') { jaTinha++; continue; } // preserva existente
+        var valor = porSemana[ts];
+        if (valor === undefined) {
+          // Sem linha no BQ: semana COBERTA pela integração (auto/revisado) =
+          // aluno não abriu o app ⇒ 0, mesma semântica do COALESCE do cron
+          // (senão passado e futuro divergiriam pra situação idêntica).
+          // Manual/legado fica vazio = não-mensurável.
+          var origem = txt(dados[j][COL_REG.ORIGEM]);
+          if (origem !== ORIGEM_REG.AUTO && origem !== ORIGEM_REG.REVISADO) continue;
+          valor = 0;
+          zerosAuto++;
+        }
+        col[col.length - 1] = [valor];
+        escritasAluno++;
+      }
+      if (escritasAluno && !ehDryRun) {
+        abaDB.getRange(2, COL_REG.QUESTOES + 1, col.length, 1).setValues(col);
+      }
+      escritas += escritasAluno;
+      if (escritasAluno) Logger.log('  ' + (ehDryRun ? '[dry] ' : '') + aluno.email + ': ' + escritasAluno + ' semana(s)');
+    } catch (e) {
+      erros++;
+      Logger.log('  erro ' + aluno.email + ': ' + e.message);
+    }
+  });
+  Logger.log('backfillColunaQuestoes: ' + escritas + ' células ' + (ehDryRun ? 'a escrever' : 'escritas') +
+             ' (' + zerosAuto + ' zeros de semana auto sem uso do app) · ' + jaTinha + ' já tinham · ' +
+             alunosSemBQ + ' alunos sem dado BQ · ' + semAba + ' sem aba · ' + headerRuim +
+             ' header ruim · ' + semanaIlegivel + ' semanas ilegíveis · ' + erros + ' erros');
+
+  // Distribuição p/ calibrar o selo Quilometragem (limiar provisório 100/500/1500/3000).
+  // População: SÓ alunos da MESTRE (query filtrada) e SÓ semanas fechadas.
+  var pct = function (arr, p) {
+    if (!arr.length) return 0;
+    return arr[Math.max(0, Math.ceil((p / 100) * arr.length) - 1)];
+  };
+  valoresSemanais.sort(function (a, b) { return a - b; });
+  Logger.log('DISTRIBUIÇÃO semanal (questões/semana-aluno): P25=' + pct(valoresSemanais, 25) +
+             ' P40=' + pct(valoresSemanais, 40) + ' P50=' + pct(valoresSemanais, 50) +
+             ' P75=' + pct(valoresSemanais, 75) + ' P90=' + pct(valoresSemanais, 90) +
+             ' max=' + pct(valoresSemanais, 100));
+  var totais = Object.keys(mapa).map(function (em) {
+    var soma = 0;
+    Object.keys(mapa[em]).forEach(function (ts) { soma += mapa[em][ts]; });
+    return soma;
+  }).sort(function (a, b) { return a - b; });
+  Logger.log('DISTRIBUIÇÃO acumulada (total por aluno): P25=' + pct(totais, 25) +
+             ' P40=' + pct(totais, 40) + ' P50=' + pct(totais, 50) +
+             ' P75=' + pct(totais, 75) + ' P90=' + pct(totais, 90) + ' max=' + pct(totais, 100));
 }
 
 // Adiciona a coluna `ultima_exportacao` (COL_CACHE.ULTIMA_EXPORTACAO) na
