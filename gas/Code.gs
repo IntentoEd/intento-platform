@@ -36,15 +36,16 @@ const COL_EXCECAO = {
   MOTIVO: 5, CRIADO_EM: 6, CRIADO_POR: 7
 };
 
-// BD_Avaliacoes (11 cols) — provas de alunos EM (escolares) e ENEM (vestibulares).
+// BD_Avaliacoes (11 cols) — provas escolares e de vestibular. O tipo decide qual
+// das duas a prova é; aluno EM pode ter as duas, aluno ENEM só vestibular.
 // Escrita: mentor responsável, líder ou o PRÓPRIO aluno (com travas — ver escolar.gs).
-// nota (0-10, só EM) e observacao podem ser editadas após a prova vencer (post-mortem).
+// nota (0-10, só prova escolar) e observacao podem ser editadas após a prova vencer (post-mortem).
 // substitui_id: id de outra avaliação que esta substitui (típico: recuperação substitui bimestral).
 //   Quando preenchido, o Boletim ignora a substituída e usa a nota desta.
 // resultado_em: timestamp de quando o resultado foi registrado (nota lançada, relato do aluno
 //   ou "sem nota divulgada"). Vazio + data passada = pendente na fila "A registrar".
 //   Setado SEMPRE por ação explícita — nunca inferido de edição de observacao.
-// Sabor ENEM: materia = nome do vestibular (ENEM, FUVEST...), tipo = fase, nota não se aplica.
+// Prova de vestibular: materia = nome do vestibular (ENEM, FUVEST...), tipo = fase, nota não se aplica.
 const COL_AV = {
   ID: 0, ID_ALUNO: 1, DATA: 2, MATERIA: 3, TIPO: 4,
   OBSERVACAO: 5, NOTA: 6, CRIADO_POR: 7, CRIADO_EM: 8,

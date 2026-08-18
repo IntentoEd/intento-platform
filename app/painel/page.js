@@ -1238,8 +1238,9 @@ export default function PainelDoAluno() {
               {abaAtiva === 1 && (
                 <div className="space-y-6 animate-in fade-in duration-500">
 
-                  {/* Ciclo de Provas — todos os sabores: EM (provas escolares) e ENEM (vestibulares).
-                      O card sempre renderiza (empty state com CTA), senão a escrita é indescobrível. */}
+                  {/* Ciclo de Provas — pra todo aluno: EM (provas escolares e, no 3º ano, de
+                      vestibular) e ENEM (só vestibular). O card sempre renderiza (empty state
+                      com CTA), senão a escrita é indescobrível. */}
                   {(sessao?.idPlanilha || sessao?.idPlanilhaAluno) && (
                     <ProvasAluno
                       idAluno={sessao.idPlanilha || sessao.idPlanilhaAluno}

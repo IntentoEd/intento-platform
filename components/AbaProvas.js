@@ -25,7 +25,7 @@ const TIPOS_EM = [
   { value: 'recuperacao', label: 'Recuperação' },
 ];
 
-// Sabor vestibular: a "matéria" é o vestibular e o "tipo" é a fase.
+// Prova de vestibular: a "matéria" é o vestibular e o "tipo" é a fase.
 const VESTIBULARES = ['ENEM', 'SSA (UPE)', 'FUVEST', 'UNICAMP', 'UNESP', 'UERJ', 'Outra'];
 const TIPOS_ENEM = [
   { value: 'unica', label: 'Fase única' },
@@ -35,9 +35,9 @@ const TIPOS_ENEM = [
   { value: 'dia2', label: 'Dia 2' },
 ];
 
-// O sabor é da PROVA, não do aluno: aluno EM pode misturar prova escolar e
-// vestibular na mesma lista (3º ano). Os vocabulários de tipo são disjuntos,
-// então o tipo identifica o sabor de cada linha.
+// Se a prova é escolar ou de vestibular, quem decide é a PROVA, não o aluno:
+// aluno EM pode misturar as duas na mesma lista (3º ano). Os vocabulários de
+// tipo são disjuntos, então o tipo identifica cada linha.
 const TIPOS_TODOS = [...TIPOS_EM, ...TIPOS_ENEM];
 const TIPOS_VESTIBULAR = new Set(TIPOS_ENEM.map(t => t.value));
 const ehProvaVestibular = (p) => TIPOS_VESTIBULAR.has(p.tipo);
@@ -120,13 +120,14 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
   const tipoLabel = (tipo) => (TIPOS_TODOS.find(t => t.value === tipo) || { label: tipo }).label;
   const rotuloEntidade = ehEM ? 'Matéria' : 'Vestibular';
 
-  // Sabor de uma SELEÇÃO no select de matéria (antes da prova existir).
+  // Diz se a SELEÇÃO no select de matéria é de vestibular (antes da prova existir).
   const selecaoVest = (sel) => !ehEM || sel === OUTRO_VEST || VESTIBULARES_BASE.includes(sel);
   const ehSelecaoOutra = (sel) => sel === 'Outra' || sel === OUTRO_VEST;
   const tiposPara = (sel) => (selecaoVest(sel) ? TIPOS_ENEM : TIPOS_EM);
   const placeholderOutra = (sel) => (selecaoVest(sel) ? 'Nome do vestibular' : 'Nome da matéria');
   // Ao trocar a matéria, o tipo escolhido só sobrevive se ainda for válido no
-  // vocabulário do novo sabor; senão zera (quem chama decide o default).
+  // vocabulário da nova seleção (escolar vs vestibular); senão zera (quem
+  // chama decide o default).
   const tipoAoTrocarMateria = (tipoAtual, selNova) =>
     tiposPara(selNova).some(t => t.value === tipoAtual) ? tipoAtual : '';
   // Chip do card: no EM a lista é mista, o 🎯 distingue vestibular à vista.
@@ -161,8 +162,8 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
   const [salvandoBatch, setSalvandoBatch] = useState(false);
   const [erroBatch, setErroBatch] = useState('');
 
-  // Modal edição (1 prova). editModoResultado: aberto pelo CTA da fila do
-  // sabor ENEM — o salvar fecha o ciclo (resultadoRegistrado:true).
+  // Modal edição (1 prova). editModoResultado: aberto pelo CTA da fila de
+  // prova de vestibular — o salvar fecha o ciclo (resultadoRegistrado:true).
   const [provaEditando, setProvaEditando] = useState(null);
   const [editModoResultado, setEditModoResultado] = useState(false);
   const [editData, setEditData] = useState('');
@@ -242,8 +243,8 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
       const data = await res.json();
       if (data.status !== 'sucesso') { setErroQa(data.mensagem || 'Erro ao salvar.'); return; }
       // Mantém data e tipo: semana de provas entra em sequência sem re-selecionar.
-      // Mas o select volta pro sabor default — tipo de vestibular não pode vazar
-      // pra próxima prova escolar (e vice-versa), então revalida contra ele.
+      // Mas o select de matéria volta pro estado inicial — tipo de vestibular
+      // não pode vazar pra próxima prova escolar (e vice-versa), então revalida.
       setQa(prev => ({
         ...prev,
         materiaSelect: '',
@@ -293,7 +294,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
   const atualizarLinha = (idx, campo, valor) => {
     setLinhas(prev => prev.map((l, i) => i === idx ? { ...l, [campo]: valor } : l));
   };
-  // Troca de matéria pode trocar o sabor da linha — tipo inválido no novo vocabulário zera.
+  // Troca de matéria pode alternar a linha entre escolar e vestibular — tipo inválido no novo vocabulário zera.
   const atualizarLinhaMateria = (idx, sel) => {
     setLinhas(prev => prev.map((l, i) => i === idx ? { ...l, materiaSelect: sel, tipo: tipoAoTrocarMateria(l.tipo, sel) } : l));
   };
@@ -389,7 +390,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
         body.nota = editNota === '' ? null : Number(editNota);
         body.substituiId = editTipo === 'recuperacao' ? editSubstituiId : '';
       }
-      // Fluxo "registrar como foi" do sabor vestibular: salvar fecha o ciclo.
+      // Fluxo "registrar como foi" de prova de vestibular: salvar fecha o ciclo.
       if (editModoResultado && vestSel) body.resultadoRegistrado = true;
       const res = await apiFetch('/api/mentor', {
         method: 'POST',
@@ -487,7 +488,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
               setQa(prev => ({
                 ...prev,
                 materiaSelect: sel,
-                // Sem tipo válido no novo sabor, cai no default dele.
+                // Sem tipo válido na nova seleção, cai no default dela.
                 tipo: tipoAoTrocarMateria(prev.tipo, sel) || (selecaoVest(sel) ? 'unica' : 'mensal'),
               }));
             }}
@@ -645,7 +646,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
         )}
       </section>
 
-      {/* Boletim — só faz sentido no sabor EM (notas escolares) */}
+      {/* Boletim — só faz sentido pra aluno EM (notas escolares) */}
       {ehEM && (
         <section>
           <button

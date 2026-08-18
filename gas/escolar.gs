@@ -2,8 +2,8 @@
 // ESCOLAR — Provas (Ciclo de Provas: EM escolar + ENEM vestibular)
 // =====================================================================
 // Domínio: Filippe (mentoria/escolar). Tudo de BD_Avaliacoes (provas
-// escolares e vestibulares — aluno EM pode ter os dois sabores; aluno ENEM
-// só vestibular) + enriquecimento da listaAlunosMentor com próxima prova.
+// escolares e de vestibular — aluno EM pode ter as duas; aluno ENEM só
+// vestibular) + enriquecimento da listaAlunosMentor com próxima prova.
 //
 // Escrita aberta ao PRÓPRIO aluno com travas:
 //   - cadastro: sem nota e sem substituiId (nota entra no fluxo de resultado);
@@ -32,9 +32,10 @@ function _acharAvaliacaoPorId(idAv) {
   return { linha: -1 };
 }
 
-// Tipos válidos por aluno. O sabor é da PROVA (derivado do tipo — os dois
-// vocabulários são disjuntos): aluno EM aceita os dois sabores na mesma lista
-// (prova escolar + vestibular, caso do 3º ano); aluno ENEM só vestibular.
+// Tipos válidos por aluno. Se a prova é escolar ou de vestibular, quem decide
+// é o TIPO dela (os dois vocabulários são disjuntos): aluno EM aceita provas
+// escolares e de vestibular na mesma lista (caso do 3º ano); aluno ENEM só
+// vestibular.
 function _tiposAvalPara(tipoAluno) {
   return tipoAluno === 'EM' ? TIPOS_AVAL.concat(TIPOS_AVAL_ENEM) : TIPOS_AVAL_ENEM;
 }
@@ -315,7 +316,7 @@ function handleAtualizarAvaliacao(dados) {
     }
 
     var atualizacoes = [];
-    // Sabor da prova pós-update: se o tipo está sendo trocado nesta chamada,
+    // Tipo efetivo pós-update: se o tipo está sendo trocado nesta chamada,
     // o guard de nota abaixo tem que valer pro tipo NOVO, não pro gravado.
     var tipoEfetivo = txt(av.row[COL_AV.TIPO]);
     if (Object.prototype.hasOwnProperty.call(dados, 'data')) {
@@ -330,7 +331,7 @@ function handleAtualizarAvaliacao(dados) {
     }
     if (Object.prototype.hasOwnProperty.call(dados, 'tipo')) {
       var t = txt(dados.tipo);
-      // Tipo repetido passa sem validar: se o aluno trocou de sabor (EM→ENEM)
+      // Tipo repetido passa sem validar: se o aluno trocou de tipo_aluno (EM→ENEM)
       // depois da prova existir, travar aqui deixaria a linha legada ineditável.
       if (t !== txt(av.row[COL_AV.TIPO]) && _tiposAvalPara(aluno.tipoAluno).indexOf(t) === -1) {
         return responderJSON({ status: 'erro', mensagem: 'tipo inválido' });

@@ -979,9 +979,9 @@ export default function GestaoIndividualAluno() {
   const [erroOnboarding, setErroOnboarding] = useState('');
 
   // tipoAluno e escola vêm do BD_Alunos via buscarDadosAluno.
-  // Ciclo de Provas: a aba existe pros dois sabores — EM (provas escolares)
-  // e ENEM (vestibulares). O fetch mora aqui (não na AbaProvas) porque a
-  // Visão Geral e o label da aba também derivam dele.
+  // Ciclo de Provas: a aba existe pra todo aluno — EM (provas escolares e,
+  // no 3º ano, de vestibular) e ENEM (só vestibular). O fetch mora aqui (não
+  // na AbaProvas) porque a Visão Geral e o label da aba também derivam dele.
   const [tipoAluno, setTipoAluno] = useState('ENEM');
   const [escolaAluno, setEscolaAluno] = useState('');
   const [provasAluno, setProvasAluno] = useState(null);

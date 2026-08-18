@@ -14,8 +14,8 @@ function emailRequester() {
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-// Sabor EM: matéria escolar + tipo de prova. Select fechado — "Outra" fica com
-// o mentor, protegendo o agrupamento do Boletim.
+// Prova escolar: matéria + tipo. Select fechado — "Outra" fica com o mentor,
+// protegendo o agrupamento do Boletim.
 const MATERIAS_EM = [
   'Português', 'Matemática', 'Inglês', 'Espanhol',
   'História', 'Geografia', 'Biologia', 'Química',
@@ -28,7 +28,7 @@ const TIPOS_EM = [
   { value: 'recuperacao', label: 'Recuperação' },
 ];
 
-// Sabor vestibular: vestibular + fase. Lista curada + "Outro" (texto livre).
+// Prova de vestibular: vestibular + fase. Lista curada + "Outro" (texto livre).
 const VESTIBULARES = ['ENEM', 'SSA (UPE)', 'FUVEST', 'UNICAMP', 'UNESP', 'UERJ'];
 const TIPOS_ENEM = [
   { value: 'unica', label: 'Fase única' },
@@ -38,9 +38,9 @@ const TIPOS_ENEM = [
   { value: 'dia2', label: 'Dia 2' },
 ];
 
-// O sabor é da PROVA, não do aluno: aluno EM (3º ano) também planeja vestibular,
-// então a lista dele mistura os dois sabores. Os vocabulários de tipo são
-// disjuntos — o tipo identifica o sabor de cada prova.
+// Se a prova é escolar ou de vestibular, quem decide é a PROVA, não o aluno:
+// aluno EM (3º ano) também planeja vestibular, então a lista dele mistura as
+// duas. Os vocabulários de tipo são disjuntos — o tipo identifica cada prova.
 const TIPOS_TODOS = [...TIPOS_EM, ...TIPOS_ENEM];
 const TIPOS_VESTIBULAR = new Set(TIPOS_ENEM.map(t => t.value));
 const ehProvaVestibular = (p) => TIPOS_VESTIBULAR.has(p.tipo);
@@ -97,8 +97,8 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
   const ehEM = tipoAluno === 'EM';
   const tipoLabel = (t) => (TIPOS_TODOS.find(x => x.value === t) || { label: t }).label;
 
-  // Sabor da SELEÇÃO no quick-add: pro aluno EM, o chip escolhido decide se a
-  // prova é escolar ou vestibular ('__outro__' só existe no grupo vestibular).
+  // Pro aluno EM, o chip escolhido no quick-add decide se a prova é escolar ou
+  // de vestibular ('__outro__' só existe no grupo vestibular).
   const selecaoVest = (sel) => !ehEM || VESTIBULARES.includes(sel) || sel === '__outro__';
   const tiposPara = (sel) => (selecaoVest(sel) ? TIPOS_ENEM : TIPOS_EM);
   // Na lista mista do EM, o 🎯 marca as provas de vestibular.
@@ -204,8 +204,9 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
     setSheetAberto(true);
   };
 
-  // Escolher chip pode trocar o sabor — tipo que não existe no novo vocabulário
-  // cai no default dele (mensal pra escola, fase única pra vestibular).
+  // Escolher chip pode alternar entre escolar e vestibular — tipo que não existe
+  // no novo vocabulário cai no default dele (mensal pra escola, fase única pra
+  // vestibular).
   const escolherMateria = (m) => {
     setQaMateria(m);
     setQaTipo(prev => (tiposPara(m).some(t => t.value === prev) ? prev : tiposPara(m)[0].value));
