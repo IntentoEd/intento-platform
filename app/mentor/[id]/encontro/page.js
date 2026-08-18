@@ -5,6 +5,13 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { LoadingScreen } from '@/components/Loading';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { CarimboBadge } from '@/components/Carimbos';
+import { CARIMBO_LABEL } from '@/lib/carimboCores';
+import {
+  marcoCicloPendente, periodoDoCiclo, parseDataPayload, tsLabelSemana,
+  diagnosticoDimensional, registrosParaMetricas,
+  CARIMBOS, ORD_CAR, DIM_LABEL, NIVEL_ALVO_SIMULADO_PADRAO,
+} from '@/lib/carimbos';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constantes espelhadas de app/mentor/[id]/page.js — mantidas idênticas pra que
@@ -83,13 +90,19 @@ const numOrNull = (val) => {
 // Passos do roteiro, na ordem real da reunião. Abertura e Exploração saíram:
 // a abertura repetia a revisão da meta; a exploração permeia tudo (painel fixo).
 // `retro: true` = só aparece quando existe um encontro anterior.
+// `fechamento: true` = só aparece quando há Marco de Ciclo pendente (1º diário
+// após a fronteira do trimestre sem marco gravado) — o Fechamento de Ciclo não
+// é opção do mentor, entra sozinho no roteiro. A numeração exibida é derivada
+// da posição em stepsVisiveis (os passos condicionais mudam a contagem).
 const STEPS = [
-  { id: 'meta-anterior', n: 1, titulo: 'Revisão da meta anterior',  sub: 'Bateu o combinado?', retro: true },
-  { id: 'plano-anterior',n: 2, titulo: 'Revisão do plano de ação',  sub: 'O que foi feito', retro: true },
-  { id: 'balanco',       n: 3, titulo: 'Vitórias e Obstáculos',     sub: 'Balanço do período' },
-  { id: 'foco',          n: 4, titulo: 'Foco do encontro',          sub: 'Categoria do desafio' },
-  { id: 'meta-proxima',  n: 5, titulo: 'Meta do próximo encontro',  sub: 'O que vamos combinar' },
-  { id: 'plano-proximo', n: 6, titulo: 'Plano de ação do próximo',  sub: 'Passos práticos' },
+  { id: 'meta-anterior', titulo: 'Revisão da meta anterior',  sub: 'Bateu o combinado?', retro: true },
+  { id: 'plano-anterior',titulo: 'Revisão do plano de ação',  sub: 'O que foi feito', retro: true },
+  { id: 'fech-retro',    titulo: 'Retrospectiva do ciclo',    sub: 'O que o trimestre construiu', fechamento: true },
+  { id: 'fech-marco',    titulo: 'Carimbo do marco',          sub: 'Congela o retrato do ciclo', fechamento: true },
+  { id: 'balanco',       titulo: 'Vitórias e Obstáculos',     sub: 'Balanço do período' },
+  { id: 'foco',          titulo: 'Foco do encontro',          sub: 'Categoria do desafio' },
+  { id: 'meta-proxima',  titulo: 'Meta do próximo encontro',  sub: 'O que vamos combinar' },
+  { id: 'plano-proximo', titulo: 'Plano de ação do próximo',  sub: 'Passos práticos' },
 ];
 
 const labelClass = 'block text-xs font-medium text-slate-500 uppercase tracking-wider';
@@ -110,6 +123,11 @@ const FORM_VAZIO = {
   autoavaliacao: 0, vitorias: '', desafios: '', categoriaDesafio: 'Codificação',
   metas: ['', '', ''], exploracao: '', planosAcao: ['', '', '', '', ''], notasPrivadas: '',
   statusMetasAnteriores: ['', '', ''], resultadosAnteriores: ['', '', '', '', ''],
+  // Fechamento de Ciclo (só usado quando há marco pendente). carimbosAjuste
+  // guarda APENAS os overrides do mentor — dimensão ausente = fica o computado.
+  // ref = "ano-ciclo" estampado no 1º toque: rascunho que cruza a fronteira de
+  // trimestre não vaza reflexões de um ciclo pro marco de outro.
+  fechamento: { ref: '', vitoriaCiclo: '', aprendizadoCiclo: '', mudancaCiclo: '', nivelAlvo: '', carimbosAjuste: {} },
 };
 
 // ── Modo demo (/mentor/demo/encontro): dados de exemplo pra revisão offline ──
@@ -190,6 +208,15 @@ export default function ModoEncontro() {
   const [registros, setRegistros] = useState([]);
   const [grade, setGrade] = useState({});
   const [metaHorasSemanal, setMetaHorasSemanal] = useState('');
+  // Marcos de Ciclo: undefined = payload sem `marcos` (GAS antigo ou demo) ⇒
+  // fluxo de fechamento dormente. Lista de simulados alimenta a retrospectiva.
+  // tipoAluno/statusApp gateiam o escopo (só mentoria/ENEM com app).
+  const [marcos, setMarcos] = useState(undefined);
+  const [listaSimulados, setListaSimulados] = useState([]);
+  const [marcoSalvo, setMarcoSalvo] = useState(null);
+  const [marcoNaoGravado, setMarcoNaoGravado] = useState(false);
+  const [tipoAluno, setTipoAluno] = useState('ENEM');
+  const [statusApp, setStatusApp] = useState('');
 
   const [stepAtivo, setStepAtivo] = useState('balanco');
   const [form, setForm] = useState(FORM_VAZIO);
@@ -210,6 +237,17 @@ export default function ModoEncontro() {
   const updArr = (campo, idx, valor) => setForm(prev => {
     const arr = [...prev[campo]]; arr[idx] = valor; return { ...prev, [campo]: arr };
   });
+  // Atualiza form.fechamento de forma funcional (sem closure stale em digitação
+  // rápida) e estampa a ref do ciclo pendente no 1º toque — finalizarEncontro
+  // usa a ref pra não deixar rascunho de um ciclo gravar marco de outro.
+  const updFech = (patch) => setForm(prev => ({
+    ...prev,
+    fechamento: {
+      ...(prev.fechamento || FORM_VAZIO.fechamento),
+      ...(marcoPend && !prev.fechamento?.ref ? { ref: `${marcoPend.ano}-${marcoPend.ciclo.id}` } : {}),
+      ...patch,
+    },
+  }));
   const flash = (m) => { setStatusMsg(m); setTimeout(() => setStatusMsg(''), 3000); };
 
   // ── Carregar dados ──────────────────────────────────────────────────────────
@@ -219,6 +257,10 @@ export default function ModoEncontro() {
       setRegistros(data.registros || []);
       setGrade(gradeFromSemana(data.semana));
       setMetaHorasSemanal(data.metaHorasSemanal == null ? '' : String(data.metaHorasSemanal));
+      setMarcos(data.marcos); // undefined se o GAS ainda não devolve — gate do fechamento
+      setListaSimulados((data.simulados && data.simulados.lista) || []);
+      setTipoAluno(data.tipoAluno || 'ENEM');
+      setStatusApp(data.statusApp || '');
       const diarios = (data.diarios || []).map(d => ({ ...d, metas: parseMetas(d.meta) }));
       setHistoricoDiarios(diarios);
 
@@ -279,27 +321,67 @@ export default function ModoEncontro() {
     } else { router.push(voltarUrl); }
   };
 
-  const finalizarEncontro = async () => {
+  const salvarEncontro = async (marco) => {
     if (salvando) return;
-    if (ehDemo) { localStorage.removeItem(draftKey); setFinalizado(true); return; }
+    if (ehDemo) { localStorage.removeItem(draftKey); setMarcoSalvo(marco || null); setFinalizado(true); return; }
     setSalvando(true);
     try {
       const res = await apiFetch('/api/mentor', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           acao: 'salvarNovoEncontro', idPlanilha: params.id, ...form,
+          categoria: form.categoriaDesafio, // o GAS lê dados.categoria — sem isso o Foco era descartado
           meta: serializeMetas(form.metas),
           statusMetasAnteriores: serializeStatusMetas(form.statusMetasAnteriores),
           autoavaliacao: form.autoavaliacao, acoes: form.planosAcao,
           linhaAnterior: ultimo ? ultimo.linha : null,
           resultadosAnteriores: form.resultadosAnteriores,
+          marco, // Fechamento de Ciclo (undefined fora de fechamento — o JSON dropa)
         }),
       });
-      if (res.ok) { localStorage.removeItem(draftKey); setFinalizado(true); }
-      else { setConfirma({ descricao: 'Não consegui salvar o encontro. Tentar de novo?', onConfirmar: () => {} }); }
+      // O GAS responde erro com HTTP 200 ({status:'erro'}) — res.ok não basta.
+      let data = null;
+      try { data = await res.json(); } catch { /* body não-JSON = erro */ }
+      if (res.ok && data?.status === 'sucesso') {
+        localStorage.removeItem(draftKey);
+        // Marco só é afirmado se o GAS confirmou (marcoSalvo). Pós-append pode
+        // falhar com diário gravado — aí o fechamento continua pendente.
+        setMarcoSalvo(marco && data.marcoSalvo ? marco : null);
+        setMarcoNaoGravado(!!marco && !data.marcoSalvo);
+        setFinalizado(true);
+      } else {
+        // status 'erro' = falha ANTES do append (lock/aba/auth) — retry é seguro
+        // (falha pós-append volta como sucesso+marcoSalvo:false, nunca cai aqui).
+        setConfirma({
+          descricao: `Não consegui salvar o encontro${data?.mensagem ? ` (${data.mensagem})` : ''}. Seu rascunho está guardado neste navegador. Tentar de novo?`,
+          onConfirmar: () => salvarEncontro(marco),
+        });
+      }
     } catch (e) {
       setConfirma({ descricao: 'Erro de conexão ao salvar. Seu rascunho está guardado neste navegador. Tentar de novo?', onConfirmar: () => {} });
     } finally { setSalvando(false); }
+  };
+
+  // O gate do marco é a CONDIÇÃO vigente no save (marcoPend + ref do rascunho),
+  // nunca só o conteúdo do form — rascunho de um ciclo já fechado (ou de outro
+  // ciclo, se o draft cruzou a fronteira do trimestre) não grava marco.
+  const finalizarEncontro = () => {
+    if (salvando) return;
+    if (!marcoPend) { salvarEncontro(undefined); return; }
+    const f = form.fechamento || {};
+    // ref estampada no 1º toque (updFech); divergência = conteúdo de OUTRO ciclo.
+    const refAtual = `${marcoPend.ano}-${marcoPend.ciclo.id}`;
+    const fechValido = !f.ref || f.ref === refAtual;
+    const tocou = fechValido && ([f.vitoriaCiclo, f.aprendizadoCiclo, f.mudancaCiclo, f.nivelAlvo].some(v => String(v || '').trim())
+      || Object.keys(f.carimbosAjuste || {}).length > 0);
+    if (!tocou) {
+      setConfirma({
+        descricao: `Este é o 1º diário após o fim do ${marcoPend.ciclo.id} · ${marcoPend.ciclo.nome}, e o Fechamento de Ciclo está em branco${!fechValido ? ' (o rascunho antigo era de outro ciclo e foi ignorado)' : ''}. Salvar o diário SEM registrar o marco? (O fechamento volta a aparecer no próximo encontro.)`,
+        onConfirmar: () => salvarEncontro(undefined),
+      });
+      return;
+    }
+    salvarEncontro(montarMarco());
   };
 
   const salvarSemana = async () => {
@@ -332,7 +414,90 @@ export default function ModoEncontro() {
     });
   };
 
-  const stepsVisiveis = useMemo(() => STEPS.filter(s => !s.retro || !!ultimo), [ultimo]);
+  // ── Fechamento de Ciclo ─────────────────────────────────────────────────────
+  // Pendente ⇔ 1º diário após a fronteira do trimestre sem marco em BD_Marcos
+  // (helper em lib/carimbos.js; marcos undefined = GAS antigo/demo ⇒ dormente;
+  // fora do escopo ENEM+app ⇒ null, regra dentro do próprio helper).
+  const marcoPend = useMemo(
+    () => marcoCicloPendente({ marcos, diarios: historicoDiarios, tipoAluno, statusApp }),
+    [marcos, historicoDiarios, tipoAluno, statusApp]
+  );
+
+  // Diagnóstico atual — proposta de carimbos que o mentor confirma/ajusta no
+  // passo "Carimbo do marco". Mesmas fórmulas do /lider e do dossiê.
+  const diagAtual = useMemo(
+    () => (marcoPend ? diagnosticoDimensional({ metricas: registrosParaMetricas(registros) }) : null),
+    [marcoPend, registros]
+  );
+
+  // Retrospectiva computada do ciclo fechado — vira os DESTAQUES congelados do
+  // marco. Registros filtrados pelo label da semana; simulados/diários pela data.
+  const retroCiclo = useMemo(() => {
+    if (!marcoPend) return null;
+    const { inicio, fim } = periodoDoCiclo(marcoPend.idx, marcoPend.ano);
+    const dentro = (ts) => ts >= inicio.getTime() && ts <= fim.getTime();
+    const regs = registros
+      .filter(r => dentro(tsLabelSemana(r[0])))
+      .sort((a, b) => tsLabelSemana(a[0]) - tsLabelSemana(b[0])); // ini/fim exigem ordem cronológica
+    const horas = regs.reduce((s, r) => s + (numOrNull(r[4]) || 0), 0);
+    const serie = (col) => {
+      const vals = regs.map(r => toPercent(r[col])).filter(v => v != null);
+      return { ini: vals.length ? vals[0] : null, fim: vals.length ? vals[vals.length - 1] : null };
+    };
+    const cob = serie(6), dom = serie(5);
+    const sims = listaSimulados.filter(s => {
+      if (String(s.status || '') !== 'Concluída') return false;
+      const dt = parseDataPayload(s.data);
+      return dt && dentro(dt.getTime());
+    }).length;
+    // Metas batidas: statusMetasAnteriores de um diário julga as metas do
+    // encontro ANTERIOR — então o veredito das metas do diário i mora no
+    // diário seguinte (historicoDiarios é newest-first ⇒ índice i-1), e as
+    // metas do último diário do ciclo são julgadas AGORA, no passo 1 deste
+    // encontro (form.statusMetasAnteriores).
+    let metasBatidas = 0, metasTotal = 0;
+    const contar = (lista) => lista.map(s => String(s || '').trim()).filter(Boolean).forEach(s => {
+      metasTotal++;
+      if (s === 'Batida') metasBatidas++;
+    });
+    historicoDiarios.forEach((d, i) => {
+      const dt = parseDataPayload(d.data);
+      if (!dt || !dentro(dt.getTime())) return; // d DEFINIU metas dentro do ciclo
+      if (i > 0) contar(String(historicoDiarios[i - 1].statusMetasAnteriores || '').split('\n'));
+      else contar(form.statusMetasAnteriores || []);
+    });
+    return { horas: Math.round(horas), cobIni: cob.ini, cobFim: cob.fim, domIni: dom.ini, domFim: dom.fim, simulados: sims, metasBatidas, metasTotal };
+  }, [marcoPend, registros, listaSimulados, historicoDiarios, form.statusMetasAnteriores]);
+
+  // Carimbo final de uma dimensão: override do mentor > computado. Simulado não
+  // tem computado ainda (dimensão da Fase 2) — só entra se o mentor marcar.
+  const carimboFinal = (dim) => {
+    const aj = form.fechamento?.carimbosAjuste || {};
+    if (aj[dim] !== undefined) return aj[dim] || null;
+    if (dim === 'simulado') return null;
+    return diagAtual?.[dim] || null;
+  };
+
+  const montarMarco = () => {
+    if (!marcoPend) return undefined;
+    const f = form.fechamento || {};
+    const dims = {};
+    ['comportamento', 'cobertura', 'dominio', 'simulado'].forEach(d => { dims[d] = carimboFinal(d); });
+    const presentes = Object.values(dims).filter(Boolean);
+    const perfil = presentes.length ? CARIMBOS[Math.min(...presentes.map(n => ORD_CAR[n]))] : null;
+    const alvo = parseInt(f.nivelAlvo, 10);
+    return {
+      ano: marcoPend.ano, ciclo: marcoPend.ciclo.id, ...dims, perfil,
+      nivelAlvo: (alvo >= 1 && alvo <= 100) ? alvo : NIVEL_ALVO_SIMULADO_PADRAO,
+      reflexaoVitoria: f.vitoriaCiclo || '', reflexaoAprendizado: f.aprendizadoCiclo || '', reflexaoMudanca: f.mudancaCiclo || '',
+      destaques: retroCiclo, origem: 'fechamento',
+    };
+  };
+
+  const stepsVisiveis = useMemo(
+    () => STEPS.filter(s => (!s.retro || !!ultimo) && (!s.fechamento || !!marcoPend)),
+    [ultimo, marcoPend]
+  );
   const idxAtivo = stepsVisiveis.findIndex(s => s.id === stepAtivo);
   const irPara = (delta) => { const novo = stepsVisiveis[idxAtivo + delta]; if (novo) setStepAtivo(novo.id); };
 
@@ -365,6 +530,16 @@ export default function ModoEncontro() {
           <div>
             <h1 className="text-lg font-bold text-intento-blue">Diário de Bordo registrado</h1>
             <p className="text-sm text-slate-500 font-medium mt-1">O diário de {nomeAluno || 'do aluno'} já aparece no painel dele e alimenta o acompanhamento da semana.</p>
+            {marcoSalvo && (
+              <p className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 mt-3">
+                🏁 Marco do {marcoSalvo.ciclo} estampado — o retrato do trimestre está congelado na Linha do Ano.
+              </p>
+            )}
+            {marcoNaoGravado && (
+              <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
+                ⚠️ O diário foi salvo, mas o marco do ciclo NÃO foi gravado — o Fechamento de Ciclo volta a aparecer no próximo encontro.
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-2 pt-2">
             <button onClick={() => router.push(voltarUrl)} className="w-full bg-intento-blue text-white font-bold py-2.5 rounded-lg hover:bg-intento-blue/90 transition-all text-sm">
@@ -405,19 +580,43 @@ export default function ModoEncontro() {
         </div>
       </div>
 
+      {/* ── Faixa de Fechamento de Ciclo (automática, não é opção) ─────────── */}
+      {marcoPend && (
+        <div className="bg-amber-50 border-b border-amber-200">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2.5 flex items-center gap-3 flex-wrap">
+            <span className="text-[10px] font-black text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">🏁 Fechamento de Ciclo</span>
+            <p className="text-xs text-amber-800 font-medium flex-1 min-w-[200px]">
+              1º encontro após o fim do <b>{marcoPend.ciclo.id} · {marcoPend.ciclo.nome}</b> de {marcoPend.ano} — o roteiro de hoje inclui a retrospectiva do trimestre e o carimbo do marco.
+            </p>
+            <button onClick={() => setStepAtivo('fech-retro')}
+              className="text-[11px] font-bold text-amber-800 border border-amber-300 rounded-lg px-2.5 py-1 hover:bg-amber-100 transition-all shrink-0">
+              ir pro fechamento →
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 grid grid-cols-1 lg:grid-cols-[180px_1fr_320px] gap-6">
 
         {/* ── Roteiro (rail) ───────────────────────────────────────────────── */}
         <nav className="lg:sticky lg:top-20 lg:self-start">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 hidden lg:block">Roteiro</p>
           <div className="flex lg:flex-col gap-2 overflow-x-auto pb-2 lg:pb-0">
-            {stepsVisiveis.map((s) => {
+            {stepsVisiveis.map((s, i) => {
               const ativo = s.id === stepAtivo;
+              // Passos de fechamento mostram 🏁; os demais numeram só entre si
+              // (1,2,🏁,🏁,3,4... — preserva o roteiro de sempre na contagem).
+              const num = stepsVisiveis.slice(0, i + 1).filter(x => !x.fechamento).length;
+              const base = ativo
+                ? 'bg-intento-blue text-white border-intento-blue shadow-sm'
+                : s.fechamento
+                  ? 'bg-amber-50 text-amber-800 border-amber-300 hover:border-amber-400'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-intento-blue/40';
               return (
                 <button key={s.id} onClick={() => setStepAtivo(s.id)}
-                  className={`text-left rounded-lg px-3 py-2 transition-all shrink-0 lg:w-full border ${ativo ? 'bg-intento-blue text-white border-intento-blue shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-intento-blue/40'}`}>
+                  className={`text-left rounded-lg px-3 py-2 transition-all shrink-0 lg:w-full border ${base}`}>
                   <div className="flex items-center gap-2">
-                    <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 ${ativo ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>{s.n}</span>
+                    <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 ${ativo ? 'bg-white/20 text-white' : s.fechamento ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>{s.fechamento ? '🏁' : num}</span>
                     <span className="text-xs font-bold whitespace-nowrap lg:whitespace-normal">{s.titulo}</span>
                   </div>
                 </button>
@@ -429,7 +628,8 @@ export default function ModoEncontro() {
         {/* ── Centro: passo ativo + Exploração fixa ────────────────────────── */}
         <main className="space-y-4">
           <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 flex flex-col">
-            <PassoAtivo stepAtivo={stepAtivo} form={form} upd={upd} updArr={updArr} ultimo={ultimo} nomeAluno={nomeAluno} />
+            <PassoAtivo stepAtivo={stepAtivo} form={form} upd={upd} updArr={updArr} updFech={updFech} ultimo={ultimo} nomeAluno={nomeAluno}
+              stepsVisiveis={stepsVisiveis} marcoPend={marcoPend} retroCiclo={retroCiclo} diagAtual={diagAtual} carimboFinal={carimboFinal} />
             <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between">
               <button onClick={() => irPara(-1)} disabled={idxAtivo <= 0}
                 className="text-sm font-semibold text-slate-400 hover:text-intento-blue transition-colors disabled:opacity-30">← Anterior</button>
@@ -967,18 +1167,140 @@ function Barra({ label, valor, cor }) {
 }
 
 // ── Conteúdo de cada passo ────────────────────────────────────────────────────
-function PassoAtivo({ stepAtivo, form, upd, updArr, ultimo, nomeAluno }) {
+function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, stepsVisiveis, marcoPend, retroCiclo, diagAtual, carimboFinal }) {
   const step = STEPS.find(s => s.id === stepAtivo);
   if (!step) return null;
+  // Numeração derivada da posição entre os passos visíveis NÃO-fechamento
+  // (mesma régua do rail: 1,2,🏁,🏁,3,4...).
+  const visiveis = stepsVisiveis || STEPS;
+  const idx = visiveis.findIndex(s => s.id === stepAtivo);
+  const num = visiveis.slice(0, idx + 1).filter(x => !x.fechamento).length;
   const Cabecalho = () => (
     <div className="mb-5">
       <div className="flex items-center gap-2">
-        <span className="w-7 h-7 rounded-full bg-intento-blue text-white text-xs font-black flex items-center justify-center">{step.n}</span>
+        <span className={`w-7 h-7 rounded-full text-xs font-black flex items-center justify-center ${step.fechamento ? 'bg-amber-100 text-amber-700 border border-amber-300' : 'bg-intento-blue text-white'}`}>{step.fechamento ? '🏁' : num}</span>
         <h2 className="text-lg font-bold text-intento-blue">{step.titulo}</h2>
       </div>
       <p className="text-xs text-slate-400 font-medium mt-1 ml-9">{step.sub}</p>
     </div>
   );
+  if (stepAtivo === 'fech-retro') {
+    const r = retroCiclo || {};
+    const c = marcoPend?.ciclo;
+    const tiles = [
+      { label: 'Horas no ciclo', valor: r.horas != null ? `${r.horas}h` : '—' },
+      { label: 'Cobertura do edital', valor: (r.cobIni != null || r.cobFim != null) ? `${r.cobIni ?? '—'}% → ${r.cobFim ?? '—'}%` : '—' },
+      { label: 'Domínio', valor: (r.domIni != null || r.domFim != null) ? `${r.domIni ?? '—'}% → ${r.domFim ?? '—'}%` : '—' },
+      { label: 'Simulados concluídos', valor: r.simulados ?? '—' },
+      { label: 'Metas batidas', valor: r.metasTotal ? `${r.metasBatidas}/${r.metasTotal}` : '—' },
+    ];
+    return (
+      <div className="flex-1 space-y-5">
+        <Cabecalho />
+        <p className="text-sm text-slate-500 font-medium">
+          Retrato do <b>{c?.id} · {c?.nome}</b> de {marcoPend?.ano}, computado dos registros — apresente ao aluno o que o trimestre construiu antes de olhar pra frente.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {tiles.map(t => (
+            <div key={t.label} className="bg-slate-50 rounded-lg p-3">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{t.label}</p>
+              <p className="text-base font-bold text-intento-blue mt-0.5">{t.valor}</p>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-4 pt-1">
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Reflexão do aluno — na voz dele</p>
+          <div>
+            <label className={labelClass}>Maior vitória do ciclo</label>
+            <textarea className={inputClass + ' mt-2'} rows="2" placeholder="O que o aluno mais se orgulha de ter conquistado no trimestre?"
+              value={form.fechamento?.vitoriaCiclo || ''} onChange={e => updFech({ vitoriaCiclo: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>Maior aprendizado</label>
+            <textarea className={inputClass + ' mt-2'} rows="2" placeholder="O que ele descobriu sobre o próprio jeito de estudar?"
+              value={form.fechamento?.aprendizadoCiclo || ''} onChange={e => updFech({ aprendizadoCiclo: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>O que muda no próximo ciclo</label>
+            <textarea className={inputClass + ' mt-2'} rows="2" placeholder="Um compromisso concreto pro trimestre que começa."
+              value={form.fechamento?.mudancaCiclo || ''} onChange={e => updFech({ mudancaCiclo: e.target.value })} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (stepAtivo === 'fech-marco') {
+    const aj = form.fechamento?.carimbosAjuste || {};
+    const setAjuste = (dim, nivel) => {
+      const novo = { ...aj };
+      if (nivel === undefined) delete novo[dim]; else novo[dim] = nivel;
+      updFech({ carimbosAjuste: novo });
+    };
+    const dims = ['comportamento', 'cobertura', 'dominio', 'simulado'];
+    const finais = dims.map(d => carimboFinal(d)).filter(Boolean);
+    const perfil = finais.length ? CARIMBOS[Math.min(...finais.map(n => ORD_CAR[n]))] : null;
+    return (
+      <div className="flex-1 space-y-4">
+        <Cabecalho />
+        <p className="text-sm text-slate-500 font-medium">
+          A proposta vem calculada dos dados — ajuste onde a sua leitura clínica divergir. O que você confirmar aqui vira o retrato <b>oficial e congelado</b> do ciclo.
+        </p>
+        {dims.map(dim => {
+          const proposto = dim === 'simulado' ? null : (diagAtual?.[dim] || null);
+          const escolhido = carimboFinal(dim);
+          const ajustado = aj[dim] !== undefined;
+          return (
+            <div key={dim} className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-bold text-slate-700">{DIM_LABEL[dim]}</span>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  {dim === 'simulado'
+                    ? 'Sem cálculo automático ainda — marque só se tiver leitura de simulados'
+                    : proposto
+                      ? <>proposta dos dados: {CARIMBO_LABEL[proposto]}{ajustado ? ' · ajustado por você' : ''}</>
+                      : 'sem dado suficiente pra proposta'}
+                </p>
+              </div>
+              <div className="flex gap-1 flex-wrap items-center">
+                {CARIMBOS.map(nivel => {
+                  const ativo = escolhido === nivel;
+                  return (
+                    <button key={nivel} type="button"
+                      // Re-clique num override remove (volta à proposta ou a "sem
+                      // carimbo"); clicar na proposta nunca vira override.
+                      onClick={() => setAjuste(dim, (ativo && ajustado) ? undefined : nivel === proposto ? undefined : nivel)}
+                      className={`text-[10px] font-bold px-3 py-1.5 rounded-md uppercase tracking-wide transition-all ${ativo ? 'bg-intento-blue text-white ring-2 ring-offset-1 ring-intento-blue/40' : 'bg-white border border-slate-200 text-slate-500 hover:border-intento-blue/40'}`}>
+                      {CARIMBO_LABEL[nivel]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+        <div className="bg-white border-2 border-intento-blue/15 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <span className="text-sm font-bold text-slate-700">Perfil do marco</span>
+            <p className="text-[10px] text-slate-400 font-medium">Elo mais fraco das dimensões carimbadas — diagnóstico de onde aplicar força, nunca nota.</p>
+          </div>
+          <CarimboBadge nivel={perfil} />
+        </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <span className="text-sm font-bold text-slate-700">Nível-alvo de simulado</span>
+            <p className="text-[10px] text-slate-400 font-medium">Combinado pro próximo ciclo. Padrão do método: {NIVEL_ALVO_SIMULADO_PADRAO}% de acerto por área.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="number" min="1" max="100" step="1" placeholder={String(NIVEL_ALVO_SIMULADO_PADRAO)}
+              value={form.fechamento?.nivelAlvo || ''} onChange={e => updFech({ nivelAlvo: e.target.value })}
+              className="w-20 p-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-center font-semibold" />
+            <span className="text-xs text-slate-400 font-medium">%</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (stepAtivo === 'meta-anterior') {
     const metasAnteriores = (ultimo?.metas || []).map((m, idx) => ({ idx, meta: m })).filter(x => String(x.meta || '').trim());
