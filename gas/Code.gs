@@ -182,9 +182,16 @@ const COL_REG = {
   // (fuso America/Sao_Paulo) e dias planejados na Semana Padrão vigente no
   // snapshot do cron. Vazio = semana anterior ao deploy (não-mensurável).
   DIAS_ESTUDO: 21,
-  DIAS_PLANEJADOS: 22
+  DIAS_PLANEJADOS: 22,
+  // Questões respondidas na SEMANA (right+wrong somados do raw app.atividade,
+  // fuso America/Sao_Paulo). NUNCA derivar de delta dos snapshots de domínio:
+  // atividade nova SUBSTITUI a anterior por tópico (delta pode ser negativo).
+  // Vazio = não-mensurável (manual/pré-integração); 0 = semana coberta pela
+  // integração com zero questões (inclui semana sem nenhum uso do app).
+  // Selo "Quilometragem" (docs/GAMIFICACAO_MARCOS.md).
+  QUESTOES: 23
 };
-const COL_REG_TOTAL = 23;
+const COL_REG_TOTAL = 24;
 
 // Valores de COL_REG.ORIGEM
 const ORIGEM_REG = {

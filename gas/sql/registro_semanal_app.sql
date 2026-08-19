@@ -171,6 +171,18 @@ semana_dias AS (
   WHERE DATE(TIMESTAMP_SECONDS(date), 'America/Sao_Paulo') BETWEEN semana_inicio AND semana_fim
   GROUP BY usuarioId
 ),
+-- QUESTÕES — soma right+wrong das atividades DA SEMANA, direto do raw (mesma
+-- semântica do gráfico "questões por dia" do app). NUNCA derivar do delta dos
+-- snapshots de domínio: cada atividade nova SUBSTITUI a anterior na soma por
+-- tópico (delta pode até ser negativo). Fuso America/Sao_Paulo igual a
+-- semana_dias — o backfill (backfillColunaQuestoes) usa o MESMO fuso.
+semana_questoes AS (
+  SELECT REGEXP_EXTRACT(__key__.path, r'"u",\s*"([^"]+)"') AS usuarioId,
+    SUM(COALESCE(rightAnswers, 0) + COALESCE(wrongAnswers, 0)) AS questoes
+  FROM `intento-edu.app.atividade`
+  WHERE DATE(TIMESTAMP_SECONDS(date), 'America/Sao_Paulo') BETWEEN semana_inicio AND semana_fim
+  GROUP BY usuarioId
+),
 -- CHECK-IN direto do raw (app.checkin). A tratada enviesava a média.
 -- Os valores são doubles na escala {0.0, 0.2, ..., 1.0}. Quando o aluno marca
 -- um EXTREMO (0.0 ou 1.0) o número trafega como inteiro e o Firestore grava no
@@ -223,13 +235,15 @@ SELECT a.email,
   ROUND(AVG(m.prog), 2) AS prog_TOTAL,
   COALESCE(sh.horas, 0) AS horas,
   COALESCE(sd.dias_estudo, 0) AS dias_estudo,
+  COALESCE(sq.questoes, 0) AS questoes,
   sc.estresse, sc.ansiedade, sc.motivacao, sc.sono,
   COALESCE(ra.revisoes_atrasadas, 0) AS revisoes_atrasadas
 FROM alunos a
 LEFT JOIN metrica m ON m.usuarioId = a.uid
 LEFT JOIN semana_horas sh ON sh.usuarioId = a.uid
 LEFT JOIN semana_dias sd ON sd.usuarioId = a.uid
+LEFT JOIN semana_questoes sq ON sq.usuarioId = a.uid
 LEFT JOIN semana_checkin sc ON sc.usuarioId = a.uid
 LEFT JOIN rev_atrasadas ra ON ra.usuarioId = a.uid
-GROUP BY a.email, sh.horas, sd.dias_estudo, sc.estresse, sc.ansiedade, sc.motivacao, sc.sono, ra.revisoes_atrasadas
+GROUP BY a.email, sh.horas, sd.dias_estudo, sq.questoes, sc.estresse, sc.ansiedade, sc.motivacao, sc.sono, ra.revisoes_atrasadas
 ORDER BY a.email
