@@ -218,6 +218,12 @@ function _retratoRetroativo(registros, diarios, sims, c) {
   };
 }
 
+// Wrapper pro editor (o dropdown "Executar" não passa argumentos): dry run
+// do backfill de marcos — só loga, não grava nada.
+function dryRunBackfillMarcosRetroativos() {
+  backfillMarcosRetroativos(true);
+}
+
 function backfillMarcosRetroativos(dryRun) {
   var ehDryRun = dryRun === true;
   Logger.log('===== backfillMarcosRetroativos ' + (ehDryRun ? '(DRY RUN)' : '') + ' =====');
