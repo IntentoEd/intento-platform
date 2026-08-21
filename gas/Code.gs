@@ -451,10 +451,14 @@ function handleLogin(dados) {
 
   let idPlanilhaAluno = null;
   let tipoAlunoLogin = 'ENEM';
+  let statusAppLogin = '';
   for (let i = dataMatriz.length - 1; i >= 1; i--) {
     if (dataMatriz[i][colEmail] && emailNorm(dataMatriz[i][colEmail]) === emailAluno) {
       idPlanilhaAluno = dataMatriz[i][colIdPlanilha] || null;
       tipoAlunoLogin = txt(dataMatriz[i][COL_MESTRE.TIPO_ALUNO]) || 'ENEM';
+      // statusApp entra no payload pro escopo da Jornada ('' = usa, convenção
+      // padrão) — sem ele, aluno ENEM fora do app veria pendência eterna.
+      statusAppLogin = txt(dataMatriz[i][COL_MESTRE.STATUS_APP]) || '';
       break;
     }
   }
@@ -464,7 +468,7 @@ function handleLogin(dados) {
 
   const ssAluno      = SpreadsheetApp.openById(idPlanilhaAluno);
   const dashboardData = obterDadosDoPainel(ssAluno, emailAluno);
-  return responderJSON({ status: 200, email: emailAluno, idPlanilha: idPlanilhaAluno, tipoAluno: tipoAlunoLogin, dadosPainel: dashboardData });
+  return responderJSON({ status: 200, email: emailAluno, idPlanilha: idPlanilhaAluno, tipoAluno: tipoAlunoLogin, statusApp: statusAppLogin, dadosPainel: dashboardData });
 }
 
 
@@ -768,7 +772,9 @@ function obterDadosDoPainel(ss, emailAluno) {
       for (let i = 1; i < dadosReg.length; i++) {
         const row = dadosReg[i];
         if (!row[COL_REG.SEMANA]) continue;
-        historicoRegistros.push(row.slice(0, 21)); // inclui ORIGEM (col 21) pros cards
+        // Até COL_REG_TOTAL (24): ORIGEM pros cards + dias/questões pros selos
+        // da Jornada. BD_Registro não tem campo privado — extensão segura.
+        historicoRegistros.push(row.slice(0, COL_REG_TOTAL));
         const origemReg = row[COL_REG.ORIGEM];
         mensal.labels.push(String(row[COL_REG.SEMANA]));
         mensal.meta.push(num(row[COL_REG.META]));
@@ -796,24 +802,24 @@ function obterDadosDoPainel(ss, emailAluno) {
       return { name: name, theme: theme, curr: String(currVal ?? ''), prev: String(prevVal ?? '') };
     }
 
+    // BD_Diario lido UMA vez — 4 consumidores (autoavaliação, streak,
+    // plano/último encontro e diariosMetas da Jornada) reutilizam a matriz.
+    const dadosEncTodos = shEncontros ? shEncontros.getDataRange().getValues() : [];
+
     let autoAvalCurr = '', autoAvalPrev = '';
-    if (shEncontros) {
-      const dadosEnc = shEncontros.getDataRange().getValues();
-      const encRows  = [];
-      for (let i = 1; i < dadosEnc.length; i++)
-        if (dadosEnc[i][COL_ENC.DATA]) encRows.push(dadosEnc[i]);
+    {
+      const encRows = [];
+      for (let i = 1; i < dadosEncTodos.length; i++)
+        if (dadosEncTodos[i][COL_ENC.DATA]) encRows.push(dadosEncTodos[i]);
       if (encRows.length > 0) autoAvalCurr = txt(encRows[encRows.length - 1][COL_ENC.AUTOAVALIACAO]);
       if (encRows.length > 1) autoAvalPrev = txt(encRows[encRows.length - 2][COL_ENC.AUTOAVALIACAO]);
     }
 
     const semanal = { isFirstWeek: n === 0, streak: [], geral: [], estilo: [], desempenho: [] };
 
-    if (shEncontros) {
-      const dadosEncS = shEncontros.getDataRange().getValues();
-      for (let i = 1; i < dadosEncS.length; i++)
-        if (dadosEncS[i][COL_ENC.DATA])
-          semanal.streak.push(dadosEncS[i][COL_ENC.RESULTADO_1] ? 1 : 0);
-    }
+    for (let i = 1; i < dadosEncTodos.length; i++)
+      if (dadosEncTodos[i][COL_ENC.DATA])
+        semanal.streak.push(dadosEncTodos[i][COL_ENC.RESULTADO_1] ? 1 : 0);
 
     if (regCurr) {
       semanal.geral = [
@@ -846,8 +852,8 @@ function obterDadosDoPainel(ss, emailAluno) {
     // vai pelo handleBuscarDadosAluno (rota /mentor/[id]).
     const plano = { data: "--", meta: "Nenhuma meta definida", acao: [] };
     let ultimoEncontro = null;
-    if (shEncontros) {
-      const dadosEnc = shEncontros.getDataRange().getValues();
+    {
+      const dadosEnc = dadosEncTodos;
       for (let i = dadosEnc.length - 1; i >= 1; i--) {
         const row = dadosEnc[i];
         if (!row[COL_ENC.DATA]) continue;
@@ -904,13 +910,43 @@ function obterDadosDoPainel(ss, emailAluno) {
       }
     }
 
-    return {
+    // ---- Jornada (selos + Linha do Ano do aluno) ----
+    // diariosMetas: SÓ os campos de prestação de contas (status das metas e
+    // resultados das ações) — nenhum texto do diário e JAMAIS notasPrivadas
+    // (privado do mentor; ver aviso acima).
+    const diariosMetas = [];
+    {
+      const dadosEncJ = dadosEncTodos;
+      for (let i = 1; i < dadosEncJ.length; i++) {
+        const rowJ = dadosEncJ[i];
+        if (!rowJ[COL_ENC.DATA]) continue;
+        diariosMetas.push({
+          data: rowJ[COL_ENC.DATA] instanceof Date
+            ? Utilities.formatDate(rowJ[COL_ENC.DATA], "GMT-3", "dd/MM/yyyy")
+            : String(rowJ[COL_ENC.DATA]),
+          statusMetasAnteriores: txt(rowJ[COL_ENC.STATUS_METAS_ANTERIORES]),
+          resultados: [
+            txt(rowJ[COL_ENC.RESULTADO_1]), txt(rowJ[COL_ENC.RESULTADO_2]),
+            txt(rowJ[COL_ENC.RESULTADO_3]), txt(rowJ[COL_ENC.RESULTADO_4]),
+            txt(rowJ[COL_ENC.RESULTADO_5])
+          ]
+        });
+      }
+    }
+
+    const payload = {
       aluno: { nome: nomeAluno }, snapshot: snapshot, mensal: mensal,
       semanal: semanal, plano: plano, ultimoEncontro: ultimoEncontro,
       rotina: rotina, rotinaDias: rotinaDias,
       sim: { kpi: simKpi, hist: histSim, lista: listaSimulados },
-      registros: historicoRegistros, idPlanilha: ss.getId()
+      registros: historicoRegistros, diariosMetas: diariosMetas,
+      idPlanilha: ss.getId()
     };
+    // Marcos de Ciclo: mesmo gate fail-safe do buscarDadosAluno — em falha o
+    // campo fica AUSENTE (Linha do Ano do aluno dorme), nunca vira [].
+    try { payload.marcos = _lerMarcos(ss); }
+    catch (eMarcos) { Logger.log('obterDadosDoPainel: _lerMarcos falhou (não-bloqueante): ' + eMarcos.message); }
+    return payload;
 
   } catch (err) {
     Logger.log("obterDadosDoPainel error: " + err.message);
