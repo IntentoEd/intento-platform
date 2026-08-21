@@ -94,6 +94,12 @@ DESTAQUES_JSON | ORIGEM ('fechamento'|'retroativo')
 2. Critério T1 de **Combinado é Combinado** ← baseline dos `RESULTADO_1..5` do S1 (se <30% dos encontros batem, relaxar).
 3. Regra geral: 1º degrau ≈ o que 40–50% da base consegue em 2 semanas (validar contra o relatório semestral).
 
+## 6.1 Riscos aceitos e documentados (revisão do PR D, 19-21/08/2026)
+
+- **Gate da Jornada é client-side**: `obterDadosDoPainel` envia `marcos`/`diariosMetas` a todo aluno antes da chave — é dado do próprio aluno (zero exposição de terceiros/privado); o único risco é narrativo (aluno curioso com devtools vê a estrutura antes da Bússola). Aceito para evitar dupla chave GAS+Vercel. Se incomodar, gate server-side por Script Property em `obterDadosDoPainel` (nunca no `buscarDadosAluno` do mentor).
+- **Hard-delete regride selo**: `handleExcluirSimulado`/`handleDeletarCardCaderno` fazem `deleteRow` físico — excluir um simulado/card pode regredir "Ensaio Geral"/"Caderno Vivo" no replay (viola "nunca regride" nesse caso raro). Correção estrutural = soft-delete nos dois handlers (PR futuro); por ora o catálogo aceita o risco.
+- **Base Sólida "Sem elo fraco"** exige também cobertura ≥30% (anti-trivialidade no início do ciclo) — critério exibido atualizado.
+
 ## 7. Riscos operacionais
 
 - `COL_REG`/`ABA` são área compartilhada (Rafa) — PR com review e aviso.
