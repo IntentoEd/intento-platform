@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LinhaDoAno, CarimboBadge, BarraCarimbo } from '@/components/Carimbos';
 import { CARIMBO_LABEL } from '@/lib/carimboCores';
-import { diagnosticoDimensional, registrosParaMetricas, cicloIdx, CICLOS_INFO, DIM_LABEL, marcoCicloPendente } from '@/lib/carimbos';
+import { diagnosticoDimensional, registrosParaMetricas, cicloIdx, CICLOS_INFO, DIM_LABEL, marcoCicloPendente, resumoSimulados, nivelAlvoDosMarcos, SIMULADO_ATIVO_A_PARTIR } from '@/lib/carimbos';
 import { computarSelos } from '@/lib/selos';
 
 // Selo postal: círculo navy com anel serrilhado; tier em romano no centro.
@@ -87,8 +87,12 @@ export default function Jornada({ sessao, caderno }) {
   );
 
   const diag = useMemo(
-    () => diagnosticoDimensional({ metricas: registrosParaMetricas(registros) }),
-    [registros]
+    () => diagnosticoDimensional({ metricas: {
+      ...registrosParaMetricas(registros),
+      simuladoResumo: resumoSimulados(dados.sim?.lista || []),
+      nivelAlvoSimulado: nivelAlvoDosMarcos(marcos),
+    } }),
+    [registros, dados.sim, marcos]
   );
   const ciclo = CICLOS_INFO[cicloIdx()];
   const marcoPend = useMemo(
@@ -116,7 +120,12 @@ export default function Jornada({ sessao, caderno }) {
     { key: 'comportamento', texto: diag.compEmFormacao ? `em formação · ${diag.semanasMensuraveis}/4 semanas` : `${CARIMBO_LABEL[diag.comportamento] || '—'}` },
     { key: 'cobertura', texto: diag.cobMed != null ? `${Math.round(diag.cobMed)}% do edital` : 'sem dado' },
     { key: 'dominio', texto: diag.domMed != null ? `${Math.round(diag.domMed)}% de acerto` : 'sem dado' },
-    { key: 'simulado', texto: 'em breve' },
+    {
+      key: 'simulado',
+      texto: diag.simulado
+        ? `${Math.round(diag.simMed)}% de aproveitamento`
+        : new Date() < SIMULADO_ATIVO_A_PARTIR ? 'chega em outubro' : 'sem simulado recente',
+    },
   ];
 
   return (
@@ -153,7 +162,7 @@ export default function Jornada({ sessao, caderno }) {
           {dims.map(d => (
             <div key={d.key} className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-600 w-32 shrink-0">{DIM_LABEL[d.key]}</span>
-              {d.key === 'simulado'
+              {d.key === 'simulado' && !diag.simulado
                 ? <span className="text-[10px] text-slate-400 font-semibold">{d.texto}</span>
                 : <>
                     <BarraCarimbo nivel={diag[d.key]} />

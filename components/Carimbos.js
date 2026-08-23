@@ -6,7 +6,7 @@
 
 import { useMemo, useState } from 'react';
 import { corDe, CARIMBO_LABEL } from '@/lib/carimboCores';
-import { diagnosticoDimensional, registrosParaMetricas, cicloIdx, cicloDeData, periodoDoCiclo, marcoCicloPendente, CICLOS_INFO, DIM_LABEL, STATUS_FORA_DO_APP } from '@/lib/carimbos';
+import { diagnosticoDimensional, registrosParaMetricas, cicloIdx, cicloDeData, periodoDoCiclo, marcoCicloPendente, resumoSimulados, nivelAlvoDosMarcos, SIMULADO_ATIVO_A_PARTIR, CICLOS_INFO, DIM_LABEL, STATUS_FORA_DO_APP } from '@/lib/carimbos';
 
 export function CarimboBadge({ nivel, sufixo }) {
   if (!nivel) return <span className="text-slate-300 text-xs">—</span>;
@@ -28,8 +28,9 @@ export function BarraCarimbo({ nivel }) {
 }
 
 // Os 4 selos dimensionais de um aluno lado a lado: Comportamento · Cobertura · Domínio · Simulado.
-// Simulado === null (termômetro inativo até o aluno virar Veterano agregado) → selo cinza
-// dessaturado com aria-label "Simulado inativo" — nunca colorido, nunca vazio, nunca inventado.
+// Simulado === null cobre dois estados, diferenciados pela data no aria/title:
+// dimensão dormente (antes de 01/10/2026) ou ativa sem simulado recente —
+// selo cinza dessaturado nos dois casos; nunca colorido, nunca inventado.
 // ── Card de carimbos no /mentor/[id] ─────────────────────────────────────────
 // Linguagem do Método é EXTERNA desde 18/08/2026 (rollout aos mentorados no
 // Encontro Bússola): carimbos podem aparecer pro aluno. Cuidado que fica: o
@@ -42,12 +43,16 @@ export function BarraCarimbo({ nivel }) {
 // clique expande o detalhe por dimensão.
 const NOTA_OVERSTUDYING = '2+ semanas acima de 105% da meta — atenção à sustentabilidade (trava Mestre)';
 
-export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoAluno }) {
+export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoAluno, simulados }) {
   const foraDoApp = STATUS_FORA_DO_APP.includes(statusApp);
   const [aberto, setAberto] = useState(false);
   const d = useMemo(
-    () => diagnosticoDimensional({ metricas: registrosParaMetricas(registros) }),
-    [registros]
+    () => diagnosticoDimensional({ metricas: {
+      ...registrosParaMetricas(registros),
+      simuladoResumo: resumoSimulados(simulados),
+      nivelAlvoSimulado: nivelAlvoDosMarcos(marcos),
+    } }),
+    [registros, simulados, marcos]
   );
   const ciclo = CICLOS_INFO[cicloIdx()];
   // Fechamento pendente (marcos undefined = GAS antigo ⇒ null; fora do escopo
@@ -63,10 +68,16 @@ export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoA
     ? `em formação · ${d.semanasMensuraveis}/4 semanas mensuráveis`
     : `Presença ${CARIMBO_LABEL[d.presenca]} · Aproveitamento ${CARIMBO_LABEL[d.aproveitamento]}`;
 
+  const simuladoTexto = d.simulado
+    ? `${Math.round(d.simMed)}% de aproveitamento · últ. ${d.simN} simulado(s)`
+    : new Date() < SIMULADO_ATIVO_A_PARTIR
+      ? 'ativa no fechamento do C3 (01/10)'
+      : 'sem simulado concluído nas últimas 10 semanas';
   const detalhes = {
     comportamento: `${compVal}${d.overstudying ? ` · ${NOTA_OVERSTUDYING}` : ''}`,
     cobertura: d.cobMed != null ? `${Math.round(d.cobMed)}% do edital` : null,
     dominio: d.domMed != null ? `${Math.round(d.domMed)}% de acerto` : null,
+    simulado: simuladoTexto, // sempre presente — o title do chip explica o estado
   };
 
   const resumo = [
@@ -141,9 +152,16 @@ export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoA
               </span>
             </div>
           ))}
-          <div className="flex items-center gap-3 opacity-60">
+          <div className={`flex items-center gap-3 ${d.simulado ? '' : 'opacity-60'}`}>
             <span className="text-xs font-semibold text-slate-600 w-32 shrink-0">Simulado</span>
-            <span className="text-[10px] text-slate-400 font-semibold">em breve</span>
+            {d.simulado ? (
+              <>
+                <BarraCarimbo nivel={d.simulado} />
+                <span className="text-[11px] text-slate-400 font-medium flex-1 text-right">{simuladoTexto}</span>
+              </>
+            ) : (
+              <span className="text-[10px] text-slate-400 font-semibold">{simuladoTexto}</span>
+            )}
           </div>
           <details className="pt-1">
             <summary className="text-[10px] font-semibold text-slate-400 cursor-pointer select-none">Faixas dos carimbos</summary>
@@ -151,6 +169,7 @@ export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoA
               <p><b>Comportamento</b> — semanas válidas na janela de 4 mensuráveis (≥3 dias planejados): ≤2 Aprendiz · 3 Veterano · 4 (ou 3 + 1 rompida absorvida) Mestre. Presença: semana válida = no máx. 1 dia planejado sem registro. Aproveitamento: válida ≥70% da meta (Mestre exige ≥85%).</p>
               <p><b>Cobertura</b> — % do edital validado (último valor informado): &lt;30 Aprendiz · 30–70 Veterano · &gt;70 Mestre.</p>
               <p><b>Domínio</b> — % de acerto acumulado (último valor informado): &lt;70 Aprendiz · 70–80 Veterano · &gt;80 Mestre (nenhuma matéria &lt;70).</p>
+              <p><b>Simulado</b> — RESULTADO FINAL da prova: média do aproveitamento geral dos últimos 3 simulados concluídos (validade 10 semanas): &lt;70 Aprendiz · 70–alvo Veterano · ≥alvo Mestre (alvo = nível-alvo do marco; padrão 85). Ativa pra todos em 01/10/2026.</p>
               <p><b>Perfil</b> — a dimensão menos avançada (regra do elo mais fraco).</p>
             </div>
           </details>
@@ -176,7 +195,9 @@ export function CarimboDimensional({ d, tamanho = 'md', detalhes, alertas }) {
         const nivel = d?.[key];
         const inativo = key === 'simulado' && d?.simulado === null;
         const c = corDe(nivel); // null/ausente → cinza neutro
-        const base = inativo ? 'Simulado inativo' : nivel ? `${nome}: ${CARIMBO_LABEL[nivel]}` : `${nome} sem dado`;
+        const base = inativo
+          ? (new Date() < SIMULADO_ATIVO_A_PARTIR ? 'Simulado inativo — ativa em 01/10' : 'Simulado sem dado recente')
+          : nivel ? `${nome}: ${CARIMBO_LABEL[nivel]}` : `${nome} sem dado`;
         const extra = detalhes?.[key];
         const aria = extra ? (nivel ? `${base} — ${extra}` : `${nome}: ${extra}`) : base;
         return (

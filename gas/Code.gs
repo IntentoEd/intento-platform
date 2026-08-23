@@ -2497,6 +2497,8 @@ function agregarMetricasBase_(alunos) {
     var alunoSim4W    = 0;
     var alunoCheckin4w = []; // [{est, mot}] últimas semanas — pro sinal de tendência do líder
     var alunoRevAtrasadas = null; // snapshot Revisões Atrasadas do app (carry-forward no horizonte)
+    var alunoSimResumo = null;    // resumo do carimbo Simulado (reset ANTES do try — erro não pode vazar o do aluno anterior)
+    var alunoNivelAlvo = 85;
 
     try {
       var ss = SpreadsheetApp.openById(alunos[a].idAluno);
@@ -2580,6 +2582,7 @@ function agregarMetricasBase_(alunos) {
       }
 
       var abaSim = ss.getSheetByName(ABA.SIMULADOS);
+      var alunoSimsConc = []; // {ts, aprov} dos concluídos — insumo do carimbo Simulado (E2)
       if (abaSim) {
         var ms = abaSim.getDataRange().getValues();
         for (var si = 1; si < ms.length; si++) {
@@ -2592,9 +2595,56 @@ function agregarMetricasBase_(alunos) {
             if (s.indexOf('/') > 0) { var p = s.split('/'); d = new Date(+p[2], +p[1]-1, +p[0]); }
             else d = new Date(s);
           }
-          if (d && !isNaN(d.getTime()) && d >= quatroSemanasAtras) { totalSim4W++; alunoSim4W++; }
+          if (!d || isNaN(d.getTime())) continue;
+          if (d >= quatroSemanasAtras) { totalSim4W++; alunoSim4W++; }
+          // Aproveitamento GERAL do simulado — espelho do cálculo de lerSimulados
+          // (manter em sincronia): ENEM = soma das áreas do escopo /45·n;
+          // Custom = acertos/questoes do MATERIAS_JSON.
+          var aprovSim = null;
+          var modeloSim = txt(rs[COL_SIM.MODELO]) || 'ENEM';
+          if (modeloSim === 'Custom') {
+            try {
+              var pmAg = rs[COL_SIM.MATERIAS_JSON] ? JSON.parse(String(rs[COL_SIM.MATERIAS_JSON])) : [];
+              var qAg = 0, acAg = 0;
+              if (Array.isArray(pmAg)) pmAg.forEach(function (mm) { qAg += num(mm.questoes); acAg += num(mm.acertos); });
+              aprovSim = qAg > 0 ? Math.round((acAg / qAg) * 100) : null;
+            } catch (eJson) { aprovSim = null; }
+          } else {
+            var areasAg = _areasDoEscopoSim(txt(rs[COL_SIM.ESCOPO]) || 'completo');
+            var colKeyAg = { lg: COL_SIM.LG, ch: COL_SIM.CH, cn: COL_SIM.CN, mat: COL_SIM.MAT };
+            var totAg = 0;
+            areasAg.forEach(function (kk) { totAg += num(rs[colKeyAg[kk]]); });
+            aprovSim = areasAg.length ? Math.round((totAg / (45 * areasAg.length)) * 100) : null;
+          }
+          if (aprovSim != null) alunoSimsConc.push({ ts: d.getTime(), aprov: aprovSim });
         }
       }
+      // Resumo do carimbo Simulado — ESPELHO de resumoSimulados/nivelAlvoDosMarcos
+      // (lib/carimbos.js): média do aproveitamento dos últimos 3 concluídos,
+      // validade 70 dias do último; alvo válido = 71-100, senão padrão 85.
+      // Sem isto o /lider e a faixa Alerta do /mentor divergiriam do dossiê a
+      // partir de 01/10/2026 (ativação da dimensão). Manter em sincronia.
+      if (alunoSimsConc.length) {
+        alunoSimsConc.sort(function (x, y) { return x.ts - y.ts; });
+        var ultSim = alunoSimsConc[alunoSimsConc.length - 1];
+        if (new Date().getTime() - ultSim.ts <= 70 * 86400000) {
+          var ult3 = alunoSimsConc.slice(-3);
+          var somaAprov = 0;
+          ult3.forEach(function (x) { somaAprov += x.aprov; });
+          alunoSimResumo = { media: somaAprov / ult3.length, n: ult3.length, ultimoTs: ultSim.ts };
+        }
+      }
+      try {
+        var marcosAg = _lerMarcos(ss);
+        marcosAg.sort(function (x, y) {
+          return (Number(x.ano) * 4 + ['C1', 'C2', 'C3', 'C4'].indexOf(x.ciclo))
+               - (Number(y.ano) * 4 + ['C1', 'C2', 'C3', 'C4'].indexOf(y.ciclo));
+        });
+        for (var mi2 = marcosAg.length - 1; mi2 >= 0; mi2--) {
+          var alvoM = Number(marcosAg[mi2].nivelAlvo);
+          if (alvoM > 70 && alvoM <= 100) { alunoNivelAlvo = alvoM; break; }
+        }
+      } catch (eMarcosAg) { /* sem BD_Marcos → padrão 85 */ }
 
       // Encontros do mês corrente (BD_Diario)
       var abaDiario = ss.getSheetByName(ABA.ENCONTROS);
@@ -2629,7 +2679,9 @@ function agregarMetricasBase_(alunos) {
       historico: alunoHist,
       simulados4w: alunoSim4W,
       checkin4w: alunoCheckin4w,
-      revisoesAtrasadas: alunoRevAtrasadas
+      revisoesAtrasadas: alunoRevAtrasadas,
+      simuladoResumo: alunoSimResumo,
+      nivelAlvoSimulado: alunoNivelAlvo
     };
   }
 
