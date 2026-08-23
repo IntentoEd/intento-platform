@@ -1087,3 +1087,9 @@ function recomporSemanasAuto() {
 function smokeCronRegistrosApp() {
   cronGerarRegistrosApp(true);
 }
+
+// Wrapper pro editor (o dropdown "Executar" não passa argumentos): dry run
+// do backfill de questões — só loga, não grava nada.
+function dryRunBackfillColunaQuestoes() {
+  backfillColunaQuestoes(true);
+}
