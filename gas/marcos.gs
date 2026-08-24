@@ -297,7 +297,8 @@ function _upsertMarco(ssAluno, marco) {
     txt(marco.data) || Utilities.formatDate(new Date(), 'GMT-3', 'dd/MM/yyyy'),
     txt(marco.comportamento), txt(marco.cobertura), txt(marco.dominio), txt(marco.simulado),
     txt(marco.perfil),
-    (nivelAlvo >= 1 && nivelAlvo <= 100) ? nivelAlvo : 85,
+    // Alvo válido = 71-100: as faixas do carimbo Simulado são <70/70–alvo/≥alvo
+    (nivelAlvo > 70 && nivelAlvo <= 100) ? nivelAlvo : 85,
     txt(marco.reflexaoVitoria), txt(marco.reflexaoAprendizado), txt(marco.reflexaoMudanca),
     destaquesJson,
     txt(marco.origem) || 'fechamento'

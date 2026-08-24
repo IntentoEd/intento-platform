@@ -9,7 +9,7 @@ import { CarimboBadge } from '@/components/Carimbos';
 import { CARIMBO_LABEL } from '@/lib/carimboCores';
 import {
   marcoCicloPendente, periodoDoCiclo, parseDataPayload, tsLabelSemana,
-  diagnosticoDimensional, registrosParaMetricas,
+  diagnosticoDimensional, registrosParaMetricas, resumoSimulados, nivelAlvoDosMarcos,
   CARIMBOS, ORD_CAR, DIM_LABEL, NIVEL_ALVO_SIMULADO_PADRAO,
 } from '@/lib/carimbos';
 
@@ -424,10 +424,15 @@ export default function ModoEncontro() {
   );
 
   // Diagnóstico atual — proposta de carimbos que o mentor confirma/ajusta no
-  // passo "Carimbo do marco". Mesmas fórmulas do /lider e do dossiê.
+  // passo "Carimbo do marco". Mesmas fórmulas do /lider e do dossiê; Simulado
+  // entra pelo resumo dos últimos concluídos + nível-alvo do marco anterior.
   const diagAtual = useMemo(
-    () => (marcoPend ? diagnosticoDimensional({ metricas: registrosParaMetricas(registros) }) : null),
-    [marcoPend, registros]
+    () => (marcoPend ? diagnosticoDimensional({ metricas: {
+      ...registrosParaMetricas(registros),
+      simuladoResumo: resumoSimulados(listaSimulados),
+      nivelAlvoSimulado: nivelAlvoDosMarcos(marcos),
+    } }) : null),
+    [marcoPend, registros, listaSimulados, marcos]
   );
 
   // Retrospectiva computada do ciclo fechado — vira os DESTAQUES congelados do
@@ -469,12 +474,11 @@ export default function ModoEncontro() {
     return { horas: Math.round(horas), cobIni: cob.ini, cobFim: cob.fim, domIni: dom.ini, domFim: dom.fim, simulados: sims, metasBatidas, metasTotal };
   }, [marcoPend, registros, listaSimulados, historicoDiarios, form.statusMetasAnteriores]);
 
-  // Carimbo final de uma dimensão: override do mentor > computado. Simulado não
-  // tem computado ainda (dimensão da Fase 2) — só entra se o mentor marcar.
+  // Carimbo final de uma dimensão: override do mentor > computado (Simulado
+  // incluso — proposta vem do resumo dos últimos 3; null se inativo/sem dado).
   const carimboFinal = (dim) => {
     const aj = form.fechamento?.carimbosAjuste || {};
     if (aj[dim] !== undefined) return aj[dim] || null;
-    if (dim === 'simulado') return null;
     return diagAtual?.[dim] || null;
   };
 
@@ -488,7 +492,8 @@ export default function ModoEncontro() {
     const alvo = parseInt(f.nivelAlvo, 10);
     return {
       ano: marcoPend.ano, ciclo: marcoPend.ciclo.id, ...dims, perfil,
-      nivelAlvo: (alvo >= 1 && alvo <= 100) ? alvo : NIVEL_ALVO_SIMULADO_PADRAO,
+      // Alvo válido = 71-100 (faixas <70/70–alvo/≥alvo; ≤70 quebraria a régua)
+      nivelAlvo: (alvo > 70 && alvo <= 100) ? alvo : NIVEL_ALVO_SIMULADO_PADRAO,
       reflexaoVitoria: f.vitoriaCiclo || '', reflexaoAprendizado: f.aprendizadoCiclo || '', reflexaoMudanca: f.mudancaCiclo || '',
       destaques: retroCiclo, origem: 'fechamento',
     };
@@ -1247,7 +1252,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
           A proposta vem calculada dos dados — ajuste onde a sua leitura clínica divergir. O que você confirmar aqui vira o retrato <b>oficial e congelado</b> do ciclo.
         </p>
         {dims.map(dim => {
-          const proposto = dim === 'simulado' ? null : (diagAtual?.[dim] || null);
+          const proposto = diagAtual?.[dim] || null;
           const escolhido = carimboFinal(dim);
           const ajustado = aj[dim] !== undefined;
           return (
@@ -1255,10 +1260,10 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-bold text-slate-700">{DIM_LABEL[dim]}</span>
                 <p className="text-[10px] text-slate-400 font-medium">
-                  {dim === 'simulado'
-                    ? 'Sem cálculo automático ainda — marque só se tiver leitura de simulados'
-                    : proposto
-                      ? <>proposta dos dados: {CARIMBO_LABEL[proposto]}{ajustado ? ' · ajustado por você' : ''}</>
+                  {proposto
+                    ? <>proposta dos dados: {CARIMBO_LABEL[proposto]}{ajustado ? ' · ajustado por você' : ''}</>
+                    : dim === 'simulado'
+                      ? 'sem simulado recente (ou dimensão inativa) — marque só se tiver leitura'
                       : 'sem dado suficiente pra proposta'}
                 </p>
               </div>
@@ -1289,10 +1294,10 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
             <span className="text-sm font-bold text-slate-700">Nível-alvo de simulado</span>
-            <p className="text-[10px] text-slate-400 font-medium">Combinado pro próximo ciclo. Padrão do método: {NIVEL_ALVO_SIMULADO_PADRAO}% de acerto por área.</p>
+            <p className="text-[10px] text-slate-400 font-medium">Combinado pro próximo ciclo — entre 71 e 100 (fora disso vale o padrão {NIVEL_ALVO_SIMULADO_PADRAO}%). É a régua do Mestre na dimensão Simulado.</p>
           </div>
           <div className="flex items-center gap-2">
-            <input type="number" min="1" max="100" step="1" placeholder={String(NIVEL_ALVO_SIMULADO_PADRAO)}
+            <input type="number" min="71" max="100" step="1" placeholder={String(NIVEL_ALVO_SIMULADO_PADRAO)}
               value={form.fechamento?.nivelAlvo || ''} onChange={e => updFech({ nivelAlvo: e.target.value })}
               className="w-20 p-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-center font-semibold" />
             <span className="text-xs text-slate-400 font-medium">%</span>

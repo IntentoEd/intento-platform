@@ -1526,7 +1526,7 @@ export default function GestaoIndividualAluno() {
         {/* Carimbos Fases e Ciclos + Linha do Ano — mesmas fórmulas do /lider
             (lib/carimbos.js); marcos/diarios acionam a timeline e o chip de
             fechamento pendente (docs/GAMIFICACAO_MARCOS.md) */}
-        <CardCarimbosAluno registros={historicoRegistros} statusApp={statusApp} marcos={marcosAluno} diarios={historicoDiarios} tipoAluno={tipoAluno} />
+        <CardCarimbosAluno registros={historicoRegistros} statusApp={statusApp} marcos={marcosAluno} diarios={historicoDiarios} tipoAluno={tipoAluno} simulados={dadosSimulados?.lista || []} />
 
         {/* Toast de status global */}
         {statusMsg && (
