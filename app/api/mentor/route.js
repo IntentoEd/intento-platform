@@ -15,7 +15,7 @@ const cache = new Map();
 const ACOES_AUTENTICADAS = new Set([
   // CRM (líder/vendedor)
   'listarLeads', 'criarLead', 'editarLead', 'moverLeadFase',
-  'dashboardCrm', 'converterLeadEmAluno', 'deletarLead',
+  'dashboardCrm', 'dashboardSdr', 'converterLeadEmAluno', 'deletarLead',
   'buscarLead', 'buscarLeadPorEmail', 'buscarLeadPorGcalEventId',
   'listarVendedoresAtendimento', 'cargaPorVendedorNoMes',
   // Disponibilidade (vendedor)

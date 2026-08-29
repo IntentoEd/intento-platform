@@ -202,6 +202,9 @@ export default function ModalLead({
               <Info label="Vendedor" v={lead.vendedor || '—'} />
               <Info label="Plano" v={lead.plano} />
               <Info label="Outcome reunião" v={lead.outcomeReuniao} />
+              {lead.motivoNaoConvertido && <Info label="Motivo não convertido" v={lead.motivoNaoConvertido} />}
+              {lead.reativarEm && <Info label="Reativar em" v={lead.reativarEm} />}
+              {lead.validadoSQL && <Info label="SQL validado em" v={lead.dtSQL ? new Date(lead.dtSQL).toLocaleDateString('pt-BR') : '—'} />}
               <Info label="Próxima ação" v={lead.proximaAcao} />
             </div>
           ) : (
@@ -296,6 +299,59 @@ export default function ModalLead({
                   <option value="cancelada">✕ Cancelada</option>
                 </select>
               </div>
+
+              {/* Motivo Não Convertido — visível quando fase é Não convertido */}
+              {form.fase === 'Não convertido' && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">Motivo não convertido</label>
+                  <select
+                    value={form.motivoNaoConvertido || ''}
+                    onChange={(e) => set('motivoNaoConvertido', e.target.value)}
+                    className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md bg-white"
+                  >
+                    <option value="">— Selecione o motivo —</option>
+                    <option value="Sem resposta (cadência encerrada)">Sem resposta (cadência encerrada)</option>
+                    <option value="Lead desqualificado (perfil não bate)">Lead desqualificado (perfil não bate)</option>
+                    <option value="Sem orçamento no momento">Sem orçamento no momento</option>
+                    <option value="Não é o momento / quer esperar">Não é o momento / quer esperar</option>
+                    <option value="Preferiu cursinho / outra solução">Preferiu cursinho / outra solução</option>
+                    <option value="Perdeu interesse após a reunião">Perdeu interesse após a reunião</option>
+                    <option value="Filho não quer">Filho não quer</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Reativar em — visível quando fase é Não convertido */}
+              {form.fase === 'Não convertido' && (
+                <Field
+                  label="Reativar em (data para retomar contato)"
+                  type="date"
+                  v={form.reativarEm || ''}
+                  onChange={(v) => set('reativarEm', v)}
+                />
+              )}
+
+              {/* Validado como SQL — somente líder, em reunião realizada ou convertido */}
+              {ehLider && (form.fase === 'Reuniao realizada' || form.fase === 'Convertido') && (
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-emerald-200 bg-emerald-50">
+                  <input
+                    type="checkbox"
+                    id="validadoSQL"
+                    checked={!!form.validadoSQL}
+                    onChange={(e) => set('validadoSQL', e.target.checked)}
+                    className="w-4 h-4 accent-emerald-600"
+                  />
+                  <label htmlFor="validadoSQL" className="text-sm font-semibold text-emerald-800 cursor-pointer">
+                    ✓ Validado como SQL (apto para proposta)
+                  </label>
+                  {lead.dtSQL && (
+                    <span className="text-xs text-emerald-600 ml-auto">
+                      {new Date(lead.dtSQL).toLocaleDateString('pt-BR')}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

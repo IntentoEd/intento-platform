@@ -54,7 +54,12 @@ function _leadToObj(row) {
     idAlunoGerado:    txt(row[COL_LEAD.ID_ALUNO_GERADO]),
     plano:            txt(row[COL_LEAD.PLANO]),
     gcalEventId:      txt(row[COL_LEAD.GCAL_EVENT_ID]),
-    dtEntradaFase:    row[COL_LEAD.DT_ENTRADA_FASE] instanceof Date ? row[COL_LEAD.DT_ENTRADA_FASE].toISOString() : txt(row[COL_LEAD.DT_ENTRADA_FASE])
+    dtEntradaFase:    row[COL_LEAD.DT_ENTRADA_FASE] instanceof Date ? row[COL_LEAD.DT_ENTRADA_FASE].toISOString() : txt(row[COL_LEAD.DT_ENTRADA_FASE]),
+    outcomeReuniao:   txt(row[COL_LEAD.OUTCOME_REUNIAO]),
+    motivoNaoConvertido: txt(row[COL_LEAD.MOTIVO_NAO_CONVERTIDO]),
+    validadoSQL:      row[COL_LEAD.VALIDADO_SQL] === true || txt(row[COL_LEAD.VALIDADO_SQL]) === 'true',
+    dtSQL:            row[COL_LEAD.DT_SQL] instanceof Date ? row[COL_LEAD.DT_SQL].toISOString() : txt(row[COL_LEAD.DT_SQL]),
+    reativarEm:       row[COL_LEAD.REATIVAR_EM] instanceof Date ? Utilities.formatDate(row[COL_LEAD.REATIVAR_EM], Session.getScriptTimeZone(), 'yyyy-MM-dd') : txt(row[COL_LEAD.REATIVAR_EM])
   };
 }
 
@@ -89,7 +94,7 @@ function handleListarLeads(dados) {
     var lastRow = aba.getLastRow();
     if (lastRow < 2) return responderJSON({ status: 'sucesso', leads: [] });
 
-    var matriz = aba.getRange(2, 1, lastRow - 1, 27).getValues();
+    var matriz = aba.getRange(2, 1, lastRow - 1, 31).getValues();
 
     // Permissões: filippe + rafael veem tudo; vendedor vê os seus + leads sem dono
     // (fila pública pra auto-atribuição — pegar lead da fila)
@@ -136,7 +141,7 @@ function handleDashboardCrm(dados) {
     if (!aba) return responderJSON({ status: 'sucesso', total: 0 });
     var lastRow = aba.getLastRow();
     if (lastRow < 2) return responderJSON({ status: 'sucesso', total: 0 });
-    var matriz = aba.getRange(2, 1, lastRow - 1, 27).getValues();
+    var matriz = aba.getRange(2, 1, lastRow - 1, 31).getValues();
 
     var porFase = {};
     var porVendedor = {};
@@ -172,7 +177,7 @@ function handleBuscarLead(dados) {
   try {
     var loc = _acharLinhaLead(dados.idLead);
     if (loc.linha === -1) return responderJSON({ status: 'erro', mensagem: 'lead não encontrado' });
-    var matriz = loc.aba.getRange(loc.linha, 1, 1, 27).getValues()[0];
+    var matriz = loc.aba.getRange(loc.linha, 1, 1, 31).getValues()[0];
     var lead = _leadToObj(matriz);
     return responderJSON({ status: 'sucesso', lead: lead });
   } catch (e) {
@@ -191,7 +196,7 @@ function handleBuscarLeadPorEmail(dados) {
     if (!aba) return responderJSON({ status: 'sucesso', lead: null });
     var lastRow = aba.getLastRow();
     if (lastRow < 2) return responderJSON({ status: 'sucesso', lead: null });
-    var matriz = aba.getRange(2, 1, lastRow - 1, 27).getValues();
+    var matriz = aba.getRange(2, 1, lastRow - 1, 31).getValues();
     for (var i = 0; i < matriz.length; i++) {
       if (emailNorm(matriz[i][COL_LEAD.EMAIL]) === emailBusca) {
         return responderJSON({ status: 'sucesso', lead: _leadToObj(matriz[i]) });
@@ -214,7 +219,7 @@ function handleBuscarLeadPorGcalEventId(dados) {
     if (!aba) return responderJSON({ status: 'sucesso', lead: null });
     var lastRow = aba.getLastRow();
     if (lastRow < 2) return responderJSON({ status: 'sucesso', lead: null });
-    var matriz = aba.getRange(2, 1, lastRow - 1, 27).getValues();
+    var matriz = aba.getRange(2, 1, lastRow - 1, 31).getValues();
     for (var i = 0; i < matriz.length; i++) {
       if (txt(matriz[i][COL_LEAD.GCAL_EVENT_ID]) === idEvento) {
         return responderJSON({ status: 'sucesso', lead: _leadToObj(matriz[i]) });
@@ -249,7 +254,7 @@ function handleCriarLead(dados) {
     var fase = txt(dados.fase) || 'Lead';
     var vendedor = emailNorm(dados.vendedor);
 
-    var novaLinha = new Array(27).fill('');
+    var novaLinha = new Array(31).fill('');
     novaLinha[COL_LEAD.ID]                    = idLead;
     novaLinha[COL_LEAD.DT_CADASTRO]           = agora;
     novaLinha[COL_LEAD.NOME]                  = txt(dados.nome);
@@ -275,6 +280,12 @@ function handleCriarLead(dados) {
     novaLinha[COL_LEAD.PLANO]                 = txt(dados.plano);
     novaLinha[COL_LEAD.DT_ENTRADA_FASE]       = agora;
 
+    novaLinha[COL_LEAD.OUTCOME_REUNIAO]           = '';
+    novaLinha[COL_LEAD.MOTIVO_NAO_CONVERTIDO]     = '';
+    novaLinha[COL_LEAD.VALIDADO_SQL]              = false;
+    novaLinha[COL_LEAD.DT_SQL]                    = '';
+    novaLinha[COL_LEAD.REATIVAR_EM]               = '';
+
     aba.appendRow(novaLinha);
     registrarEventoPipeline(idLead, 'criado', '', fase, emailNorm(dados.porEmail) || vendedor || 'sistema');
 
@@ -294,7 +305,7 @@ function handleEditarLead(dados) {
     if (loc.linha === -1) return responderJSON({ status: 'erro', mensagem: 'lead não encontrado' });
 
     var aba = loc.aba;
-    var matriz = aba.getRange(loc.linha, 1, 1, 27).getValues()[0];
+    var matriz = aba.getRange(loc.linha, 1, 1, 31).getValues()[0];
 
     // Permissões: vendedor não-líder só pode editar lead próprio ou sem dono;
     // se está mexendo em "vendedor", só pode atribuir a si mesmo (ou desatribuir).
@@ -334,8 +345,23 @@ function handleEditarLead(dados) {
       dataProximaAcao: COL_LEAD.DATA_PROXIMA_ACAO,
       plano: COL_LEAD.PLANO,
       gcalEventId: COL_LEAD.GCAL_EVENT_ID,
-      outcomeReuniao: COL_LEAD.OUTCOME_REUNIAO
+      outcomeReuniao: COL_LEAD.OUTCOME_REUNIAO,
+      motivoNaoConvertido: COL_LEAD.MOTIVO_NAO_CONVERTIDO,
+      reativarEm: COL_LEAD.REATIVAR_EM
     };
+
+    // validadoSQL: somente lider pode ativar/desativar; dtSQL e auto-registrado
+    if (typeof dados.validadoSQL !== 'undefined' && ehLiderReq) {
+      var novoSQL = dados.validadoSQL === true || String(dados.validadoSQL) === 'true';
+      var atualSQL = matriz[COL_LEAD.VALIDADO_SQL] === true || String(matriz[COL_LEAD.VALIDADO_SQL]) === 'true';
+      matriz[COL_LEAD.VALIDADO_SQL] = novoSQL;
+      if (novoSQL && !atualSQL) {
+        matriz[COL_LEAD.DT_SQL] = new Date();
+        registrarEventoPipeline(dados.idLead, 'validado_sql', '', '', emailNorm(dados.porEmail) || '');
+      } else if (!novoSQL && atualSQL) {
+        matriz[COL_LEAD.DT_SQL] = '';
+      }
+    }
     Object.keys(camposEditaveis).forEach(function(k) {
       if (typeof dados[k] !== 'undefined') {
         var v = dados[k];
@@ -347,7 +373,7 @@ function handleEditarLead(dados) {
     });
     matriz[COL_LEAD.DT_ULTIMA_ATUALIZACAO] = new Date();
 
-    aba.getRange(loc.linha, 1, 1, 27).setValues([matriz]);
+    aba.getRange(loc.linha, 1, 1, 31).setValues([matriz]);
     registrarEventoPipeline(dados.idLead, 'editado', '', '', emailNorm(dados.porEmail) || '');
 
     return responderJSON({ status: 'sucesso' });
@@ -402,7 +428,7 @@ function handleConverterLeadEmAluno(dados) {
     var loc = _acharLinhaLead(dados.idLead);
     if (loc.linha === -1) return responderJSON({ status: 'erro', mensagem: 'lead não encontrado' });
 
-    var matriz = loc.aba.getRange(loc.linha, 1, 1, 27).getValues()[0];
+    var matriz = loc.aba.getRange(loc.linha, 1, 1, 31).getValues()[0];
     var lead = _leadToObj(matriz);
 
     if (lead.idAlunoGerado) return responderJSON({ status: 'erro', mensagem: 'lead já convertido em aluno: ' + lead.idAlunoGerado });
@@ -467,7 +493,7 @@ function handleDeletarLead(dados) {
     if (!idLead) return responderJSON({ status: 'erro', mensagem: 'idLead obrigatório' });
     var loc = _acharLinhaLead(idLead);
     if (loc.linha === -1) return responderJSON({ status: 'erro', mensagem: 'lead não encontrado' });
-    var matriz = loc.aba.getRange(loc.linha, 1, 1, 27).getValues()[0];
+    var matriz = loc.aba.getRange(loc.linha, 1, 1, 31).getValues()[0];
     var lead = _leadToObj(matriz);
 
     // Permissões: vendedor não-líder só pode deletar lead próprio ou sem dono.
@@ -513,7 +539,7 @@ function migrarFaseNoShowParaOutcome() {
   if (!aba) { Logger.log('BD_Leads não encontrada'); return; }
   var lastRow = aba.getLastRow();
   if (lastRow < 2) { Logger.log('aba vazia'); return; }
-  var matriz = aba.getRange(2, 1, lastRow - 1, 27).getValues();
+  var matriz = aba.getRange(2, 1, lastRow - 1, 31).getValues();
   var contador = 0;
   for (var i = 0; i < matriz.length; i++) {
     if (txt(matriz[i][COL_LEAD.FASE]) === 'No-show') {
@@ -522,7 +548,7 @@ function migrarFaseNoShowParaOutcome() {
       contador++;
     }
   }
-  if (contador > 0) aba.getRange(2, 1, lastRow - 1, 27).setValues(matriz);
+  if (contador > 0) aba.getRange(2, 1, lastRow - 1, 31).setValues(matriz);
   Logger.log('Migrados ' + contador + ' leads de fase=No-show → fase=Reuniao agendada + outcome=no-show');
 }
 
