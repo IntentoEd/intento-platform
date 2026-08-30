@@ -452,6 +452,7 @@ function handleLogin(dados) {
   let idPlanilhaAluno = null;
   let tipoAlunoLogin = 'ENEM';
   let statusAppLogin = '';
+  let mentorAluno = '';
   for (let i = dataMatriz.length - 1; i >= 1; i--) {
     if (dataMatriz[i][colEmail] && emailNorm(dataMatriz[i][colEmail]) === emailAluno) {
       idPlanilhaAluno = dataMatriz[i][colIdPlanilha] || null;
@@ -459,8 +460,23 @@ function handleLogin(dados) {
       // statusApp entra no payload pro escopo da Jornada ('' = usa, convenção
       // padrão) — sem ele, aluno ENEM fora do app veria pendência eterna.
       statusAppLogin = txt(dataMatriz[i][COL_MESTRE.STATUS_APP]) || '';
+      mentorAluno = emailNorm(dataMatriz[i][COL_MESTRE.MENTOR_RESPONSAVEL]);
       break;
     }
+  }
+
+  // Authz (IDOR): quando o gateway injeta emailCaller (Firebase token verificado),
+  // exige que o caller seja o próprio aluno, o mentor responsável, ou o líder.
+  // Sem isso, `login` devolvia o painel de QUALQUER aluno só com o email no body.
+  // Fallback: emailCaller ausente = gateway legado (janela do deploy casado) →
+  // mantém o comportamento antigo pra não quebrar entre os dois deploys.
+  var emailCaller = emailNorm(dados.emailCaller);
+  if (emailCaller) {
+    var autorizadoLogin = _ehLider(emailCaller)
+      || emailCaller === emailAluno
+      || (mentorAluno && emailCaller === mentorAluno);
+    if (!autorizadoLogin)
+      return responderJSON({ status: 'erro', codigo: 403, mensagem: 'Acesso negado a este aluno.' });
   }
 
   if (!idPlanilhaAluno)
