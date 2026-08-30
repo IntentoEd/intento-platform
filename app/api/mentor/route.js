@@ -45,6 +45,12 @@ const ACOES_AUTENTICADAS = new Set([
   'listarPushSubscriptions',
 ]);
 
+// Ações autenticadas cujo ALVO pode ser OUTRO usuário (não sobrescreve `email`).
+// Ex: `login` carrega o painel do próprio aluno (self) OU de um aluno que o
+// mentor/líder está abrindo. O gateway injeta `emailCaller` (email verificado do
+// token) e o GAS autoriza caller-vs-alvo (próprio aluno / mentor responsável / líder).
+const ACOES_AUTENTICADAS_ALVO = new Set(['login']);
+
 const TTL_MS = {
   buscarTopicosGlobais: 24 * 60 * 60 * 1000, // 24h
   listaAlunosMentor:    5  * 60 * 1000,      // 5min
@@ -159,6 +165,23 @@ export async function POST(request) {
       // independente do client ter mandado ou não. Confiar no client aqui é IDOR.
       dados.porEmail = emailCaller;
       dados.criadoPor = emailCaller;
+      // Client nunca dirige consulta em lote por email. Sem isso, `emails: [...]`
+      // fura o overwrite de `email` acima e permite enumerar terceiros
+      // (ex: listarPushSubscriptions com email da vítima).
+      delete dados.emails;
+    } else if (ACOES_AUTENTICADAS_ALVO.has(acao)) {
+      // Autenticada, mas o alvo pode ser outro usuário: verifica o caller e injeta
+      // o email verificado em `emailCaller` SEM sobrescrever `email` (o alvo). O
+      // GAS faz a autorização caller-vs-alvo.
+      const usuario = await verificarUsuario(request);
+      if (!usuario) {
+        return NextResponse.json(
+          { status: 'erro', mensagem: 'Não autorizado: token inválido ou ausente' },
+          { status: 401 }
+        );
+      }
+      emailCaller = usuario.email;
+      dados.emailCaller = emailCaller;
     }
 
     const ttl = TTL_MS[acao];

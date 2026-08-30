@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { apiFetch } from '../lib/api';
 
 // Converte chave VAPID em base64url pra Uint8Array (formato exigido pelo browser)
 function urlB64ToUint8Array(base64String) {
@@ -49,7 +50,7 @@ export default function PushToggle({ email }) {
         userVisibleOnly: true,
         applicationServerKey: urlB64ToUint8Array(vapidPublic),
       });
-      const res = await fetch('/api/push/subscribe', {
+      const res = await apiFetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -64,7 +65,7 @@ export default function PushToggle({ email }) {
       setMensagem('Notificações ativas — você vai receber um teste em alguns segundos');
 
       // Dispara push de teste imediato pra confirmar que tudo funciona
-      fetch('/api/push/send', {
+      apiFetch('/api/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -88,7 +89,7 @@ export default function PushToggle({ email }) {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await fetch('/api/push/unsubscribe', {
+        await apiFetch('/api/push/unsubscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ endpoint: sub.endpoint }),

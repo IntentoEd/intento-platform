@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
+import { chamarGAS } from '@/lib/gasClient';
+import { verificarUsuario } from '@/lib/auth';
 
 const VAPID_SUBJECT = 'mailto:filippe@metodointento.com.br';
 
@@ -14,27 +16,32 @@ function configurarVapid() {
 
 async function buscarSubscriptions(emailOuEmails) {
   const body = Array.isArray(emailOuEmails) ? { emails: emailOuEmails } : { email: emailOuEmails };
-  const res = await fetch(process.env.GOOGLE_APPSCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ acao: 'listarPushSubscriptions', ...body }),
-  });
-  const data = await res.json();
+  const data = await chamarGAS({ acao: 'listarPushSubscriptions', ...body });
   return data.subscriptions || [];
 }
 
 async function removerSubscriptionInvalida(endpoint) {
   try {
-    await fetch(process.env.GOOGLE_APPSCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'unsubscribePush', endpoint }),
-    });
+    await chamarGAS({ acao: 'unsubscribePush', endpoint });
   } catch {}
 }
 
 export async function POST(request) {
   try {
+    // Auth: cron do GAS (x-agent-token) OU usuário logado — que só pode notificar
+    // a si mesmo. Sem isso, qualquer um dispara push com a "voz" da Intento pra
+    // qualquer inscrito (vetor de phishing).
+    const agentToken = request.headers.get('x-agent-token');
+    const isAgent = !!agentToken && agentToken === process.env.AGENT_API_TOKEN;
+    let callerEmail = null;
+    if (!isAgent) {
+      const usuario = await verificarUsuario(request);
+      if (!usuario) {
+        return NextResponse.json({ status: 'erro', mensagem: 'Não autorizado' }, { status: 401 });
+      }
+      callerEmail = usuario.email;
+    }
+
     configurarVapid();
     const { email, emails, title, body, url, ...rest } = await request.json();
 
@@ -42,6 +49,14 @@ export async function POST(request) {
 
     const alvo = emails || email;
     if (!alvo) return NextResponse.json({ status: 'erro', mensagem: 'email ou emails obrigatório' }, { status: 400 });
+
+    // Usuário logado (não-cron) só pode notificar o próprio email.
+    if (!isAgent) {
+      const lista = (Array.isArray(alvo) ? alvo : [alvo]).map((e) => String(e).toLowerCase().trim());
+      if (lista.length !== 1 || lista[0] !== callerEmail) {
+        return NextResponse.json({ status: 'erro', mensagem: 'Sem permissão para notificar terceiros' }, { status: 403 });
+      }
+    }
 
     const subs = await buscarSubscriptions(alvo);
     if (!subs.length) return NextResponse.json({ status: 'sucesso', enviadas: 0, alvo: subs.length });
