@@ -27,6 +27,8 @@ export default function DiagnosticoTeorico() {
   const [emailTravado, setEmailTravado] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [enviadoComSucesso, setEnviadoComSucesso] = useState(false);
+  // Número da questão restaurada ao reabrir uma disciplina em andamento (null = começo normal)
+  const [avisoRetomada, setAvisoRetomada] = useState(null);
 
   const disciplinas = ['Biologia', 'Química', 'Física', 'Matemática'];
   const questoesDaVez = questoesData.filter(q => q.disciplina === disciplinaAtual);
@@ -58,12 +60,46 @@ export default function DiagnosticoTeorico() {
     localStorage.setItem('intento_diagnostico_respostas', JSON.stringify(novasRespostas));
   };
 
+  // Persiste em qual questão o aluno parou, por disciplina — recarregar na
+  // questão 38 não pode voltar pra 1 (as respostas já eram persistidas; o índice não).
+  const salvarIndice = (disc, indice) => {
+    try {
+      const salvos = JSON.parse(localStorage.getItem('intento_diagnostico_indice') || '{}');
+      localStorage.setItem('intento_diagnostico_indice', JSON.stringify({ ...salvos, [disc]: indice }));
+    } catch { /* localStorage indisponível/corrompido → segue sem persistir */ }
+  };
+
+  const navegarPara = (novoIndice) => {
+    setIndiceQuestao(novoIndice);
+    salvarIndice(disciplinaAtual, novoIndice);
+    setAvisoRetomada(null);
+    window.scrollTo(0, 0);
+  };
+
+  const abrirDisciplina = (disc) => {
+    let indiceSalvo = 0;
+    if (!concluidas.includes(disc)) {
+      try {
+        const salvos = JSON.parse(localStorage.getItem('intento_diagnostico_indice') || '{}');
+        const idx = parseInt(salvos[disc], 10);
+        const total = questoesData.filter(q => q.disciplina === disc).length;
+        if (Number.isInteger(idx) && idx > 0 && idx < total) indiceSalvo = idx;
+      } catch { /* índice ilegível → começa da primeira questão */ }
+    }
+    setDisciplinaAtual(disc);
+    setIndiceQuestao(indiceSalvo);
+    setAvisoRetomada(indiceSalvo > 0 ? indiceSalvo + 1 : null);
+    setEtapa('teste');
+    window.scrollTo(0, 0);
+  };
+
   const marcarComoConcluida = () => {
     if (!concluidas.includes(disciplinaAtual)) {
       const novasConcluidas = [...concluidas, disciplinaAtual];
       setConcluidas(novasConcluidas);
       localStorage.setItem('intento_diagnostico_concluidas', JSON.stringify(novasConcluidas));
     }
+    salvarIndice(disciplinaAtual, 0); // disciplina fechada → reabrir começa da questão 1
     setEtapa('selecao');
     setIndiceQuestao(0);
     window.scrollTo(0, 0);
@@ -119,6 +155,7 @@ export default function DiagnosticoTeorico() {
       setEnviadoComSucesso(true);
       localStorage.removeItem('intento_diagnostico_respostas');
       localStorage.removeItem('intento_diagnostico_concluidas');
+      localStorage.removeItem('intento_diagnostico_indice');
       const chave = `intento_checklist_${email || 'anonimo'}`;
       const checklist = JSON.parse(localStorage.getItem(chave) || '{}');
       localStorage.setItem(chave, JSON.stringify({ ...checklist, diagnostico: true }));
@@ -146,6 +183,20 @@ export default function DiagnosticoTeorico() {
             <p className="text-slate-400 font-medium text-base max-w-2xl mx-auto">
               Entender o propósito e o método fará toda a diferença na precisão do seu plano de estudos.
             </p>
+          </div>
+
+          {/* Fatos rápidos — escala do teste, escaneável antes do texto longo */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
+            {[
+              { titulo: '180 questões', desc: '45 por disciplina' },
+              { titulo: '~2h30 no total', desc: 'pode fazer em partes' },
+              { titulo: 'Progresso salvo', desc: 'suas respostas ficam neste navegador' },
+            ].map(fato => (
+              <div key={fato.titulo} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center">
+                <p className="text-sm font-bold text-intento-blue">{fato.titulo}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{fato.desc}</p>
+              </div>
+            ))}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
@@ -193,7 +244,7 @@ export default function DiagnosticoTeorico() {
 
           <div className="text-center">
             <button onClick={() => setEtapa('selecao')}
-              className="bg-intento-yellow hover:bg-yellow-500 text-white px-12 py-3 rounded-lg font-bold text-sm transition-all w-full md:w-auto shadow-sm">
+              className="bg-intento-yellow hover:bg-yellow-500 text-intento-blue px-12 py-3 rounded-lg font-bold text-sm transition-all w-full md:w-auto shadow-sm">
               Começar o Diagnóstico →
             </button>
           </div>
@@ -243,7 +294,7 @@ export default function DiagnosticoTeorico() {
               return (
                 <button
                   key={disc}
-                  onClick={() => { setDisciplinaAtual(disc); setEtapa('teste'); setIndiceQuestao(0); }}
+                  onClick={() => abrirDisciplina(disc)}
                   className={`p-5 rounded-xl border-2 transition-all text-left shadow-sm group
                     ${estaConcluida
                       ? `${cores.bg} ${cores.border} opacity-80`
@@ -375,7 +426,7 @@ export default function DiagnosticoTeorico() {
                 }`}
               />
               <button onClick={enviarParaGoogle} disabled={enviando || !emailBlindado.trim()}
-                className="w-full py-3 bg-intento-yellow hover:bg-yellow-500 text-white rounded-lg font-bold transition-all text-sm disabled:opacity-50">
+                className="w-full py-3 bg-intento-yellow hover:bg-yellow-500 text-intento-blue rounded-lg font-bold transition-all text-sm disabled:opacity-50">
                 {enviando ? 'Enviando...' : 'Enviar Resultados'}
               </button>
             </div>
@@ -440,9 +491,12 @@ export default function DiagnosticoTeorico() {
         </div>
       </div>
 
-      {/* Corpo da questão */}
-      <main className="flex-1 overflow-y-auto px-4 py-8">
+      {/* Corpo da questão — pb extra pra barra sticky não cobrir a última alternativa */}
+      <main className="flex-1 overflow-y-auto px-4 pt-8 pb-28">
         <div className="max-w-3xl mx-auto">
+          {avisoRetomada && (
+            <p className="text-xs text-slate-500 text-center mb-3">Continuando da questão {avisoRetomada}</p>
+          )}
           {questaoAtual && (
             <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm">
 
@@ -485,28 +539,37 @@ export default function DiagnosticoTeorico() {
                 })}
               </div>
 
-              <div className="mt-8 flex justify-between items-center border-t border-slate-100 pt-6">
-                <button onClick={() => { if (indiceQuestao > 0) setIndiceQuestao(prev => prev - 1); }}
-                  className={`text-sm font-semibold transition ${indiceQuestao === 0 ? 'opacity-0 pointer-events-none' : 'text-slate-400 hover:text-intento-blue'}`}>
-                  ← Anterior
-                </button>
-
-                {indiceQuestao < questoesDaVez.length - 1 ? (
-                  <button onClick={() => setIndiceQuestao(prev => prev + 1)}
-                    className="bg-intento-blue text-white px-8 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-900 transition">
-                    Próxima →
-                  </button>
-                ) : (
-                  <button onClick={marcarComoConcluida}
-                    className="bg-emerald-500 text-white px-8 py-2.5 rounded-lg text-sm font-bold hover:bg-emerald-600 transition">
-                    Concluir {disciplinaAtual} ✓
-                  </button>
-                )}
-              </div>
             </div>
           )}
         </div>
       </main>
+
+      {/* Navegação sticky — Anterior/Próxima sempre visíveis, sem rolar a cada questão */}
+      <nav className="sticky bottom-0 z-40 bg-white border-t border-slate-200 safe-area-bottom">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center gap-2">
+          {/* invisible (não hidden) na 1ª questão: preserva o espaço e a barra não pula */}
+          <button onClick={() => { if (indiceQuestao > 0) navegarPara(indiceQuestao - 1); }}
+            className={`text-sm font-semibold transition py-2.5 ${indiceQuestao === 0 ? 'invisible' : 'text-slate-400 hover:text-intento-blue'}`}>
+            ← Anterior
+          </button>
+
+          <span className="text-xs font-semibold text-slate-500">
+            {indiceQuestao + 1} de {questoesDaVez.length}
+          </span>
+
+          {indiceQuestao < questoesDaVez.length - 1 ? (
+            <button onClick={() => navegarPara(indiceQuestao + 1)}
+              className="bg-intento-blue text-white px-8 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-900 transition">
+              Próxima →
+            </button>
+          ) : (
+            <button onClick={marcarComoConcluida}
+              className="bg-emerald-500 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-emerald-600 transition">
+              Concluir <span className="hidden sm:inline">{disciplinaAtual} </span>✓
+            </button>
+          )}
+        </div>
+      </nav>
     </div>
   );
 }
