@@ -38,6 +38,9 @@ function exportouNessaSemana(aluno) {
   return String(ult) >= inicioSemanaAtualISO();
 }
 
+// Rótulo do plano contratado (BD Mestre grava "Padrao" sem acento).
+const planoLabel = p => p ? String(p).replace('Padrao', 'Padrão') : null;
+
 // Roteia a exportação pelo status_app: quem não usa o app vai pra /diario;
 // resto vai pro /painel (template completo).
 function rotaExportacao(aluno) {
@@ -176,12 +179,12 @@ function FaixaAlerta({ itens, perfilHref, cientes, marcarCiente, desfazerCientes
 // ── Dados de exemplo (/mentor?demo=1): revisão offline da lista ──────────────
 const HOJE_ISO = new Date().toISOString().slice(0, 10);
 const DEMO_ALUNOS = [
-  { id: 'demo', nome: 'Maria Silva',    email: 'maria@exemplo.com',  tipoAluno: 'EM',   ultimaExportacao: HOJE_ISO, encontrosMes: 1, encontrosEsperados: 2, statusApp: 'Usa direto' },
-  { id: 'demo', nome: 'João Souza',     email: 'joao@exemplo.com',   tipoAluno: 'ENEM', ultimaExportacao: '',        encontrosMes: 0, encontrosEsperados: 1, statusApp: 'Usa direto' },
-  { id: 'demo', nome: 'Ana Pereira',    email: 'ana@exemplo.com',    tipoAluno: 'ENEM', ultimaExportacao: HOJE_ISO, encontrosMes: 2, encontrosEsperados: 2, statusApp: 'Usa direto' },
-  { id: 'demo', nome: 'Pedro Lima',     email: 'pedro@exemplo.com',  tipoAluno: 'ENEM', ultimaExportacao: '',        encontrosMes: 1, encontrosEsperados: 2, statusApp: 'Não se adaptou' },
-  { id: 'demo', nome: 'Beatriz Costa',  email: 'bia@exemplo.com',    tipoAluno: 'EM',   ultimaExportacao: HOJE_ISO, encontrosMes: 0, encontrosEsperados: 1, statusApp: 'Usa direto' },
-  { id: 'demo', nome: 'Lucas Almeida',  email: 'lucas@exemplo.com',  tipoAluno: 'ENEM', ultimaExportacao: '',        encontrosMes: 1, encontrosEsperados: 1, statusApp: 'Usa direto' },
+  { id: 'demo', nome: 'Maria Silva',    email: 'maria@exemplo.com',  tipoAluno: 'EM',   ultimaExportacao: HOJE_ISO, encontrosMes: 1, encontrosEsperados: 2, statusApp: 'Usa direto', plano: 'Quinzenal' },
+  { id: 'demo', nome: 'João Souza',     email: 'joao@exemplo.com',   tipoAluno: 'ENEM', ultimaExportacao: '',        encontrosMes: 0, encontrosEsperados: 1, statusApp: 'Usa direto', plano: 'Mensal' },
+  { id: 'demo', nome: 'Ana Pereira',    email: 'ana@exemplo.com',    tipoAluno: 'ENEM', ultimaExportacao: HOJE_ISO, encontrosMes: 2, encontrosEsperados: 2, statusApp: 'Usa direto', plano: 'Quinzenal' },
+  { id: 'demo', nome: 'Pedro Lima',     email: 'pedro@exemplo.com',  tipoAluno: 'ENEM', ultimaExportacao: '',        encontrosMes: 1, encontrosEsperados: 2, statusApp: 'Não se adaptou', plano: 'Quinzenal' },
+  { id: 'demo', nome: 'Beatriz Costa',  email: 'bia@exemplo.com',    tipoAluno: 'EM',   ultimaExportacao: HOJE_ISO, encontrosMes: 0, encontrosEsperados: 1, statusApp: 'Usa direto', plano: 'Mensal' },
+  { id: 'demo', nome: 'Lucas Almeida',  email: 'lucas@exemplo.com',  tipoAluno: 'ENEM', ultimaExportacao: '',        encontrosMes: 1, encontrosEsperados: 1, statusApp: 'Usa direto', plano: 'Semanal' },
 ].map((a, i) => ({ ...a, _key: `demo-${i}` }));
 
 export default function PainelGlobalMentor() {
@@ -308,6 +311,7 @@ export default function PainelGlobalMentor() {
             {alunosOrdenados.map((aluno, idx) => {
               const jaEnviou = exportouNessaSemana(aluno);
               const temMetaEncontros = aluno.encontrosEsperados != null;
+              const plano = planoLabel(aluno.plano);
               const encFeitos = aluno.encontrosMes || 0;
               const encEsperados = aluno.encontrosEsperados || 0;
               return (
@@ -359,11 +363,14 @@ export default function PainelGlobalMentor() {
                     </button>
                   </div>
 
-                  {/* Encontros do mês */}
-                  {temMetaEncontros && (
+                  {/* Plano/cadência + encontros do mês. Sem meta calculável (Custom),
+                      NUNCA mostrar o contador — o GAS manda 0 enganoso nesse caso. */}
+                  {(temMetaEncontros || plano) && (
                     <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
                       <svg className="w-3.5 h-3.5 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                      {encFeitos}/{encEsperados} encontros no mês
+                      {temMetaEncontros
+                        ? `${plano ? `${plano} · ` : ''}${encFeitos}/${encEsperados} encontros no mês`
+                        : `${plano} · encontros sob medida`}
                     </p>
                   )}
 
