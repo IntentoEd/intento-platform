@@ -41,11 +41,11 @@ function tempoNaFase(iso) {
 
 // Cor do timer baseada no tempo na fase (alerta visual).
 function corTimer(iso) {
-  if (!iso) return 'text-slate-300';
+  if (!iso) return 'text-slate-400';
   const dias = (Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
   if (dias >= 7) return 'text-red-500';
   if (dias >= 3) return 'text-amber-500';
-  return 'text-slate-400';
+  return 'text-slate-500';
 }
 
 // Badges visuais pros outcomes de reunião (campo separado da fase, padrão HubSpot).
@@ -118,7 +118,7 @@ function LeadCard({ lead, ehLider, emailUsuario, vendedoresLista = [], onClick, 
         )}
       </div>
       {(lead.cidade || lead.estado) && (
-        <div className="text-xs text-slate-400 mb-1 truncate">
+        <div className="text-xs text-slate-500 mb-1 truncate">
           {lead.cidade}
           {lead.cidade && lead.estado ? ', ' : ''}
           {lead.estado}
@@ -160,7 +160,7 @@ function LeadCard({ lead, ehLider, emailUsuario, vendedoresLista = [], onClick, 
           + Pegar lead
         </button>
       ) : (
-        <div className="mt-2 text-xs text-slate-400 truncate">→ {lead.vendedor.split('@')[0]}</div>
+        <div className="mt-2 text-xs text-slate-500 truncate">→ {lead.vendedor.split('@')[0]}</div>
       )}
     </div>
   );
@@ -531,7 +531,7 @@ export default function Vendas() {
                     />
                   ))}
                   {(porFase[fase]?.length || 0) === 0 && (
-                    <div className="text-xs text-slate-400 italic text-center py-6">Vazio</div>
+                    <div className="text-xs text-slate-500 italic text-center py-6">Vazio</div>
                   )}
                 </FaseColumn>
               ))}
@@ -578,7 +578,7 @@ export default function Vendas() {
           >
             <h2 className="text-base font-bold text-intento-blue mb-1">Como foi a reunião?</h2>
             <p className="text-xs text-slate-500 mb-1">{dialogOutcome.lead.nome}</p>
-            <p className="text-[11px] text-slate-400 mb-4">
+            <p className="text-[11px] text-slate-500 mb-4">
               Apenas <b>Realizada</b> move o lead pra coluna &quot;Reuniao realizada&quot;.
               Os outros marcam o resultado e mantém na fase atual.
             </p>
@@ -610,7 +610,7 @@ export default function Vendas() {
             </div>
             <button
               onClick={() => setDialogOutcome(null)}
-              className="mt-4 text-xs font-semibold text-slate-400 hover:text-slate-600 w-full"
+              className="mt-4 text-xs font-semibold text-slate-500 hover:text-slate-600 w-full"
             >
               Cancelar
             </button>

@@ -194,9 +194,9 @@ export default function DisponibilidadeVendedor() {
       <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-base font-semibold text-intento-blue">Minha Disponibilidade</h1>
-          <p className="text-[11px] text-slate-400 font-medium">{nomeVendedor || emailUser}</p>
+          <p className="text-[11px] text-slate-500 font-medium">{nomeVendedor || emailUser}</p>
         </div>
-        <button onClick={sair} className="text-sm font-semibold text-slate-400 hover:text-red-500 transition">Sair</button>
+        <button onClick={sair} className="text-sm font-semibold text-slate-500 hover:text-red-500 transition">Sair</button>
       </header>
 
       <div className="max-w-3xl mx-auto p-4 lg:p-6 space-y-6">
@@ -233,7 +233,7 @@ export default function DisponibilidadeVendedor() {
                     <div className="w-24 pt-2 text-sm font-semibold text-slate-700 shrink-0">{d.label}</div>
                     <div className="flex-1 space-y-2">
                       {intervalos.length === 0 && (
-                        <p className="text-xs text-slate-400 italic py-2">Sem disponibilidade</p>
+                        <p className="text-xs text-slate-500 italic py-2">Sem disponibilidade</p>
                       )}
                       {intervalos.map((iv, i) => (
                         <div key={i} className="flex items-center gap-2">
@@ -281,7 +281,7 @@ export default function DisponibilidadeVendedor() {
         {aba === 'excecoes' && (
           <div className="space-y-4">
             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Adicionar bloqueio pontual</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Adicionar bloqueio pontual</p>
               <p className="text-xs text-slate-500 mb-4">Pra férias, eventos, dia de folga ou qualquer hora que você não pode atender — mesmo que esteja dentro do horário padrão.</p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
@@ -327,9 +327,9 @@ export default function DisponibilidadeVendedor() {
             </div>
 
             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Bloqueios cadastrados</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Bloqueios cadastrados</p>
               {excecoes.length === 0 ? (
-                <p className="text-xs text-slate-400 italic text-center py-6">Sem bloqueios cadastrados.</p>
+                <p className="text-xs text-slate-500 italic text-center py-6">Sem bloqueios cadastrados.</p>
               ) : (
                 <div className="space-y-2">
                   {excecoes

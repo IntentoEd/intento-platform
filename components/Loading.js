@@ -20,7 +20,7 @@ export function LoadingInline({ mensagem = 'Carregando...', className = '' }) {
   return (
     <div className={`flex flex-col items-center justify-center py-12 ${className}`}>
       <Spinner />
-      <p className="text-slate-400 font-medium text-xs mt-3 animate-pulse">{mensagem}</p>
+      <p className="text-slate-500 font-medium text-xs mt-3 animate-pulse">{mensagem}</p>
     </div>
   );
 }

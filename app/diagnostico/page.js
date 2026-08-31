@@ -180,7 +180,7 @@ export default function DiagnosticoTeorico() {
             <h1 className="text-2xl md:text-3xl font-bold text-intento-blue mb-3 tracking-tight">
               Antes de começar, leia isto.
             </h1>
-            <p className="text-slate-400 font-medium text-base max-w-2xl mx-auto">
+            <p className="text-slate-500 font-medium text-base max-w-2xl mx-auto">
               Entender o propósito e o método fará toda a diferença na precisão do seu plano de estudos.
             </p>
           </div>
@@ -233,7 +233,7 @@ export default function DiagnosticoTeorico() {
                     <div className="w-6 h-6 shrink-0 rounded-full border-2 border-intento-yellow text-intento-blue font-bold flex items-center justify-center text-xs mt-0.5">{item.n}</div>
                     <div>
                       <p className="font-semibold text-intento-blue text-sm">{item.titulo}</p>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{item.desc}</p>
+                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{item.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -266,7 +266,7 @@ export default function DiagnosticoTeorico() {
           {/* Cabeçalho */}
           <div className="text-center mb-8">
             <h2 className="text-xl font-bold text-intento-blue mb-1">Escolha uma disciplina</h2>
-            <p className="text-slate-400 font-medium text-sm">Você pode realizar os diagnósticos na ordem que preferir.</p>
+            <p className="text-slate-500 font-medium text-sm">Você pode realizar os diagnósticos na ordem que preferir.</p>
           </div>
 
           {/* Progresso geral */}
@@ -310,7 +310,7 @@ export default function DiagnosticoTeorico() {
                         {estaConcluida ? '✓ Concluído' : foiIniciada ? `Em andamento — ${respondidas}/45` : 'Disponível'}
                       </p>
                       <h3 className="text-base font-bold text-intento-blue">{disc}</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 font-medium">45 questões</p>
+                      <p className="text-xs text-slate-500 mt-0.5 font-medium">45 questões</p>
                     </div>
 
                     {/* Mini barra de progresso da disciplina */}
@@ -361,7 +361,7 @@ export default function DiagnosticoTeorico() {
               <p className="text-sm font-medium text-intento-blue mb-1">
                 {faltam === 1 ? 'Falta 1 disciplina para concluir o diagnóstico.' : `Faltam ${faltam} disciplinas para concluir o diagnóstico.`}
               </p>
-              <p className="text-xs text-slate-400 font-medium">
+              <p className="text-xs text-slate-500 font-medium">
                 Conclua todas as disciplinas para ver seus resultados.
               </p>
             </div>
@@ -383,7 +383,7 @@ export default function DiagnosticoTeorico() {
             </svg>
           </div>
           <h2 className="text-xl font-bold text-intento-blue text-center mb-1">Diagnóstico Concluído!</h2>
-          <p className="text-slate-400 text-center mb-8 text-sm font-medium">Veja o detalhamento da sua pontuação abaixo.</p>
+          <p className="text-slate-500 text-center mb-8 text-sm font-medium">Veja o detalhamento da sua pontuação abaixo.</p>
 
           {/* Cards de disciplina */}
           <div className="grid grid-cols-2 gap-3 mb-5">
@@ -403,7 +403,7 @@ export default function DiagnosticoTeorico() {
 
           {/* Aproveitamento geral */}
           <div className="bg-intento-blue/5 border border-intento-blue/10 rounded-xl p-4 text-center mb-6">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Aproveitamento Geral</p>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Aproveitamento Geral</p>
             <p className="text-4xl font-black text-intento-yellow">{resultadoFinal.porcentagemGeral}%</p>
           </div>
 
@@ -412,7 +412,7 @@ export default function DiagnosticoTeorico() {
               <p className="text-sm font-semibold text-intento-blue mb-1">
                 {emailTravado ? 'Confirme seu e-mail para enviar ao seu mentor.' : 'Digite seu e-mail para enviar ao seu mentor.'}
               </p>
-              <p className="text-xs text-slate-400 mb-4">Use o mesmo e-mail do Questionário de Onboarding.</p>
+              <p className="text-xs text-slate-500 mb-4">Use o mesmo e-mail do Questionário de Onboarding.</p>
               <input
                 type="email"
                 value={emailBlindado}
@@ -421,7 +421,7 @@ export default function DiagnosticoTeorico() {
                 placeholder="seu@email.com"
                 className={`w-full p-3 border rounded-lg font-medium text-sm mb-3 ${
                   emailTravado
-                    ? 'bg-slate-100 border-slate-200 text-slate-400'
+                    ? 'bg-slate-100 border-slate-200 text-slate-500'
                     : 'bg-white border-slate-300 text-intento-blue focus:border-intento-blue focus:outline-none'
                 }`}
               />
@@ -481,7 +481,7 @@ export default function DiagnosticoTeorico() {
       <div className="bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex justify-between text-xs font-semibold mb-1.5">
-            <span className="text-slate-400 uppercase tracking-wider">Questão {indiceQuestao + 1} de {questoesDaVez.length}</span>
+            <span className="text-slate-500 uppercase tracking-wider">Questão {indiceQuestao + 1} de {questoesDaVez.length}</span>
             <span className="text-intento-blue">{respondidas} respondidas</span>
           </div>
           <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
@@ -549,7 +549,7 @@ export default function DiagnosticoTeorico() {
         <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center gap-2">
           {/* invisible (não hidden) na 1ª questão: preserva o espaço e a barra não pula */}
           <button onClick={() => { if (indiceQuestao > 0) navegarPara(indiceQuestao - 1); }}
-            className={`text-sm font-semibold transition py-2.5 ${indiceQuestao === 0 ? 'invisible' : 'text-slate-400 hover:text-intento-blue'}`}>
+            className={`text-sm font-semibold transition py-2.5 ${indiceQuestao === 0 ? 'invisible' : 'text-slate-500 hover:text-intento-blue'}`}>
             ← Anterior
           </button>
 

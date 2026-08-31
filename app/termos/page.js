@@ -24,7 +24,7 @@ export default function Termos() {
         </div>
 
         <h1 className="text-2xl font-bold text-intento-blue">Termos de Uso</h1>
-        <p className="text-xs text-slate-400 font-medium mt-1 mb-4">Última atualização: 27 de abril de 2026</p>
+        <p className="text-xs text-slate-500 font-medium mt-1 mb-4">Última atualização: 27 de abril de 2026</p>
 
         <p className={paragraph}>
           Estes Termos de Uso (&quot;Termos&quot;) regulam a utilização da plataforma de mentoria educacional
@@ -142,7 +142,7 @@ export default function Termos() {
       </main>
 
       <footer className="bg-white border-t border-slate-200 px-6 py-4 mt-8 text-center">
-        <p className="text-[11px] text-slate-400 font-medium">
+        <p className="text-[11px] text-slate-500 font-medium">
           © 2026 Intento Grupo Educacional LTDA · CNPJ 49.929.921/0001-22
         </p>
       </footer>

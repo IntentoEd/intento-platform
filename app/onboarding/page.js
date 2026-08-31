@@ -304,7 +304,7 @@ export default function OnboardingWizard() {
   const totalSecao  = passoAtual === 4 ? secaoAtual.perguntas.length : 0;
 
   const inputCls = (campo) => `w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-intento-blue transition-all font-medium text-intento-blue bg-white ${errosInline[campo] ? 'border-red-400 bg-red-50/30' : 'border-slate-200'}`;
-  const labelCls  = "block text-xs font-semibold text-slate-400 uppercase mb-2 tracking-wider";
+  const labelCls  = "block text-xs font-semibold text-slate-500 uppercase mb-2 tracking-wider";
   const textaCls  = (campo) => inputCls(campo) + ' resize-none';
 
   const ErroCampo = ({ campo }) => errosInline[campo]
@@ -363,7 +363,7 @@ export default function OnboardingWizard() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Image src="/simbolo-azul.png" alt="Intento" width={24} height={24} className="object-contain shrink-0" />
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
               {passoAtual < 4 ? PASSOS[passoAtual - 1].nome : `${PASSOS[3].nome} — ${secaoAtual.titulo}`}
             </p>
           </div>
@@ -389,7 +389,7 @@ export default function OnboardingWizard() {
               <div className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                 <div className="bg-intento-yellow h-full transition-all duration-700" style={{ width: `${progresso}%` }} />
               </div>
-              <p className="text-[10px] text-slate-400 font-medium mt-1.5">Tela {telaAtual} de {TOTAL_TELAS}</p>
+              <p className="text-[10px] text-slate-500 font-medium mt-1.5">Tela {telaAtual} de {TOTAL_TELAS}</p>
             </div>
             <nav className="p-3 space-y-1">
               {PASSOS.map((p) => {
@@ -397,7 +397,7 @@ export default function OnboardingWizard() {
                 const ativo    = passoAtual === p.id;
                 return (
                   <button key={p.id} onClick={() => completo && setPassoAtual(p.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all ${ativo ? 'bg-intento-blue text-white' : completo ? 'hover:bg-slate-50 text-slate-600 cursor-pointer' : 'text-slate-300 cursor-default'}`}>
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all ${ativo ? 'bg-intento-blue text-white' : completo ? 'hover:bg-slate-50 text-slate-600 cursor-pointer' : 'text-slate-400 cursor-default'}`}>
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors ${ativo ? 'bg-white/20' : completo ? 'bg-emerald-100' : 'bg-slate-100'}`}>
                       {completo && !ativo ? (
                         <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
@@ -408,7 +408,7 @@ export default function OnboardingWizard() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className={`text-xs font-semibold truncate ${ativo ? 'text-white' : completo ? 'text-slate-700' : 'text-slate-300'}`}>{p.nome}</p>
+                      <p className={`text-xs font-semibold truncate ${ativo ? 'text-white' : completo ? 'text-slate-700' : 'text-slate-400'}`}>{p.nome}</p>
                       {ativo && passoAtual === 4 && (
                         <div className="flex gap-1 mt-1">
                           {SECOES_HABITOS.map((_, i) => (
@@ -452,7 +452,7 @@ export default function OnboardingWizard() {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-xl font-semibold text-intento-blue">Vamos te conhecer melhor</h2>
-                  <p className="text-slate-400 text-sm font-medium mt-1">Preencha seus dados pessoais para criarmos seu perfil.</p>
+                  <p className="text-slate-500 text-sm font-medium mt-1">Preencha seus dados pessoais para criarmos seu perfil.</p>
                   <p className="text-xs text-slate-500 mt-2">Leva uns 12 minutos. Suas respostas ficam salvas neste navegador.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -473,11 +473,11 @@ export default function OnboardingWizard() {
                   </div>
                   <div className="md:col-span-2">
                     <label className={labelCls}>E-mail de Acesso</label>
-                    <input type="email" value={respostas.dadosPessoais.email} disabled className="w-full p-3 bg-slate-100 border border-slate-200 rounded-lg text-slate-400 cursor-not-allowed font-medium" />
-                    <p className="text-xs text-slate-400 mt-1.5">Vinculado ao seu login — não pode ser alterado.</p>
+                    <input type="email" value={respostas.dadosPessoais.email} disabled className="w-full p-3 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 cursor-not-allowed font-medium" />
+                    <p className="text-xs text-slate-500 mt-1.5">Vinculado ao seu login — não pode ser alterado.</p>
                   </div>
                   <div>
-                    <label className={labelCls}>Responsável Financeiro <span className="text-slate-300 normal-case font-normal">(opcional)</span></label>
+                    <label className={labelCls}>Responsável Financeiro <span className="text-slate-400 normal-case font-normal">(opcional)</span></label>
                     <input type="text" placeholder="Nome do responsável" className={inputCls('responsavelFinanceiro')} value={respostas.dadosPessoais.responsavelFinanceiro} onChange={e => set('dadosPessoais', 'responsavelFinanceiro', e.target.value)} />
                   </div>
                   <div></div>
@@ -503,7 +503,7 @@ export default function OnboardingWizard() {
               <div className="space-y-7">
                 <div>
                   <h2 className="text-xl font-semibold text-intento-blue">Perfil Acadêmico</h2>
-                  <p className="text-slate-400 text-sm font-medium mt-1">Nos conte sobre sua trajetória e seus objetivos.</p>
+                  <p className="text-slate-500 text-sm font-medium mt-1">Nos conte sobre sua trajetória e seus objetivos.</p>
                 </div>
 
                 <div className="space-y-5">
@@ -548,12 +548,12 @@ export default function OnboardingWizard() {
                   </div>
 
                   <div>
-                    <label className={labelCls}>Plataforma de Estudos Online <span className="text-slate-300">(opcional)</span></label>
+                    <label className={labelCls}>Plataforma de Estudos Online <span className="text-slate-400">(opcional)</span></label>
                     <input type="text" placeholder="Ex: Descomplica, Estratégia Vestibulares..." className={inputCls('plataformaOnline')} value={respostas.perfilAcademico.plataformaOnline} onChange={e => set('perfilAcademico', 'plataformaOnline', e.target.value)} />
                   </div>
 
                   <div>
-                    <label className={labelCls}>Histórico de Estudos <span className="text-slate-300">(opcional)</span></label>
+                    <label className={labelCls}>Histórico de Estudos <span className="text-slate-400">(opcional)</span></label>
                     <textarea rows={3} placeholder="Como tem sido sua rotina de estudos até hoje? Já teve acompanhamento antes?" className={textaCls('historicoEstudos')} value={respostas.perfilAcademico.historicoEstudos} onChange={e => set('perfilAcademico', 'historicoEstudos', e.target.value)} />
                   </div>
 
@@ -577,7 +577,7 @@ export default function OnboardingWizard() {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-xl font-semibold text-intento-blue">Notas Anteriores</h2>
-                  <p className="text-slate-400 text-sm font-medium mt-1">
+                  <p className="text-slate-500 text-sm font-medium mt-1">
                     {respostas.perfilAcademico.fezEnemAntes === 'Sim'
                       ? 'Informe suas notas do ENEM para que o mentor possa montar seu diagnóstico inicial.'
                       : 'Você ainda não fez o ENEM — sem problemas! Avance para a próxima etapa.'}
@@ -618,11 +618,11 @@ export default function OnboardingWizard() {
                       <span className="text-[10px] font-bold uppercase tracking-wider text-intento-yellow">Seção {subSecao + 1} de {SECOES_HABITOS.length}</span>
                     </div>
                     <h2 className="text-xl font-semibold text-intento-blue">{secaoAtual.titulo}</h2>
-                    <p className="text-slate-400 text-sm font-medium mt-0.5">{secaoAtual.descricao}</p>
+                    <p className="text-slate-500 text-sm font-medium mt-0.5">{secaoAtual.descricao}</p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-2xl font-bold text-intento-blue">{respondidas}<span className="text-base font-medium text-slate-300">/{totalSecao}</span></p>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">respondidas</p>
+                    <p className="text-2xl font-bold text-intento-blue">{respondidas}<span className="text-base font-medium text-slate-400">/{totalSecao}</span></p>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">respondidas</p>
                   </div>
                 </div>
 
@@ -636,14 +636,14 @@ export default function OnboardingWizard() {
                       <div key={i} className={`h-1 flex-1 rounded-full transition-all ${i < subSecao ? 'bg-intento-blue' : i === subSecao ? 'bg-intento-yellow' : 'bg-slate-200'}`} />
                     ))}
                   </div>
-                  <div className="flex justify-between text-[10px] text-slate-400 font-medium mt-1">
+                  <div className="flex justify-between text-[10px] text-slate-500 font-medium mt-1">
                     {SECOES_HABITOS.map((s, i) => (
                       <span key={i} className={i === subSecao ? 'text-intento-blue font-semibold' : ''}>{s.titulo}</span>
                     ))}
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-400 font-medium">Classifique cada afirmação de <b className="text-slate-600">1 (Nunca)</b> a <b className="text-slate-600">5 (Sempre)</b>.</p>
+                <p className="text-xs text-slate-500 font-medium">Classifique cada afirmação de <b className="text-slate-600">1 (Nunca)</b> a <b className="text-slate-600">5 (Sempre)</b>.</p>
 
                 {/* Perguntas */}
                 <div className="space-y-3">
@@ -653,7 +653,7 @@ export default function OnboardingWizard() {
                       <div key={pergunta.id} className={`p-4 rounded-xl border transition-all ${val ? 'border-intento-blue/20 bg-slate-50/50' : 'border-slate-200 bg-white'}`}>
                         <p className="text-sm font-medium text-slate-700 mb-4 leading-snug">{pergunta.label}</p>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] uppercase font-medium text-slate-400 shrink-0 w-10">Nunca</span>
+                          <span className="text-[10px] uppercase font-medium text-slate-500 shrink-0 w-10">Nunca</span>
                           <div className="flex gap-2 flex-1 justify-center">
                             {[1, 2, 3, 4, 5].map(n => (
                               <button key={n} type="button" onClick={() => set('diagnosticoTecnica', pergunta.id, String(n))}
@@ -662,7 +662,7 @@ export default function OnboardingWizard() {
                               </button>
                             ))}
                           </div>
-                          <span className="text-[10px] uppercase font-medium text-slate-400 shrink-0 w-12 text-right">Sempre</span>
+                          <span className="text-[10px] uppercase font-medium text-slate-500 shrink-0 w-12 text-right">Sempre</span>
                         </div>
                       </div>
                     );
@@ -675,7 +675,7 @@ export default function OnboardingWizard() {
             {passoAtual === 4 && subSecao === SECOES_HABITOS.length - 1 && (
               <div className="mt-10 pt-6 border-t border-slate-200 space-y-4">
                 <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Aceite de termos</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Aceite de termos</p>
 
                   <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${aceiteLgpd ? 'border-intento-blue/30 bg-blue-50/40' : errosInline.aceiteLgpd ? 'border-red-300 bg-red-50/30' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
                     <input
@@ -741,7 +741,7 @@ export default function OnboardingWizard() {
             {/* ── Navegação ──────────────────────────────────────────────── */}
             <div className="mt-10 pt-6 border-t border-slate-200 flex flex-col-reverse sm:flex-row gap-3 items-center justify-between">
               {(passoAtual > 1 || (passoAtual === 4 && subSecao > 0)) ? (
-                <button onClick={voltar} className="w-full sm:w-auto px-6 py-3 text-slate-400 hover:text-intento-blue font-medium transition text-sm">
+                <button onClick={voltar} className="w-full sm:w-auto px-6 py-3 text-slate-500 hover:text-intento-blue font-medium transition text-sm">
                   ← Voltar
                 </button>
               ) : <div className="hidden sm:block" />}

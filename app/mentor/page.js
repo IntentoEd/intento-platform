@@ -155,7 +155,7 @@ function FaixaAlerta({ itens, perfilHref, cientes, marcarCiente, desfazerCientes
               onClick={() => marcarCiente(chaveAlunoAlerta(a), motivos.map(m => m.tipo))}
               title="Ciente — ocultar este alerta até segunda-feira"
               aria-label={`Marcar alerta de ${a.nome} como ciente até segunda-feira`}
-              className="shrink-0 w-7 h-7 rounded-full border border-slate-200 text-slate-400 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center justify-center"
+              className="shrink-0 w-7 h-7 rounded-full border border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center justify-center"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
             </button>
@@ -164,7 +164,7 @@ function FaixaAlerta({ itens, perfilHref, cientes, marcarCiente, desfazerCientes
       </div>
       {numCientes > 0 && (
         <div className="px-5 py-2 border-t border-slate-100 bg-slate-50/60">
-          <button type="button" onClick={desfazerCientes} className="text-[11px] font-medium text-slate-400 hover:text-slate-600 hover:underline">
+          <button type="button" onClick={desfazerCientes} className="text-[11px] font-medium text-slate-500 hover:text-slate-600 hover:underline">
             {numCientes} alerta{numCientes > 1 ? 's' : ''} ciente{numCientes > 1 ? 's' : ''} nesta semana · desfazer
           </button>
         </div>
@@ -237,21 +237,21 @@ export default function PainelGlobalMentor() {
         <div className="flex justify-between items-center border-b border-slate-200 pb-5">
           <div>
             <h1 className="text-2xl font-bold text-intento-blue">Painel do Mentor</h1>
-            <p className="text-slate-400 text-sm font-medium mt-0.5">Bem-vindo(a), {mentorLogado}</p>
+            <p className="text-slate-500 text-sm font-medium mt-0.5">Bem-vindo(a), {mentorLogado}</p>
           </div>
           <div className="flex items-center gap-3">
             <PushToggle email={emailMentor} />
             {ehLider && (
               <button
                 onClick={() => router.push('/selecionar-modo')}
-                className="text-xs font-semibold text-intento-yellow border border-intento-yellow hover:bg-intento-yellow hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+                className="text-xs font-semibold text-intento-yellow border border-intento-yellow hover:bg-intento-yellow hover:text-intento-blue px-3 py-1.5 rounded-lg transition-colors"
               >
                 Painel do Líder ↔
               </button>
             )}
             <button
               onClick={() => { auth.signOut(); sessionStorage.removeItem('emailLogado'); router.push('/'); }}
-              className="text-sm font-semibold text-slate-400 hover:text-red-500 transition-colors"
+              className="text-sm font-semibold text-slate-500 hover:text-red-500 transition-colors"
             >
               Sair
             </button>
@@ -265,8 +265,8 @@ export default function PainelGlobalMentor() {
         {alunos.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Acompanhamentos da semana</p>
-              <p className="text-[11px] text-slate-400 font-medium mt-0.5">{semanaRef}</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Acompanhamentos da semana</p>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">{semanaRef}</p>
             </div>
             <div className="flex items-center gap-3 w-full sm:w-64">
               <div className="flex-1">
@@ -291,7 +291,7 @@ export default function PainelGlobalMentor() {
         {erroCarga ? (
           <div className="bg-white border border-red-200 rounded-xl p-10 text-center shadow-sm space-y-3">
             <p className="text-red-500 font-semibold text-sm">Não foi possível carregar seus mentorados.</p>
-            <p className="text-slate-400 text-xs font-medium">Falha de comunicação com o servidor ({erroCarga}). Seus alunos continuam lá — é só a carga que falhou.</p>
+            <p className="text-slate-500 text-xs font-medium">Falha de comunicação com o servidor ({erroCarga}). Seus alunos continuam lá — é só a carga que falhou.</p>
             <button
               onClick={recarregarAlunos}
               className="bg-intento-blue text-white font-bold py-2 px-5 rounded-lg hover:bg-blue-900 transition-all text-xs"
@@ -301,7 +301,7 @@ export default function PainelGlobalMentor() {
           </div>
         ) : alunos.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-xl p-10 text-center shadow-sm">
-            <p className="text-slate-400 font-medium text-sm">Nenhum aluno sob a sua responsabilidade no momento.</p>
+            <p className="text-slate-500 font-medium text-sm">Nenhum aluno sob a sua responsabilidade no momento.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -334,7 +334,7 @@ export default function PainelGlobalMentor() {
                             <span className="text-[9px] font-bold bg-intento-yellow/15 text-intento-yellow border border-intento-yellow/30 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">EM</span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-400 font-medium truncate">{aluno.email}</p>
+                        <p className="text-xs text-slate-500 font-medium truncate">{aluno.email}</p>
                       </div>
                     </div>
                     <button
@@ -388,7 +388,7 @@ export default function PainelGlobalMentor() {
                       <button
                         onClick={(e) => { e.stopPropagation(); handleToggleEnvio(idx, aluno.id, true); }}
                         className={`font-bold py-2 px-4 rounded-lg transition-all text-xs
-                          ${jaEnviou ? 'bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100' : 'bg-intento-yellow text-white hover:bg-yellow-500'}`}
+                          ${jaEnviou ? 'bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100' : 'bg-intento-yellow text-intento-blue hover:bg-yellow-500'}`}
                       >
                         {jaEnviou ? 'Exportar de novo' : 'Exportar →'}
                       </button>
@@ -397,12 +397,12 @@ export default function PainelGlobalMentor() {
                         href={rotaExportacao(aluno)}
                         onClick={(e) => e.stopPropagation()}
                         className={`font-bold py-2 px-4 rounded-lg transition-all text-xs text-center
-                          ${jaEnviou ? 'bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100' : 'bg-intento-yellow text-white hover:bg-yellow-500'}`}
+                          ${jaEnviou ? 'bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100' : 'bg-intento-yellow text-intento-blue hover:bg-yellow-500'}`}
                       >
                         {jaEnviou ? 'Exportar de novo' : 'Exportar →'}
                       </Link>
                     )}
-                    <span className="text-xs font-semibold text-slate-400 group-hover:text-intento-blue transition-colors">Perfil →</span>
+                    <span className="text-xs font-semibold text-slate-500 group-hover:text-intento-blue transition-colors">Perfil →</span>
                   </div>
                 </div>
               );

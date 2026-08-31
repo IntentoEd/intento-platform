@@ -9,7 +9,7 @@ import { corDe, CARIMBO_LABEL } from '@/lib/carimboCores';
 import { diagnosticoDimensional, registrosParaMetricas, cicloIdx, cicloDeData, periodoDoCiclo, marcoCicloPendente, resumoSimulados, nivelAlvoDosMarcos, CICLOS_INFO, DIM_LABEL, STATUS_FORA_DO_APP } from '@/lib/carimbos';
 
 export function CarimboBadge({ nivel, sufixo }) {
-  if (!nivel) return <span className="text-slate-300 text-xs">—</span>;
+  if (!nivel) return <span className="text-slate-400 text-xs">—</span>;
   const c = corDe(nivel);
   return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: c.bg, color: c.texto }}>{CARIMBO_LABEL[nivel]}{sufixo || ''}</span>;
 }
@@ -92,7 +92,7 @@ export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoA
   const strip = (
     <>
       <span className="flex items-center gap-2 shrink-0">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fases e Ciclos</span>
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fases e Ciclos</span>
         <span className="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider">{ciclo.id} {ciclo.nome}</span>
         {marcoPend && (
           <span className="text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full"
@@ -102,16 +102,16 @@ export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoA
         )}
       </span>
       {foraDoApp ? (
-        <span className="text-xs text-slate-400 font-medium">Sem dados dimensionais — aluno fora do app.</span>
+        <span className="text-xs text-slate-500 font-medium">Sem dados dimensionais — aluno fora do app.</span>
       ) : (
         <>
           <CarimboDimensional d={d} detalhes={detalhes} alertas={{ comportamento: d.overstudying }} />
           {d.overstudying && <span className="text-[10px] text-amber-600 font-semibold" title={NOTA_OVERSTUDYING}>⚠ overstudying</span>}
-          {resumo && <span className="text-[11px] text-slate-400 font-medium">{resumo}</span>}
+          {resumo && <span className="text-[11px] text-slate-500 font-medium">{resumo}</span>}
         </>
       )}
       <span className="ml-auto flex items-center gap-1.5 shrink-0" title="Perfil — leitura contínua; o retrato oficial congela no Marco de Ciclo">
-        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Perfil</span>
+        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Perfil</span>
         <CarimboBadge nivel={d.perfil} />
         {!foraDoApp && <span className={`text-[10px] text-slate-400 transition-transform ${aberto ? 'rotate-180' : ''}`} aria-hidden="true">▾</span>}
       </span>
@@ -143,7 +143,7 @@ export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoA
             <div key={l.key} className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-600 w-32 shrink-0">{DIM_LABEL[l.key]}</span>
               <BarraCarimbo nivel={d[l.key]} />
-              <span className="text-[11px] text-slate-400 font-medium flex-1 text-right">
+              <span className="text-[11px] text-slate-500 font-medium flex-1 text-right">
                 {l.val}
                 {l.nota && <span className="block text-[9px] text-amber-600">{l.nota}</span>}
               </span>
@@ -154,15 +154,15 @@ export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoA
             {d.simulado ? (
               <>
                 <BarraCarimbo nivel={d.simulado} />
-                <span className="text-[11px] text-slate-400 font-medium flex-1 text-right">{simuladoTexto}</span>
+                <span className="text-[11px] text-slate-500 font-medium flex-1 text-right">{simuladoTexto}</span>
               </>
             ) : (
-              <span className="text-[10px] text-slate-400 font-semibold">{simuladoTexto}</span>
+              <span className="text-[10px] text-slate-500 font-semibold">{simuladoTexto}</span>
             )}
           </div>
           <details className="pt-1">
-            <summary className="text-[10px] font-semibold text-slate-400 cursor-pointer select-none">Faixas dos carimbos</summary>
-            <div className="text-[10px] text-slate-400 font-medium leading-relaxed mt-1 space-y-0.5">
+            <summary className="text-[10px] font-semibold text-slate-500 cursor-pointer select-none">Faixas dos carimbos</summary>
+            <div className="text-[10px] text-slate-500 font-medium leading-relaxed mt-1 space-y-0.5">
               <p><b>Comportamento</b> — semanas válidas na janela de 4 mensuráveis (≥3 dias planejados): ≤2 Aprendiz · 3 Veterano · 4 (ou 3 + 1 rompida absorvida) Mestre. Presença: semana válida = no máx. 1 dia planejado sem registro. Aproveitamento: válida ≥70% da meta (Mestre exige ≥85%).</p>
               <p><b>Cobertura</b> — % do edital validado (último valor informado): &lt;30 Aprendiz · 30–70 Veterano · &gt;70 Mestre.</p>
               <p><b>Domínio</b> — % de acerto acumulado (último valor informado): &lt;70 Aprendiz · 70–80 Veterano · &gt;80 Mestre (nenhuma matéria &lt;70).</p>
@@ -242,10 +242,10 @@ export function LinhaDoAno({ marcos, marcoPendente, hoje }) {
   return (
     <div>
       <div className="flex items-center gap-2">
-        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0" title={`Linha do Ano ${ano} — os nós são os Marcos de Ciclo`}>Linha do Ano</span>
+        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider shrink-0" title={`Linha do Ano ${ano} — os nós são os Marcos de Ciclo`}>Linha do Ano</span>
         {(marcoC4Anterior || pendC4Anterior) && (
           <span className="flex items-center gap-1 shrink-0">
-            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider hidden sm:block">C4·{ano - 1}</span>
+            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider hidden sm:block">C4·{ano - 1}</span>
             <NoMarco ciclo={{ id: `C4/${ano - 1}` }} marco={marcoC4Anterior} pendente={pendC4Anterior}
               aberto={mesmoMarco(retratoAberto, marcoC4Anterior)}
               onToggle={() => marcoC4Anterior && alternar(marcoC4Anterior)} />
@@ -259,7 +259,7 @@ export function LinhaDoAno({ marcos, marcoPendente, hoje }) {
           return (
             <div key={c.id} className="flex items-center gap-1.5 flex-1 min-w-0">
               <div className="flex-1 min-w-0" title={`${c.id} · ${c.nome}`}>
-                <p className={`text-[8px] font-bold uppercase tracking-wider truncate hidden sm:block ${corrente ? 'text-intento-blue' : 'text-slate-400'}`}>{c.id} · {c.nome}</p>
+                <p className={`text-[8px] font-bold uppercase tracking-wider truncate hidden sm:block ${corrente ? 'text-intento-blue' : 'text-slate-500'}`}>{c.id} · {c.nome}</p>
                 <div className="relative h-1.5 rounded-full bg-slate-100 mt-0.5" role="img" aria-label={`${c.id} · ${c.nome}${corrente ? ' — ciclo atual' : passado ? ' — concluído' : ' — futuro'}`}>
                   <div className="absolute inset-y-0 left-0 rounded-full bg-intento-blue/80"
                     style={{ width: passado ? '100%' : corrente ? `${Math.round(frac * 100)}%` : '0%' }} />
@@ -274,7 +274,7 @@ export function LinhaDoAno({ marcos, marcoPendente, hoje }) {
             </div>
           );
         })}
-        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider shrink-0" title="O C4 termina na prova">ENEM</span>
+        <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider shrink-0" title="O C4 termina na prova">ENEM</span>
       </div>
       {retratoAberto && <RetratoMarco marco={retratoAberto} onFechar={() => setRetratoAberto(null)} />}
     </div>
@@ -327,32 +327,32 @@ function RetratoMarco({ marco, onFechar }) {
     <div className="mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2.5">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[10px] font-bold text-intento-blue uppercase tracking-wider">🏁 Marco {marco.ciclo}{info ? ` · ${info.nome}` : ''} · {marco.ano}</span>
-        {marco.data && <span className="text-[10px] text-slate-400 font-medium">carimbado em {marco.data}</span>}
+        {marco.data && <span className="text-[10px] text-slate-500 font-medium">carimbado em {marco.data}</span>}
         {marco.origem === 'retroativo' && (
           <span className="text-[9px] font-bold bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Retrato computado do histórico — o ciclo fechou antes da feature existir">retroativo</span>
         )}
-        <button type="button" onClick={onFechar} className="ml-auto text-[10px] font-bold text-slate-400 hover:text-intento-blue transition-colors">fechar ✕</button>
+        <button type="button" onClick={onFechar} className="ml-auto text-[10px] font-bold text-slate-500 hover:text-intento-blue transition-colors">fechar ✕</button>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         {[['comportamento', 'Com'], ['cobertura', 'Cob'], ['dominio', 'Dom'], ['simulado', 'Sim']].map(([key, curto]) => (
           <span key={key} className="flex items-center gap-1">
-            <span className="text-[9px] font-bold text-slate-400 uppercase">{curto}</span>
+            <span className="text-[9px] font-bold text-slate-500 uppercase">{curto}</span>
             <CarimboBadge nivel={marco[key]} />
           </span>
         ))}
         <span className="flex items-center gap-1 pl-2 border-l border-slate-200">
-          <span className="text-[9px] font-bold text-slate-400 uppercase">Perfil</span>
+          <span className="text-[9px] font-bold text-slate-500 uppercase">Perfil</span>
           <CarimboBadge nivel={marco.perfil} />
         </span>
         {marco.nivelAlvo != null && (
-          <span className="text-[10px] text-slate-400 font-medium ml-auto" title="Nível-alvo de simulado combinado pro ciclo seguinte">alvo simulado: {marco.nivelAlvo}%</span>
+          <span className="text-[10px] text-slate-500 font-medium ml-auto" title="Nível-alvo de simulado combinado pro ciclo seguinte">alvo simulado: {marco.nivelAlvo}%</span>
         )}
       </div>
       {stats.length > 0 && (
         <div className="flex gap-2 flex-wrap">
           {stats.map(s => (
             <span key={s.label} className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
-              <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wide">{s.label}</span>
+              <span className="block text-[8px] font-bold text-slate-500 uppercase tracking-wide">{s.label}</span>
               <span className="text-xs font-bold text-intento-blue">{s.valor}</span>
             </span>
           ))}
@@ -362,7 +362,7 @@ function RetratoMarco({ marco, onFechar }) {
         <div className="space-y-1.5">
           {reflexoes.map(([label, v]) => (
             <div key={label}>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
+              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{label}</p>
               <p className="text-xs text-slate-600 font-medium leading-snug whitespace-pre-wrap">{v}</p>
             </div>
           ))}

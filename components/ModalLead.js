@@ -158,7 +158,7 @@ export default function ModalLead({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 text-xl leading-none px-2"
+            className="text-slate-500 hover:text-slate-600 text-xl leading-none px-2"
             aria-label="Fechar"
           >
             ×
@@ -304,7 +304,7 @@ export default function ModalLead({
             {modo === 'ver' ? (
               <div className="text-sm text-slate-700 bg-slate-50 p-3 rounded-md whitespace-pre-wrap min-h-[60px]">
                 {lead.anotacoes || (
-                  <span className="text-slate-400 italic">Sem anotações</span>
+                  <span className="text-slate-500 italic">Sem anotações</span>
                 )}
               </div>
             ) : (

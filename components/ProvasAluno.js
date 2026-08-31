@@ -393,7 +393,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
           return (
             <div className="px-3 pb-1">
               <div className={`border border-l-4 ${cor.box} rounded-xl p-3.5`}>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Próxima prova</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Próxima prova</p>
                 <div className="flex items-center justify-between gap-3 mt-1">
                   <div className="min-w-0">
                     <p className="text-base font-bold text-slate-900 truncate">{heroi.materia}</p>
@@ -407,7 +407,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
                     <p className={`text-base font-bold ${cor.txt} whitespace-nowrap`}>{countdown(dias)}</p>
                     {heroi.nota === null && (
                       <button onClick={() => setItemAberto(itemAberto === heroi.id ? null : heroi.id)}
-                              className="text-slate-400 hover:text-intento-blue px-1.5 py-1 font-bold" title="Opções">⋯</button>
+                              className="text-slate-500 hover:text-intento-blue px-1.5 py-1 font-bold" title="Opções">⋯</button>
                     )}
                   </div>
                 </div>
@@ -431,14 +431,14 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex items-baseline gap-2 flex-wrap">
                       <span className="text-sm font-semibold text-slate-800">{p.materia}</span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{chipTipo(p)}</span>
-                      {criadaPorMim(p) && <span className="text-[10px] font-medium text-slate-400">você</span>}
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{chipTipo(p)}</span>
+                      {criadaPorMim(p) && <span className="text-[10px] font-medium text-slate-500">você</span>}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <span className={`text-xs font-bold ${cor.txt} whitespace-nowrap`}>{formatarData(p.data)} · {countdown(diasAte(p.data)).toLowerCase()}</span>
                       {p.nota === null && (
                         <button onClick={() => setItemAberto(itemAberto === p.id ? null : p.id)}
-                                className="text-slate-400 hover:text-intento-blue px-1 font-bold" title="Opções">⋯</button>
+                                className="text-slate-500 hover:text-intento-blue px-1 font-bold" title="Opções">⋯</button>
                       )}
                     </div>
                   </div>
@@ -450,7 +450,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
               );
             })}
             {proximas.length > 5 && (
-              <p className="text-[11px] text-slate-400 text-center pt-1 italic">+{proximas.length - 5} prova{proximas.length - 5 !== 1 ? 's' : ''} a seguir</p>
+              <p className="text-[11px] text-slate-500 text-center pt-1 italic">+{proximas.length - 5} prova{proximas.length - 5 !== 1 ? 's' : ''} a seguir</p>
             )}
           </div>
         )}
@@ -458,7 +458,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
         {/* Aguardando resultado */}
         {aguardando.length > 0 && (
           <div className="border-t border-dashed border-slate-200 px-5 py-3">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Aguardando resultado</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Aguardando resultado</p>
             {aguardando.map(p => (
               <button key={p.id} onClick={() => abrirResultado(p)}
                       className="w-full text-left py-1 group">
@@ -480,7 +480,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
             <div className="w-9 h-1 bg-slate-200 rounded-full mx-auto mb-4 sm:hidden" />
             <h3 className="text-sm font-bold text-intento-blue mb-4">Adicionar prova</h3>
 
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
               {ehEM ? 'Qual matéria?' : 'Qual vestibular?'}
             </p>
             <div className="flex flex-wrap gap-1.5 mb-4">
@@ -507,7 +507,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
                 não misturar com as matérias da escola. */}
             {ehEM && (
               <>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">🎯 Ou um vestibular?</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">🎯 Ou um vestibular?</p>
                 <div className="flex flex-wrap gap-1.5 mb-4">
                   {VESTIBULARES.map(v => (
                     <button key={v} onClick={() => escolherMateria(v)}
@@ -525,10 +525,10 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
             {qaMateria === '__outro__' && (
               <input type="text" value={qaMateriaTxt} onChange={e => setQaMateriaTxt(e.target.value)}
                      placeholder="Nome do vestibular"
-                     className="w-full mb-4 text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400" />
+                     className="w-full mb-4 text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-500" />
             )}
 
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Quando?</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Quando?</p>
             {!qaOutraData ? (
               <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3 -mx-1 px-1">
                 {proximasDatas().map(d => {
@@ -537,7 +537,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
                   return (
                     <button key={valor} onClick={() => setQaData(valor)}
                             className={`shrink-0 w-12 rounded-xl border text-center py-1.5 transition ${on ? 'bg-intento-blue border-intento-blue' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
-                      <span className={`block text-[9px] font-bold uppercase ${on ? 'text-blue-200' : 'text-slate-400'}`}>{DIAS_SEMANA[d.getDay()]}</span>
+                      <span className={`block text-[9px] font-bold uppercase ${on ? 'text-blue-200' : 'text-slate-500'}`}>{DIAS_SEMANA[d.getDay()]}</span>
                       <span className={`block text-sm font-bold ${on ? 'text-white' : 'text-slate-800'}`}>{d.getDate()}</span>
                     </button>
                   );
@@ -555,17 +555,17 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
 
             <div className="flex gap-2 mb-4">
               <div className="flex-1">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{selecaoVest(qaMateria) ? 'Fase' : 'Tipo'}</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{selecaoVest(qaMateria) ? 'Fase' : 'Tipo'}</label>
                 <select value={qaTipo} onChange={e => setQaTipo(e.target.value)}
                         className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white">
                   {tiposPara(qaMateria).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
               <div className="flex-[2]">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Observação (opcional)</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Observação (opcional)</label>
                 <input type="text" value={qaObs} onChange={e => setQaObs(e.target.value)}
                        placeholder={selecaoVest(qaMateria) ? 'ex: levar caneta preta' : 'ex: caps 5–8'}
-                       className="w-full text-sm font-medium text-slate-600 px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400" />
+                       className="w-full text-sm font-medium text-slate-600 px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-500" />
               </div>
             </div>
 
@@ -586,19 +586,19 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
              onClick={(e) => { if (e.target === e.currentTarget) setResultadoProva(null); }}>
           <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 pb-8 sm:pb-5 safe-area-bottom">
             <div className="w-9 h-1 bg-slate-200 rounded-full mx-auto mb-4 sm:hidden" />
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               {resultadoProva.materia} · {formatarData(resultadoProva.data)}
             </p>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-4 mb-1.5">Como foi?</label>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-4 mb-1.5">Como foi?</label>
             <textarea value={resRelato} onChange={e => setResRelato(e.target.value)} rows={3}
                       placeholder="ex: achei difícil a parte de função…"
-                      className="w-full text-sm font-medium text-slate-700 px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400 resize-none" />
+                      className="w-full text-sm font-medium text-slate-700 px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-500 resize-none" />
             {!ehProvaVestibular(resultadoProva) && (
               <>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-3 mb-1.5">Nota (0–10, se já souber)</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-3 mb-1.5">Nota (0–10, se já souber)</label>
                 <input type="number" min="0" max="10" step="0.1" value={resNota} onChange={e => setResNota(e.target.value)}
                        placeholder="ex: 7.5"
-                       className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400" />
+                       className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-500" />
               </>
             )}
             <button onClick={() => salvarResultado(false)} disabled={salvandoRes}
@@ -607,7 +607,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
             </button>
             {!ehProvaVestibular(resultadoProva) && (
               <button onClick={() => salvarResultado(true)} disabled={salvandoRes}
-                      className="w-full mt-2 py-2 text-xs font-medium text-slate-400 hover:text-intento-blue transition">
+                      className="w-full mt-2 py-2 text-xs font-medium text-slate-500 hover:text-intento-blue transition">
                 ainda não sei a nota — salvar só o relato
               </button>
             )}
@@ -651,7 +651,7 @@ function AcoesItem({ prova, mudandoData, setMudandoData, salvarNovaData, onRemov
                  className="text-xs font-medium text-intento-blue px-2 py-1.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white" />
           <button onClick={salvarNovaData} disabled={!mudandoData.valor}
                   className="text-xs font-semibold bg-intento-blue text-white px-3 py-1.5 rounded-lg disabled:opacity-40">OK</button>
-          <button onClick={() => setMudandoData(null)} className="text-xs font-medium text-slate-400">cancelar</button>
+          <button onClick={() => setMudandoData(null)} className="text-xs font-medium text-slate-500">cancelar</button>
         </>
       ) : (
         <>

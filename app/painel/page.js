@@ -22,11 +22,11 @@ import { jornadaVisivel } from '@/lib/selos';
 
 const cardClass = "bg-white rounded-xl border border-slate-200 p-6 shadow-sm transition-colors";
 const inputClass = "w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue transition-all font-medium text-intento-blue";
-const labelClass = "block text-xs font-medium text-slate-400 uppercase mb-2 tracking-wider";
+const labelClass = "block text-xs font-medium text-slate-500 uppercase mb-2 tracking-wider";
 
 // Hierarquia de botões
 const btnPrimary = "bg-intento-blue hover:bg-blue-900 text-white font-semibold px-6 py-3 rounded-lg transition-all text-sm";
-const btnCTA     = "bg-intento-yellow hover:bg-yellow-500 text-white font-semibold px-6 py-3 rounded-lg transition-all text-sm";
+const btnCTA     = "bg-intento-yellow hover:bg-yellow-500 text-intento-blue font-semibold px-6 py-3 rounded-lg transition-all text-sm";
 const btnGhost   = "bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium px-6 py-3 rounded-lg transition-all text-sm";
 
 // =========================================================================
@@ -111,7 +111,7 @@ const RenderMiniCards = ({ dataArray, isFirstWeek, fullBorder }) => {
           <span className={`text-3xl font-bold ${valCol}`}>{item.curr || '0'}</span>
         ) : (
           <div className="flex items-center gap-3">
-            <span className="text-xl font-light text-slate-300">{item.prev || '0'}</span>
+            <span className="text-xl font-light text-slate-400">{item.prev || '0'}</span>
             <span className="text-slate-200 font-normal">→</span>
             <div className="flex items-baseline gap-2">
               <span className={`text-3xl font-bold ${valCol}`}>{item.curr || '0'}</span>
@@ -988,11 +988,11 @@ export default function PainelDoAluno() {
             {!sidebarColapsada && (
               <div className="min-w-0">
                 <p className="font-bold text-intento-blue text-sm leading-tight whitespace-nowrap">Mentoria Intento</p>
-                <p className="text-[10px] text-slate-400 font-medium tracking-wide whitespace-nowrap">Plataforma do Aluno</p>
+                <p className="text-[10px] text-slate-500 font-medium tracking-wide whitespace-nowrap">Plataforma do Aluno</p>
               </div>
             )}
           </div>
-          <button className="md:hidden text-slate-400 hover:text-slate-600 transition-colors p-1" onClick={() => setMenuMobileAberto(false)} aria-label="Fechar menu">
+          <button className="md:hidden text-slate-500 hover:text-slate-600 transition-colors p-1" onClick={() => setMenuMobileAberto(false)} aria-label="Fechar menu">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
@@ -1000,7 +1000,7 @@ export default function PainelDoAluno() {
         {/* Perfil */}
         {!sidebarColapsada && (
           <div className="px-6 py-5 border-b border-slate-100 bg-slate-50">
-            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-3">Mentorado(a)</p>
+            <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-3">Mentorado(a)</p>
             <div className="flex items-center gap-3">
               {fotoUsuario ? (
                 <img src={fotoUsuario} alt="Foto do aluno" className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0" referrerPolicy="no-referrer" />
@@ -1030,7 +1030,7 @@ export default function PainelDoAluno() {
           {MENU_GRUPOS.map((grupo, gi) => (
             <div key={grupo.titulo || 'solto'} className={gi > 0 ? 'mt-4' : ''}>
               {grupo.titulo && !sidebarColapsada && (
-                <p className="px-4 pb-1.5 text-[11px] uppercase text-slate-400 font-semibold tracking-wider">{grupo.titulo}</p>
+                <p className="px-4 pb-1.5 text-[11px] uppercase text-slate-500 font-semibold tracking-wider">{grupo.titulo}</p>
               )}
               {sidebarColapsada && gi > 0 && <div className="border-t border-slate-100 mb-2 mx-1" />}
               <div className="space-y-1">
@@ -1070,7 +1070,7 @@ export default function PainelDoAluno() {
           </button>
           <button
             onClick={() => setSidebarColapsada(v => !v)}
-            className="hidden md:flex w-full items-center justify-center p-2 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-50 transition-colors"
+            className="hidden md:flex w-full items-center justify-center p-2 rounded-lg text-slate-400 hover:text-slate-500 hover:bg-slate-50 transition-colors"
             title={sidebarColapsada ? 'Expandir menu' : 'Minimizar menu'}
           >
             <svg className={`w-4 h-4 transition-transform duration-300 ${sidebarColapsada ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
@@ -1089,7 +1089,7 @@ export default function PainelDoAluno() {
               <img src="/simbolo-azul.png" alt="Intento" className="w-8 h-8 object-contain shrink-0" />
               <div>
                 <p className="font-bold text-intento-blue text-sm leading-tight">Mentoria Intento</p>
-                <p className="text-[10px] text-slate-400 font-medium tracking-wide">Plataforma do Aluno</p>
+                <p className="text-[10px] text-slate-500 font-medium tracking-wide">Plataforma do Aluno</p>
               </div>
             </div>
           </div>
@@ -1099,14 +1099,14 @@ export default function PainelDoAluno() {
 
           {/* FRESCOR DOS DADOS — "Atualizado há X" + refresh manual sem reload */}
           {dadosTs && (
-            <div className="flex items-center justify-end gap-0.5 text-xs text-slate-400 -mb-6">
+            <div className="flex items-center justify-end gap-0.5 text-xs text-slate-500 -mb-6">
               <span>Atualizado {tempoRelativo(dadosTs)}</span>
               <button
                 onClick={async () => { const ok = await recarregarDados(); if (!ok) mostrarToast('Não deu pra atualizar agora. Tente de novo.', 'error'); }}
                 disabled={atualizandoDados}
                 aria-label="Atualizar dados"
                 title="Atualizar dados"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-intento-blue hover:bg-slate-100 transition-colors disabled:opacity-60"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-intento-blue hover:bg-slate-100 transition-colors disabled:opacity-60"
               >
                 <svg className={`w-4 h-4 ${atualizandoDados ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
               </button>
@@ -1132,7 +1132,7 @@ export default function PainelDoAluno() {
                   </button>
                   <div>
                     <h2 className="text-xl font-semibold text-intento-blue">Análise de Simulado</h2>
-                    <p className="text-slate-400 text-sm mt-0.5">{simuladoAnalise.especificacao} · {formatSimuladoDate(simuladoAnalise.data)}</p>
+                    <p className="text-slate-500 text-sm mt-0.5">{simuladoAnalise.especificacao} · {formatSimuladoDate(simuladoAnalise.data)}</p>
                   </div>
                 </div>
 
@@ -1164,7 +1164,7 @@ export default function PainelDoAluno() {
                       <p className={`text-[10px] ${corLabel} font-medium uppercase tracking-wide`}>Aproveitamento</p>
                       <p className={`text-4xl font-bold ${corText} mt-1`}>{aproveitamento}%</p>
                     </div>
-                    <div className={`${cardClass} text-center py-6`}><p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Total</p><p className="text-4xl font-bold text-intento-blue mt-2">{totalQuestoes}</p></div>
+                    <div className={`${cardClass} text-center py-6`}><p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Total</p><p className="text-4xl font-bold text-intento-blue mt-2">{totalQuestoes}</p></div>
                     <div className={`${cardClass} text-center py-6`}><p className="text-[10px] text-emerald-500 font-medium uppercase tracking-wide">Acertos</p><p className="text-4xl font-bold text-emerald-600 mt-2">{acertosTotais}</p></div>
                     <div className={`${cardClass} text-center py-6 bg-slate-50`}><p className="text-[10px] text-red-400 font-medium uppercase tracking-wide">Erros</p><p className="text-4xl font-bold text-red-500 mt-2">{formAutopsia.erros.length}</p></div>
                   </div>
@@ -1176,7 +1176,7 @@ export default function PainelDoAluno() {
                 <div className="space-y-6 animate-in slide-in-from-bottom-4 fade-in">
                   <div className="flex justify-between items-end mb-4">
                     <h3 className="text-lg font-semibold text-intento-blue">Classificação de Erros</h3>
-                    <p className="text-sm font-medium text-slate-400 bg-white px-4 py-2 rounded-lg border border-slate-200">
+                    <p className="text-sm font-medium text-slate-500 bg-white px-4 py-2 rounded-lg border border-slate-200">
                       <span className="text-intento-blue font-semibold">{formAutopsia.erros.filter(e => e.questao && e.disciplina && e.topico && e.tipo).length}</span> / {formAutopsia.erros.length} classificados
                     </p>
                   </div>
@@ -1207,11 +1207,11 @@ export default function PainelDoAluno() {
                         >
                           <div className="flex items-center gap-3">
                             <span className="font-semibold uppercase tracking-wide text-sm">{area}</span>
-                            <span className={`text-[10px] font-medium px-2 py-1 rounded uppercase tracking-wide ${tudoClassificado ? 'bg-emerald-100 text-emerald-700' : 'bg-white border border-slate-200 text-slate-400'}`}>
+                            <span className={`text-[10px] font-medium px-2 py-1 rounded uppercase tracking-wide ${tudoClassificado ? 'bg-emerald-100 text-emerald-700' : 'bg-white border border-slate-200 text-slate-500'}`}>
                               {errosClassificadosNaArea}/{errosDaArea.length}
                             </span>
                           </div>
-                          <span className="text-xl font-light text-slate-300">{isExpanded ? '−' : '+'}</span>
+                          <span className="text-xl font-light text-slate-400">{isExpanded ? '−' : '+'}</span>
                         </button>
 
                         {/* CONTEÚDO DA SANFONA */}
@@ -1277,7 +1277,7 @@ export default function PainelDoAluno() {
                 <div className="space-y-8 animate-in slide-in-from-bottom-4 fade-in pb-10">
                   <div>
                     <h3 className="text-lg font-semibold text-intento-blue">Análise da Prova</h3>
-                    <p className="text-slate-400 text-sm">Quatro perguntas rápidas pra transformar este simulado em ação concreta.</p>
+                    <p className="text-slate-500 text-sm">Quatro perguntas rápidas pra transformar este simulado em ação concreta.</p>
                   </div>
 
                   {/* ETAPA 1 — O que eu esperava? */}
@@ -1305,7 +1305,7 @@ export default function PainelDoAluno() {
                       return (
                         <div className="grid grid-cols-3 gap-3">
                           <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-center">
-                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Aproveitamento</p>
+                            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Aproveitamento</p>
                             <p className="text-2xl font-bold text-intento-blue mt-1">{resumo.aprov}%</p>
                           </div>
                           <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
@@ -1319,9 +1319,9 @@ export default function PainelDoAluno() {
                         </div>
                       );
                     })()}
-                    <textarea className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 placeholder-slate-400 outline-none resize-none text-sm leading-relaxed focus:border-intento-blue/40 custom-scrollbar" rows="3" placeholder="O que mais te chamou atenção no resultado? Alguma matéria te surpreendeu — pra melhor ou pra pior?" value={formAutopsia.aar.aconteceu} onChange={e => setAarCampo('aconteceu', e.target.value)}></textarea>
+                    <textarea className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 placeholder-slate-500 outline-none resize-none text-sm leading-relaxed focus:border-intento-blue/40 custom-scrollbar" rows="3" placeholder="O que mais te chamou atenção no resultado? Alguma matéria te surpreendeu — pra melhor ou pra pior?" value={formAutopsia.aar.aconteceu} onChange={e => setAarCampo('aconteceu', e.target.value)}></textarea>
                     {simuladoAnalise.redacao > 0 && (
-                      <p className="text-xs text-slate-400">Nota da redação: <span className="font-semibold text-purple-500">{simuladoAnalise.redacao}</span></p>
+                      <p className="text-xs text-slate-500">Nota da redação: <span className="font-semibold text-purple-500">{simuladoAnalise.redacao}</span></p>
                     )}
                   </div>
 
@@ -1329,7 +1329,7 @@ export default function PainelDoAluno() {
                   <div className="bg-white p-6 md:p-7 rounded-xl border border-slate-200 space-y-4">
                     {cabecalhoEtapa('3', 'Por quê?')}
                     <p className="text-sm font-medium text-slate-600">Qual foi a causa principal do seu resultado nesta prova?</p>
-                    <textarea className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 placeholder-slate-400 outline-none resize-none text-sm leading-relaxed focus:border-intento-blue/40 custom-scrollbar" rows="3" placeholder="Seja honesto: estudei pouco esse conteúdo? Treinei teoria mas não questões? Foi atenção? Cansaço?" value={formAutopsia.aar.porque} onChange={e => setAarCampo('porque', e.target.value)}></textarea>
+                    <textarea className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 placeholder-slate-500 outline-none resize-none text-sm leading-relaxed focus:border-intento-blue/40 custom-scrollbar" rows="3" placeholder="Seja honesto: estudei pouco esse conteúdo? Treinei teoria mas não questões? Foi atenção? Cansaço?" value={formAutopsia.aar.porque} onChange={e => setAarCampo('porque', e.target.value)}></textarea>
                   </div>
 
                   {/* ETAPA 4 — O que vou fazer? */}
@@ -1341,7 +1341,7 @@ export default function PainelDoAluno() {
                         <div key={idx} className="flex items-center gap-2">
                           <input type="text" className="flex-1 p-3 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:border-intento-blue/40 bg-white" placeholder="Ex: Mudar a estratégia em: x" value={a.texto} onChange={e => setAcao(idx, 'texto', e.target.value)} />
                           {formAutopsia.aar.acoes.length > 1 && (
-                            <button type="button" onClick={() => removeAcao(idx)} aria-label="Remover ação" className="p-3 text-slate-300 hover:text-red-500 transition-colors shrink-0">
+                            <button type="button" onClick={() => removeAcao(idx)} aria-label="Remover ação" className="p-3 text-slate-400 hover:text-red-500 transition-colors shrink-0">
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
                             </button>
                           )}
@@ -1394,11 +1394,11 @@ export default function PainelDoAluno() {
                           <div className="flex items-center justify-between mb-4">
                             <h2 className="text-base font-semibold text-intento-blue">Minhas Tarefas</h2>
                             <div className="flex items-center gap-3">
-                              <span className="text-xs text-slate-400 font-medium">{tarefas.filter(t => !t.concluida).length} pendentes</span>
+                              <span className="text-xs text-slate-500 font-medium">{tarefas.filter(t => !t.concluida).length} pendentes</span>
                               {tarefas.length > 0 && (
                                 <button
                                   onClick={() => { setTarefas([]); localStorage.removeItem(alunoNameKey + 'tarefas'); }}
-                                  className="text-xs text-slate-300 hover:text-red-400 font-medium transition-colors"
+                                  className="text-xs text-slate-400 hover:text-red-400 font-medium transition-colors"
                                 >
                                   Zerar
                                 </button>
@@ -1417,7 +1417,7 @@ export default function PainelDoAluno() {
                             <button onClick={adicionarTarefa} className={`${btnPrimary} px-4 py-2 shrink-0`}>+</button>
                           </div>
                           {tarefas.length === 0 ? (
-                            <p className="text-sm text-slate-300 font-medium text-center py-6">Nenhuma tarefa ainda.</p>
+                            <p className="text-sm text-slate-500 font-medium text-center py-6">Nenhuma tarefa ainda.</p>
                           ) : (
                             <ul className="space-y-2 flex-1 overflow-y-auto max-h-56">
                               {tarefas.map(t => (
@@ -1431,7 +1431,7 @@ export default function PainelDoAluno() {
                                   <span className={`flex-1 text-sm font-medium transition-colors ${t.concluida ? 'line-through text-slate-300' : 'text-slate-700'}`}>
                                     {t.texto}
                                   </span>
-                                  <button onClick={() => removerTarefa(t.id)} aria-label="Remover tarefa" className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all text-xs p-2 -m-2">✕</button>
+                                  <button onClick={() => removerTarefa(t.id)} aria-label="Remover tarefa" className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 text-slate-400 hover:text-red-400 transition-all text-xs p-2 -m-2">✕</button>
                                 </li>
                               ))}
                             </ul>
@@ -1442,9 +1442,9 @@ export default function PainelDoAluno() {
                         <div className="md:col-span-2 flex flex-col gap-4">
                           <div className="grid grid-cols-2 gap-4">
                             <div className="bg-intento-yellow rounded-xl p-5 text-center shadow-sm flex flex-col items-center justify-center">
-                              <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Progresso Geral</p>
-                              <p className="text-5xl font-bold text-white leading-none">{progressoGeral}<span className="text-2xl font-medium text-white/60">%</span></p>
-                              <p className="text-xs text-white/60 leading-snug mt-2">quanto do conteúdo planejado você já percorreu</p>
+                              <p className="text-xs font-medium text-intento-blue/70 uppercase tracking-wider mb-1">Progresso Geral</p>
+                              <p className="text-5xl font-bold text-intento-blue leading-none">{progressoGeral}<span className="text-2xl font-medium text-intento-blue/70">%</span></p>
+                              <p className="text-xs text-intento-blue/70 leading-snug mt-2">quanto do conteúdo planejado você já percorreu</p>
                             </div>
                             <div className="bg-intento-blue rounded-xl p-5 text-center shadow-sm flex flex-col items-center justify-center">
                               <p className="text-xs font-medium text-white/50 uppercase tracking-wider mb-1">Domínio Geral</p>
@@ -1453,13 +1453,13 @@ export default function PainelDoAluno() {
                             </div>
                           </div>
                           <div className="bg-white rounded-xl border border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm">
-                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Dias para o ENEM</p>
+                            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Dias para o ENEM</p>
                             <p className="text-2xl font-bold text-slate-600">{diasEnem}</p>
                           </div>
                           <div className={`${cardClass} flex-1 overflow-y-auto max-h-64`}>
                             <p className="text-xs font-medium text-intento-yellow uppercase mb-3 tracking-wider">Plano de Ação</p>
                             {(plano.acao || []).length === 0 ? (
-                              <p className="text-sm text-slate-400 font-medium">Nenhuma ação definida pelo mentor ainda.</p>
+                              <p className="text-sm text-slate-500 font-medium">Nenhuma ação definida pelo mentor ainda.</p>
                             ) : (
                               <ol className="space-y-2.5">
                                 {(plano.acao || []).map((item, i) => (
@@ -1486,7 +1486,7 @@ export default function PainelDoAluno() {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div>
                         <h2 className="text-base font-semibold text-intento-blue">O que fazer agora</h2>
-                        <p className="text-xs text-slate-400 mt-0.5">Registre por aqui mesmo, sem trocar de aba.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Registre por aqui mesmo, sem trocar de aba.</p>
                       </div>
                       <div className="flex flex-col sm:flex-row gap-2 shrink-0">
                         <button onClick={abrirNovoSimulado} className={`${btnPrimary} px-4 py-2.5`}>+ Registrar simulado</button>
@@ -1502,7 +1502,7 @@ export default function PainelDoAluno() {
                       className="w-full flex items-center justify-between px-5 py-3.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
                     >
                       <span className="font-medium text-slate-600 text-sm">Análise completa</span>
-                      <span className="text-slate-300 font-light text-xl">{showCharts ? '−' : '+'}</span>
+                      <span className="text-slate-400 font-light text-xl">{showCharts ? '−' : '+'}</span>
                     </button>
 
                     {showCharts && (
@@ -1519,12 +1519,12 @@ export default function PainelDoAluno() {
                                 <p style={{ color }} className="text-xs font-semibold uppercase tracking-wider">{label}</p>
                               </div>
                               <div>
-                                <p className="text-4xl font-bold text-intento-blue leading-none">{dom}<span className="text-lg font-medium text-slate-300 ml-0.5">%</span></p>
-                                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium mt-1">Domínio</p>
+                                <p className="text-4xl font-bold text-intento-blue leading-none">{dom}<span className="text-lg font-medium text-slate-400 ml-0.5">%</span></p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wider font-medium mt-1">Domínio</p>
                               </div>
                               <div>
                                 <div className="flex justify-between items-center mb-1.5">
-                                  <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Progresso</p>
+                                  <p className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">Progresso</p>
                                   <p style={{ color }} className="text-xs font-bold">{prog}%</p>
                                 </div>
                                 <div className="w-full bg-slate-100 rounded-full h-1.5">
@@ -1535,13 +1535,13 @@ export default function PainelDoAluno() {
                           ))}
                         </div>
                         <div className={cardClass}>
-                          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Progresso por Área</h3>
+                          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Progresso por Área</h3>
                           <div className="h-64"><Bar data={{ labels: ['Biologia', 'Química', 'Física', 'Matemática'], datasets: [{ label: 'Progresso (%)', data: snapshot.prog || [0,0,0,0], backgroundColor: ['#10b981', '#a855f7', '#3b82f6', '#ef4444'], borderRadius: 4 }] }} options={{ indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { max: 100, grid: { color: 'rgba(150, 150, 150, 0.1)' } }, y: { grid: { display: false } } } }} /></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Execução (Horas vs Meta)</h3><div className="h-64"><Bar data={{ labels: mensalMes.labels, datasets: [{ type: 'line', label: 'Meta', data: mensalMes.meta, borderColor: '#64748b', tension: 0.1 }, { type: 'bar', label: 'Horas', data: mensalMes.horas, backgroundColor: '#D4B726', borderRadius: 4 }] }} options={opcoesMes} /></div></div>
-                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Domínio e Progresso</h3><div className="h-64"><Bar data={{ labels: mensalMes.labels, datasets: [{ type: 'line', label: 'Domínio', data: mensalMes.domTot, borderColor: '#3b82f6', tension: 0.3 }, { type: 'bar', label: 'Progresso', data: mensalMes.progTot, backgroundColor: 'rgba(100, 116, 139, 0.2)', borderRadius: 4 }] }} options={opcoesMes} /></div></div>
-                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Estilo de Vida</h3><p className="text-[10px] text-slate-400 mb-3">Seu check-in é feito no Aplicativo Intento — os dados aparecem pro seu mentor.</p><div className="h-64"><Line data={{ labels: mensalMes.labels, datasets: [{ label: 'Estresse', data: mensalMes.estresse, borderColor: '#ef4444' }, { label: 'Ansiedade', data: mensalMes.ansiedade, borderColor: '#f97316' }, { label: 'Sono', data: mensalMes.sono, borderColor: '#8b5cf6' }] }} options={{...opcoesMes, scales: { ...opcoesMes.scales, y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } } }}} /></div></div>
+                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Execução (Horas vs Meta)</h3><div className="h-64"><Bar data={{ labels: mensalMes.labels, datasets: [{ type: 'line', label: 'Meta', data: mensalMes.meta, borderColor: '#64748b', tension: 0.1 }, { type: 'bar', label: 'Horas', data: mensalMes.horas, backgroundColor: '#D4B726', borderRadius: 4 }] }} options={opcoesMes} /></div></div>
+                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Domínio e Progresso</h3><div className="h-64"><Bar data={{ labels: mensalMes.labels, datasets: [{ type: 'line', label: 'Domínio', data: mensalMes.domTot, borderColor: '#3b82f6', tension: 0.3 }, { type: 'bar', label: 'Progresso', data: mensalMes.progTot, backgroundColor: 'rgba(100, 116, 139, 0.2)', borderRadius: 4 }] }} options={opcoesMes} /></div></div>
+                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Estilo de Vida</h3><p className="text-[10px] text-slate-500 mb-3">Seu check-in é feito no Aplicativo Intento — os dados aparecem pro seu mentor.</p><div className="h-64"><Line data={{ labels: mensalMes.labels, datasets: [{ label: 'Estresse', data: mensalMes.estresse, borderColor: '#ef4444' }, { label: 'Ansiedade', data: mensalMes.ansiedade, borderColor: '#f97316' }, { label: 'Sono', data: mensalMes.sono, borderColor: '#8b5cf6' }] }} options={{...opcoesMes, scales: { ...opcoesMes.scales, y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } } }}} /></div></div>
                         </div>
                       </div>
                     )}
@@ -1577,9 +1577,9 @@ export default function PainelDoAluno() {
                     return (
                       <div className={cardClass}>
                         <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 mb-1">
-                          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide">Consistência — Horas vs Meta</h3>
+                          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide">Consistência — Horas vs Meta</h3>
                           {semanas.length > 0 && (
-                            <p className="text-[11px] font-medium text-slate-400">
+                            <p className="text-[11px] font-medium text-slate-500">
                               <span className="text-slate-700 font-bold">{dentroMeta} de {semanas.length}</span> semana{semanas.length !== 1 ? 's' : ''} dentro da meta
                               {atual && (
                                 <> <span className="text-slate-300 mx-1.5">·</span> Atual <span className={`font-bold ${corBarra(atual.pct).text}`}>{atual.pct}%</span></>
@@ -1589,14 +1589,14 @@ export default function PainelDoAluno() {
                         </div>
 
                         {semanas.length === 0 ? (
-                          <p className="text-xs text-slate-400 font-medium py-10 text-center">Sem registros semanais ainda.</p>
+                          <p className="text-xs text-slate-500 font-medium py-10 text-center">Sem registros semanais ainda.</p>
                         ) : (
                           <>
                             <div className="mt-6 flex">
                               {/* Eixo Y */}
-                              <div className="w-9 h-32 flex flex-col justify-between text-[9px] text-slate-300 font-medium text-right pr-2">
+                              <div className="w-9 h-32 flex flex-col justify-between text-[9px] text-slate-400 font-medium text-right pr-2">
                                 <span>{MAX}%</span>
-                                <span className="text-slate-400 font-bold">100%</span>
+                                <span className="text-slate-500 font-bold">100%</span>
                                 <span>50%</span>
                                 <span>0%</span>
                               </div>
@@ -1633,7 +1633,7 @@ export default function PainelDoAluno() {
                             {/* Eixo X (datas) */}
                             <div className="flex pl-9 mt-2 gap-1.5 px-1">
                               {ultimas.map((s, i) => (
-                                <div key={i} className="flex-1 text-center text-[9px] text-slate-400 font-medium truncate">
+                                <div key={i} className="flex-1 text-center text-[9px] text-slate-500 font-medium truncate">
                                   {String(s.label).split(' a ')[0]}
                                 </div>
                               ))}
@@ -1671,7 +1671,7 @@ export default function PainelDoAluno() {
                         <svg className="w-7 h-7 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                       </div>
                       <p className="text-base font-semibold text-slate-500 mb-1">Aguardando o primeiro encontro com seu mentor</p>
-                      <p className="text-sm text-slate-400 max-w-xs">Os dados do seu acompanhamento semanal serão preenchidos após a sua primeira sessão.</p>
+                      <p className="text-sm text-slate-500 max-w-xs">Os dados do seu acompanhamento semanal serão preenchidos após a sua primeira sessão.</p>
                     </div>
                   ) : (
                     <>
@@ -1679,7 +1679,7 @@ export default function PainelDoAluno() {
                       <div><h2 className="text-base font-semibold text-slate-700 mb-5">Aspectos Gerais</h2><div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10"><RenderMiniCards dataArray={semanal.geral} isFirstWeek={semanal.isFirstWeek} fullBorder={false} /></div></div>
                       <div>
                         <h2 className="text-base font-semibold text-slate-700 mb-1">Estilo de Vida</h2>
-                        <p className="text-xs text-slate-400 mb-5">Seu check-in é feito no <button onClick={() => setAbaAtiva(6)} className="font-semibold text-intento-blue hover:underline">Aplicativo Intento</button> — os dados aparecem pro seu mentor.</p>
+                        <p className="text-xs text-slate-500 mb-5">Seu check-in é feito no <button onClick={() => setAbaAtiva(6)} className="font-semibold text-intento-blue hover:underline">Aplicativo Intento</button> — os dados aparecem pro seu mentor.</p>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10"><RenderMiniCards dataArray={semanal.estilo} isFirstWeek={semanal.isFirstWeek} fullBorder={false} /></div>
                       </div>
                       <div><h2 className="text-base font-semibold text-slate-700 mb-5">Desempenho</h2><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(0, 2)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(2, 4)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(4, 6)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(6, 8)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div></div></div>
@@ -1699,15 +1699,15 @@ export default function PainelDoAluno() {
                     <div className="relative">
                       <div className="inline-flex items-center gap-2 mb-4">
                         <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                        <p className="text-xs font-bold text-white/90 uppercase tracking-[0.2em]">Meta Principal</p>
+                        <p className="text-xs font-bold text-intento-blue/80 uppercase tracking-[0.2em]">Meta Principal</p>
                         <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                       </div>
-                      <p className="text-3xl md:text-5xl font-bold text-white leading-tight max-w-3xl mx-auto">{plano.meta}</p>
+                      <p className="text-3xl md:text-5xl font-bold text-intento-blue leading-tight max-w-3xl mx-auto">{plano.meta}</p>
                     </div>
                   </div>
                   {!ultimoEncontro ? (
                     <div className={cardClass + ' text-center py-16'}>
-                      <p className="text-sm text-slate-400 font-medium">Nenhum encontro registrado pelo seu mentor ainda.</p>
+                      <p className="text-sm text-slate-500 font-medium">Nenhum encontro registrado pelo seu mentor ainda.</p>
                     </div>
                   ) : (() => {
                     const enc = ultimoEncontro;
@@ -1747,18 +1747,18 @@ export default function PainelDoAluno() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="bg-slate-50 border border-slate-100 rounded-lg p-4">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Vitórias</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Vitórias</p>
                             <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{enc.vitorias || '—'}</p>
                           </div>
                           <div className="bg-slate-50 border border-slate-100 rounded-lg p-4">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Maiores Desafios</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Maiores Desafios</p>
                             <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{enc.desafios || '—'}</p>
                           </div>
                         </div>
 
                         {enc.exploracao && (
                           <div className="bg-slate-50 border border-slate-100 rounded-lg p-4">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Exploração</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Exploração</p>
                             <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{enc.exploracao}</p>
                           </div>
                         )}
@@ -1772,7 +1772,7 @@ export default function PainelDoAluno() {
 
                         {acoesValidas.length > 0 && (
                           <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Plano de Ação e Resultados</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Plano de Ação e Resultados</p>
                             <div className="space-y-2">
                               {acoesValidas.map((it, i) => (
                                 <div key={i} className="bg-white border border-slate-200 rounded-lg px-4 py-2.5 flex items-center justify-between gap-3">
@@ -1862,7 +1862,7 @@ export default function PainelDoAluno() {
                                     <div className={`w-2 h-2 rounded-full shrink-0 ${style.dot}`} />
                                     <div className="flex-1 min-w-0">
                                       <p className={`text-sm font-medium ${isChecked ? 'line-through text-slate-400' : 'text-intento-blue'} truncate`}>{label}</p>
-                                      <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                                      <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5">
                                         <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />{categoria}{att.hora && <span className="ml-1">· {att.hora}</span>}
                                       </p>
                                     </div>
@@ -1885,7 +1885,7 @@ export default function PainelDoAluno() {
                           const isToday = idx === today;
                           return (
                             <div key={dia} className="flex-1 text-center py-3 border-r border-slate-100 last:border-r-0">
-                              <p className={`text-[10px] font-medium uppercase tracking-wider ${isToday ? 'text-intento-yellow' : 'text-slate-400'}`}>{abbr}</p>
+                              <p className={`text-[10px] font-medium uppercase tracking-wider ${isToday ? 'text-intento-yellow' : 'text-slate-500'}`}>{abbr}</p>
                             </div>
                           );
                         })}
@@ -1896,7 +1896,7 @@ export default function PainelDoAluno() {
                         <div className="w-14 shrink-0 border-r border-slate-100 relative" style={{ height: TOTAL_HOURS * PX_PER_HOUR }}>
                           {Array.from({ length: TOTAL_HOURS }, (_, i) => (
                             <div key={i} className="absolute w-full flex items-start justify-end pr-2" style={{ top: i * PX_PER_HOUR, height: PX_PER_HOUR }}>
-                              <span className="text-[10px] text-slate-400 -mt-2">{String(HOUR_START + i).padStart(2, '0')}:00</span>
+                              <span className="text-[10px] text-slate-500 -mt-2">{String(HOUR_START + i).padStart(2, '0')}:00</span>
                             </div>
                           ))}
                         </div>
@@ -1952,7 +1952,7 @@ export default function PainelDoAluno() {
 
                   <div className="space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Métricas Gerais</h3>
+                      <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wider">Métricas Gerais</h3>
                       <div className="flex bg-slate-100 p-1 rounded-lg self-start">
                         <button onClick={() => setAbaMetrica('ENEM')} className={`px-5 py-1.5 rounded-md font-medium text-xs transition-all ${abaMetrica === 'ENEM' ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'}`}>ENEM</button>
                         <button onClick={() => setAbaMetrica('Custom')} className={`px-5 py-1.5 rounded-md font-medium text-xs transition-all ${abaMetrica === 'Custom' ? 'bg-intento-blue text-white' : 'text-slate-500 hover:text-slate-700'}`}>Outros</button>
@@ -1963,32 +1963,32 @@ export default function PainelDoAluno() {
                     {abaMetrica === 'ENEM' ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className={`${cardClass} text-center bg-slate-50`}>
-                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Simulados Realizados</p>
+                          <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Simulados Realizados</p>
                           <p className="text-3xl font-bold text-intento-blue mt-1">{mEnem.realizados || 0}</p>
-                          <p className="text-[10px] font-medium text-slate-400 mt-1">total ENEM</p>
+                          <p className="text-[10px] font-medium text-slate-500 mt-1">total ENEM</p>
                         </div>
                         <div className={`${cardClass} text-center border-b-2 border-b-intento-blue`}>
-                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Redação</p>
+                          <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Média de Redação</p>
                           <p className="text-4xl font-bold text-intento-blue mt-1">{mEnem.medRedacao || 0}</p>
-                          <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                          <p className="text-[10px] font-medium text-slate-500 mt-1">últimos 3 simulados</p>
                         </div>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className={`${cardClass} text-center bg-slate-50`}>
-                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Simulados Realizados</p>
+                          <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Simulados Realizados</p>
                           <p className="text-3xl font-bold text-intento-blue mt-1">{mCustom.realizados || 0}</p>
-                          <p className="text-[10px] font-medium text-slate-400 mt-1">outros vestibulares</p>
+                          <p className="text-[10px] font-medium text-slate-500 mt-1">outros vestibulares</p>
                         </div>
                         <div className={`${cardClass} text-center border-b-2 border-b-intento-yellow`}>
-                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Aproveitamento Médio</p>
-                          <p className="text-4xl font-bold text-intento-yellow mt-1">{mCustom.aprovMedio || 0}<span className="text-base text-slate-400 font-medium">%</span></p>
-                          <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                          <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Aproveitamento Médio</p>
+                          <p className="text-4xl font-bold text-intento-yellow mt-1">{mCustom.aprovMedio || 0}<span className="text-base text-slate-500 font-medium">%</span></p>
+                          <p className="text-[10px] font-medium text-slate-500 mt-1">últimos 3 simulados</p>
                         </div>
                         <div className={`${cardClass} text-center border-b-2 border-b-intento-blue`}>
-                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Redação</p>
+                          <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Média de Redação</p>
                           <p className="text-4xl font-bold text-intento-blue mt-1">{mCustom.medRedacao || 0}</p>
-                          <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                          <p className="text-[10px] font-medium text-slate-500 mt-1">últimos 3 simulados</p>
                         </div>
                       </div>
                     )}
@@ -1996,7 +1996,7 @@ export default function PainelDoAluno() {
                     {/* Linha 2 — Média por disciplina (ENEM) ou por matéria (Custom) */}
                     {abaMetrica === 'ENEM' ? (
                       <div>
-                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-3">Média por disciplina · últimos 3 simulados</p>
+                        <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-3">Média por disciplina · últimos 3 simulados</p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           {[
                             { label: 'Linguagens',   key: 'medLG',  color: '#0ea5e9', tw: 'text-sky-600' },
@@ -2005,11 +2005,11 @@ export default function PainelDoAluno() {
                             { label: 'Matemática',   key: 'medMAT', color: '#ef4444', tw: 'text-red-500' },
                           ].map(d => (
                             <div key={d.key} className={`${cardClass} text-center py-4`} style={{ borderTop: `3px solid ${d.color}` }}>
-                              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{d.label}</p>
+                              <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">{d.label}</p>
                               {mEnem[d.key] == null ? (
-                                <p className="text-2xl font-bold mt-1 text-slate-300">—</p>
+                                <p className="text-2xl font-bold mt-1 text-slate-400">—</p>
                               ) : (
-                                <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{mEnem[d.key]}<span className="text-xs text-slate-400 font-medium">/45</span></p>
+                                <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{mEnem[d.key]}<span className="text-xs text-slate-500 font-medium">/45</span></p>
                               )}
                             </div>
                           ))}
@@ -2017,15 +2017,15 @@ export default function PainelDoAluno() {
                       </div>
                     ) : (
                       <div>
-                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-3">Aproveitamento médio por matéria</p>
+                        <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-3">Aproveitamento médio por matéria</p>
                         {(!mCustom.porMateria || mCustom.porMateria.length === 0) ? (
-                          <p className="text-xs text-slate-400 font-medium py-6 text-center bg-white rounded-xl border border-slate-200">Nenhum simulado de outros vestibulares ainda.</p>
+                          <p className="text-xs text-slate-500 font-medium py-6 text-center bg-white rounded-xl border border-slate-200">Nenhum simulado de outros vestibulares ainda.</p>
                         ) : (
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {mCustom.porMateria.map(m => (
                               <div key={m.nome} className={`${cardClass} text-center py-4`} style={{ borderTop: '3px solid #060242' }}>
-                                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{m.nome}</p>
-                                <p className="text-2xl font-bold mt-1 text-intento-blue">{m.pct}<span className="text-xs text-slate-400 font-medium">%</span></p>
+                                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">{m.nome}</p>
+                                <p className="text-2xl font-bold mt-1 text-intento-blue">{m.pct}<span className="text-xs text-slate-500 font-medium">%</span></p>
                               </div>
                             ))}
                           </div>
@@ -2038,8 +2038,8 @@ export default function PainelDoAluno() {
 
                       {/* Barras horizontais ranqueadas */}
                       <div className={`${cardClass} col-span-1`}>
-                        <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Tipos de Erros</h3>
-                        <p className="text-[10px] font-medium text-slate-400 mb-5">média dos últimos 3 simulados</p>
+                        <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Tipos de Erros</h3>
+                        <p className="text-[10px] font-medium text-slate-500 mb-5">média dos últimos 3 simulados</p>
                         {(() => {
                           const tipos = [
                             { nome: 'Lacuna',        valor: mAtual.erros?.lac || 0,     trilho: 'bg-red-100',     barra: 'bg-red-500',     dot: 'bg-red-500' },
@@ -2049,7 +2049,7 @@ export default function PainelDoAluno() {
                           ].sort((a, b) => b.valor - a.valor);
                           const total = tipos.reduce((s, t) => s + t.valor, 0);
                           if (total === 0) {
-                            return <p className="text-xs text-slate-400 font-medium py-8 text-center">Faça seu primeiro simulado para ver a análise.</p>;
+                            return <p className="text-xs text-slate-500 font-medium py-8 text-center">Faça seu primeiro simulado para ver a análise.</p>;
                           }
                           return (
                             <div className="space-y-3">
@@ -2062,7 +2062,7 @@ export default function PainelDoAluno() {
                                         <span className={`w-2 h-2 rounded-full ${t.dot}`} />
                                         <span className="text-xs font-semibold text-slate-700">{t.nome}</span>
                                       </div>
-                                      <span className="text-[11px] font-medium text-slate-400">{t.valor} <span className="text-slate-300">·</span> {pct}%</span>
+                                      <span className="text-[11px] font-medium text-slate-500">{t.valor} <span className="text-slate-300">·</span> {pct}%</span>
                                     </div>
                                     <div className={`w-full h-2 rounded-full ${t.trilho} overflow-hidden`}>
                                       <div className={`h-full rounded-full ${t.barra} transition-all duration-500`} style={{ width: `${pct}%` }} />
@@ -2077,7 +2077,7 @@ export default function PainelDoAluno() {
 
                       {/* Histórico de Provas */}
                       <div className={`${cardClass} col-span-2`}>
-                        <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Histórico de Provas</h3>
+                        <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Histórico de Provas</h3>
                         <div className="h-64">
                           {abaMetrica === 'ENEM' ? (
                             <Line
@@ -2108,7 +2108,7 @@ export default function PainelDoAluno() {
                             />
                           ) : (
                             (histCustom.labels || []).length === 0 ? (
-                              <div className="h-full flex items-center justify-center"><p className="text-xs text-slate-400 font-medium">Sem histórico de outros vestibulares ainda.</p></div>
+                              <div className="h-full flex items-center justify-center"><p className="text-xs text-slate-500 font-medium">Sem histórico de outros vestibulares ainda.</p></div>
                             ) : (
                               <Line
                                 data={{
@@ -2131,9 +2131,9 @@ export default function PainelDoAluno() {
                   </div>
 
                   <div className="pt-8 border-t border-slate-200">
-                    <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-6">Seus Últimos Simulados</h3>
+                    <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-6">Seus Últimos Simulados</h3>
                     {simuladosLista.length === 0 ? (
-                      <p className="text-sm text-slate-400 font-medium py-8 text-center bg-white rounded-xl border border-slate-200">Nenhum simulado registrado ainda.</p>
+                      <p className="text-sm text-slate-500 font-medium py-8 text-center bg-white rounded-xl border border-slate-200">Nenhum simulado registrado ainda.</p>
                     ) : (
                       <div className="space-y-2">
                         {simuladosLista.map((sim) => {
@@ -2149,25 +2149,25 @@ export default function PainelDoAluno() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <h4 className="text-sm font-semibold text-intento-blue truncate">{sim.especificacao}</h4>
-                                  <span className="shrink-0 text-[10px] font-medium text-slate-400 uppercase tracking-wide bg-slate-100 px-1.5 py-0.5 rounded">{sim.modelo}</span>
+                                  <span className="shrink-0 text-[10px] font-medium text-slate-500 uppercase tracking-wide bg-slate-100 px-1.5 py-0.5 rounded">{sim.modelo}</span>
                                   {escopoLabel && <span className="shrink-0 text-[10px] font-medium text-intento-blue uppercase tracking-wide bg-blue-50 px-1.5 py-0.5 rounded">{escopoLabel}</span>}
                                 </div>
-                                <p className="text-xs text-slate-400 mt-0.5">Realizado em {formatSimuladoDate(sim.data)}</p>
+                                <p className="text-xs text-slate-500 mt-0.5">Realizado em {formatSimuladoDate(sim.data)}</p>
                               </div>
                               <div className="shrink-0 text-right">
                                 {isCustom ? (
                                   <span className="text-sm font-bold text-intento-blue">{sim.aproveitamento ?? 0}%</span>
                                 ) : (
-                                  <span className="text-sm font-bold text-intento-blue">{totalEnem}<span className="text-xs text-slate-400 font-normal">/{45 * areasSim.length}</span></span>
+                                  <span className="text-sm font-bold text-intento-blue">{totalEnem}<span className="text-xs text-slate-500 font-normal">/{45 * areasSim.length}</span></span>
                                 )}
                               </div>
                               <button onClick={() => iniciarAutopsia(sim)} className={`shrink-0 ${concluido ? btnGhost : btnPrimary} text-xs py-2 px-4`}>
                                 {concluido ? 'Revisar' : 'Analisar'}
                               </button>
-                              <button onClick={() => abrirEdicaoSimulado(sim)} aria-label="Editar simulado" title="Editar" className="shrink-0 p-2 text-slate-400 hover:text-intento-blue transition-colors">
+                              <button onClick={() => abrirEdicaoSimulado(sim)} aria-label="Editar simulado" title="Editar" className="shrink-0 p-2 text-slate-500 hover:text-intento-blue transition-colors">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                               </button>
-                              <button onClick={() => setExcluindoSimulado(sim)} aria-label="Excluir simulado" title="Excluir" className="shrink-0 p-2 text-slate-400 hover:text-red-500 transition-colors">
+                              <button onClick={() => setExcluindoSimulado(sim)} aria-label="Excluir simulado" title="Excluir" className="shrink-0 p-2 text-slate-500 hover:text-red-500 transition-colors">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                               </button>
                             </div>
@@ -2206,7 +2206,7 @@ export default function PainelDoAluno() {
                         <h3 className="text-xl font-semibold text-intento-blue mb-2">Aplicativo Intento</h3>
                         <p className="text-slate-500 text-sm font-medium mb-8">Acesse o nosso web app para registrar revisões, tarefas diárias e acompanhar simulados.</p>
                       </div>
-                      <a href="https://intento.ap1.com.br/" target="_blank" rel="noopener noreferrer" className="block w-full text-center bg-intento-yellow text-white font-semibold py-3 rounded-lg hover:bg-yellow-500 transition-colors">Abrir Aplicativo</a>
+                      <a href="https://intento.ap1.com.br/" target="_blank" rel="noopener noreferrer" className="block w-full text-center bg-intento-yellow text-intento-blue font-semibold py-3 rounded-lg hover:bg-yellow-500 transition-colors">Abrir Aplicativo</a>
                     </div>
                     <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm flex flex-col justify-between hover:border-purple-500 transition-colors group">
                       <div>
@@ -2270,7 +2270,7 @@ export default function PainelDoAluno() {
                           <button key={d} onClick={() => setFiltroCaderno(d)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filtroCaderno === d ? 'bg-intento-blue text-white' : 'bg-white border border-slate-200 text-slate-500 hover:border-intento-blue'}`}>{d}</button>
                         ))}
                       </div>
-                      <button onClick={() => abrirModalCaderno(filtroCaderno !== 'Todas' ? filtroCaderno : '')} className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm shadow-sm transition-all shrink-0">+ Anotar erro</button>
+                      <button onClick={() => abrirModalCaderno(filtroCaderno !== 'Todas' ? filtroCaderno : '')} className="bg-intento-yellow hover:bg-yellow-500 text-intento-blue font-bold py-2 px-4 rounded-lg text-sm shadow-sm transition-all shrink-0">+ Anotar erro</button>
                     </div>
                   </div>
 
@@ -2295,7 +2295,7 @@ export default function PainelDoAluno() {
                     <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-intento-blue"></div></div>
                   ) : cardsExibidos.length === 0 ? (
                     <div className="bg-white border border-slate-200 rounded-xl p-10 text-center">
-                      <p className="text-slate-400 font-medium">
+                      <p className="text-slate-500 font-medium">
                         {cardsDaDisciplina.length === 0
                           ? `Nenhum erro ${filtroCaderno !== 'Todas' ? `em ${filtroCaderno}` : 'anotado'} ainda.`
                           : 'Nenhuma entrada neste status.'}
@@ -2359,12 +2359,12 @@ export default function PainelDoAluno() {
                                 Revelar resposta →
                               </button>
                             )}
-                            <div className="flex items-center gap-3 text-xs text-slate-400">
+                            <div className="flex items-center gap-3 text-xs text-slate-500">
                               <span className="flex items-center gap-1.5">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                                 Nível {card.estagio ?? 0}{card.proxima_revisao ? ` · ${card.proxima_revisao}` : ''}
                               </span>
-                              <button onClick={() => setExcluindoCard(card)} className="p-2 -m-2 text-slate-300 hover:text-red-400 transition-colors" aria-label="Apagar entrada">
+                              <button onClick={() => setExcluindoCard(card)} className="p-2 -m-2 text-slate-400 hover:text-red-400 transition-colors" aria-label="Apagar entrada">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                               </button>
                             </div>
@@ -2398,7 +2398,7 @@ export default function PainelDoAluno() {
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg flex flex-col overflow-hidden max-h-full">
             <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center shrink-0">
               <h2 className="text-base font-semibold text-intento-blue">{editandoSimuladoId ? 'Editar Simulado' : 'Novo Registro de Simulado'}</h2>
-              <button onClick={fecharModalSimulado} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+              <button onClick={fecharModalSimulado} aria-label="Fechar modal" className="text-slate-400 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
 
             <div className="p-7 space-y-5 min-h-0 overflow-y-auto overscroll-contain">
@@ -2426,17 +2426,17 @@ export default function PainelDoAluno() {
                       'completo' não é oferecido para registros novos — só aparece
                       ao editar um simulado legado de 2 dias. */}
                   {escopoSimulado === 'completo' ? (
-                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-4 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">Simulado completo · 2 dias <span className="text-slate-400 normal-case">(formato antigo)</span></p>
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-4 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">Simulado completo · 2 dias <span className="text-slate-500 normal-case">(formato antigo)</span></p>
                   ) : (
                     <>
-                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">Dia do simulado</p>
+                      <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-2">Dia do simulado</p>
                       <div className="flex p-1 bg-slate-200/60 rounded-lg mb-4">
                         <button type="button" onClick={() => setEscopoSimulado('dia1')} className={`flex-1 py-2 rounded-md font-medium text-xs transition-all ${escopoSimulado === 'dia1' ? 'bg-white text-intento-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>1º dia · Ling. + Hum. + Redação</button>
                         <button type="button" onClick={() => setEscopoSimulado('dia2')} className={`flex-1 py-2 rounded-md font-medium text-xs transition-all ${escopoSimulado === 'dia2' ? 'bg-white text-intento-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>2º dia · Nat. + Matemática</button>
                       </div>
                     </>
                   )}
-                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-200 pb-3">Acertos por Área (de 45)</p>
+                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-3">Acertos por Área (de 45)</p>
                   <div className={`grid ${escopoSimulado === 'completo' ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'} gap-3`}>
                     {areasDoEscopo(escopoSimulado).includes('lg') && <div><label className="block text-[10px] font-medium text-blue-500 uppercase mb-1.5 tracking-wide">Linguagens</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-blue-200 rounded-lg font-semibold text-center outline-none focus:border-blue-400 bg-white text-slate-700" value={formRegistro.lg} onChange={e => setFormRegistro({...formRegistro, lg: e.target.value})} /></div>}
                     {areasDoEscopo(escopoSimulado).includes('ch') && <div><label className="block text-[10px] font-medium text-orange-500 uppercase mb-1.5 tracking-wide">Humanas</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-orange-200 rounded-lg font-semibold text-center outline-none focus:border-orange-400 bg-white text-slate-700" value={formRegistro.ch} onChange={e => setFormRegistro({...formRegistro, ch: e.target.value})} /></div>}
@@ -2444,18 +2444,18 @@ export default function PainelDoAluno() {
                     {areasDoEscopo(escopoSimulado).includes('mat') && <div><label className="block text-[10px] font-medium text-red-400 uppercase mb-1.5 tracking-wide">Matemática</label><input type="number" min="0" max="45" placeholder="0" className="w-full p-2 border border-red-200 rounded-lg font-semibold text-center outline-none focus:border-red-400 bg-white text-slate-700" value={formRegistro.mat} onChange={e => setFormRegistro({...formRegistro, mat: e.target.value})} /></div>}
                   </div>
                   {escopoTemRedacao(escopoSimulado) && (
-                    <div className="mt-4"><label className="block text-[10px] font-medium text-purple-400 uppercase mb-1.5 tracking-wide">Nota Redação <span className="text-slate-300 normal-case">(opcional)</span></label><input type="number" placeholder="Ex: 920" className="w-full p-2 border border-purple-200 rounded-lg font-semibold outline-none focus:border-purple-400 bg-white text-slate-700" value={formRegistro.redacao} onChange={e => setFormRegistro({...formRegistro, redacao: e.target.value})} /></div>
+                    <div className="mt-4"><label className="block text-[10px] font-medium text-purple-400 uppercase mb-1.5 tracking-wide">Nota Redação <span className="text-slate-400 normal-case">(opcional)</span></label><input type="number" placeholder="Ex: 920" className="w-full p-2 border border-purple-200 rounded-lg font-semibold outline-none focus:border-purple-400 bg-white text-slate-700" value={formRegistro.redacao} onChange={e => setFormRegistro({...formRegistro, redacao: e.target.value})} /></div>
                   )}
                 </div>
               ) : (
                 <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Matérias do simulado</p>
-                    <span className="text-[10px] text-slate-400">acertos / questões</span>
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Matérias do simulado</p>
+                    <span className="text-[10px] text-slate-500">acertos / questões</span>
                   </div>
 
                   {materiasCustom.length === 0 && (
-                    <p className="text-xs text-slate-400 text-center py-2">Adicione as matérias deste simulado abaixo.</p>
+                    <p className="text-xs text-slate-500 text-center py-2">Adicione as matérias deste simulado abaixo.</p>
                   )}
 
                   {materiasCustom.map((m, idx) => (
@@ -2464,7 +2464,7 @@ export default function PainelDoAluno() {
                       <input type="number" min="0" placeholder="acertos" className="w-20 p-2 border border-slate-200 rounded-lg font-semibold text-center text-sm outline-none focus:border-intento-yellow bg-white" value={m.acertos} onChange={e => updateMateriaCustom(idx, 'acertos', e.target.value)} />
                       <span className="text-slate-300">/</span>
                       <input type="number" min="1" placeholder="questões" className="w-20 p-2 border border-slate-200 rounded-lg font-semibold text-center text-sm outline-none focus:border-intento-yellow bg-white" value={m.questoes} onChange={e => updateMateriaCustom(idx, 'questoes', e.target.value)} />
-                      <button type="button" onClick={() => removeMateriaCustom(idx)} aria-label="Remover matéria" className="p-1.5 text-slate-300 hover:text-red-500 transition-colors shrink-0">
+                      <button type="button" onClick={() => removeMateriaCustom(idx)} aria-label="Remover matéria" className="p-1.5 text-slate-400 hover:text-red-500 transition-colors shrink-0">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
                       </button>
                     </div>
@@ -2475,7 +2475,7 @@ export default function PainelDoAluno() {
                     {Object.keys(topicosDicionario).filter(d => !materiasCustom.some(m => m.materia === d)).map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
 
-                  <div className="pt-1"><label className="block text-[10px] font-medium text-purple-400 uppercase mb-1.5 tracking-wide">Nota Redação <span className="text-slate-300 normal-case">(opcional)</span></label><input type="number" placeholder="Ex: 920" className="w-full p-2 border border-purple-200 rounded-lg font-semibold outline-none focus:border-purple-400 bg-white text-slate-700" value={formRegistro.redacao} onChange={e => setFormRegistro({...formRegistro, redacao: e.target.value})} /></div>
+                  <div className="pt-1"><label className="block text-[10px] font-medium text-purple-400 uppercase mb-1.5 tracking-wide">Nota Redação <span className="text-slate-400 normal-case">(opcional)</span></label><input type="number" placeholder="Ex: 920" className="w-full p-2 border border-purple-200 rounded-lg font-semibold outline-none focus:border-purple-400 bg-white text-slate-700" value={formRegistro.redacao} onChange={e => setFormRegistro({...formRegistro, redacao: e.target.value})} /></div>
                 </div>
               )}
             </div>
@@ -2528,7 +2528,7 @@ export default function PainelDoAluno() {
           <div className="bg-white w-full max-w-lg rounded-xl shadow-lg flex flex-col overflow-hidden max-h-full">
             <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center shrink-0">
               <h2 className="text-base font-semibold text-intento-blue">Anotar erro — Caderno de Erros</h2>
-              <button onClick={fecharModalCaderno} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+              <button onClick={fecharModalCaderno} aria-label="Fechar modal" className="text-slate-400 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
             <div className="p-7 space-y-4 min-h-0 overflow-y-auto overscroll-contain">
               <div className="grid grid-cols-2 gap-4">
@@ -2566,11 +2566,11 @@ export default function PainelDoAluno() {
                 </div>
               </div>
               <div>
-                <label className={labelClass}>Questão errada <span className="text-slate-400 font-normal normal-case">(escreva como uma pergunta direta sobre o conceito)</span></label>
+                <label className={labelClass}>Questão errada <span className="text-slate-500 font-normal normal-case">(escreva como uma pergunta direta sobre o conceito)</span></label>
                 <textarea rows={3} placeholder='Ex: "Qual a função do RNA mensageiro na síntese proteica?"' className={inputClass + " resize-none"} value={formCaderno.pergunta} onChange={e => setFormCaderno({...formCaderno, pergunta: e.target.value})} />
               </div>
               <div>
-                <label className={labelClass}>Resposta correta <span className="text-slate-400 font-normal normal-case">(fica oculta — recordação ativa)</span></label>
+                <label className={labelClass}>Resposta correta <span className="text-slate-500 font-normal normal-case">(fica oculta — recordação ativa)</span></label>
                 <textarea rows={3} placeholder="Resposta correta ou explicação completa..." className={inputClass + " resize-none"} value={formCaderno.resposta} onChange={e => setFormCaderno({...formCaderno, resposta: e.target.value})} />
               </div>
             </div>

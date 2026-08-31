@@ -347,7 +347,7 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
 
   if (!registros || registros.length === 0) {
     return (
-      <div className={cardClass + ' text-center py-12 text-slate-400 text-sm font-medium'}>
+      <div className={cardClass + ' text-center py-12 text-slate-500 text-sm font-medium'}>
         Nenhum registro encontrado.
       </div>
     );
@@ -361,7 +361,7 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
           <div>
             <h2 className="text-sm font-bold text-intento-blue">Evolução Temporal</h2>
-            <p className="text-xs text-slate-400 font-medium mt-0.5">
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
               {registros.length} semana{registros.length !== 1 ? 's' : ''} registrada{registros.length !== 1 ? 's' : ''}
             </p>
           </div>
@@ -377,14 +377,14 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
 
         {visao === 'geral' && (
           <div className="flex flex-wrap items-center gap-1.5 mb-4">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Variáveis:</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1">Variáveis:</span>
             {GERAL_CONFIG.map(c => {
               const active = geralFiltro.has(c.key);
               return (
                 <button
                   key={c.key}
                   onClick={() => toggleSet(setGeralFiltro, c.key)}
-                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${active ? 'text-white shadow-sm' : 'text-slate-400 bg-white border-slate-200 hover:border-slate-300'}`}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${active ? 'text-white shadow-sm' : 'text-slate-500 bg-white border-slate-200 hover:border-slate-300'}`}
                   style={active ? { backgroundColor: c.color, borderColor: c.color } : {}}
                   title={active ? 'Ocultar' : 'Mostrar'}
                 >
@@ -399,7 +399,7 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
         {visao === 'disciplinas' && (
           <div className="flex flex-col sm:flex-row sm:items-center flex-wrap gap-3 mb-4">
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Métrica:</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1">Métrica:</span>
               <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
                 {[{ key: 'dominio', label: 'Domínio' }, { key: 'progresso', label: 'Progresso' }].map(m => {
                   const active = discMetricas.has(m.key);
@@ -415,14 +415,14 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Disciplinas:</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1">Disciplinas:</span>
               {DISCIPLINAS_CONFIG.map(d => {
                 const active = discFiltro.has(d.key);
                 return (
                   <button
                     key={d.key}
                     onClick={() => toggleSet(setDiscFiltro, d.key)}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${active ? 'text-white shadow-sm' : 'text-slate-400 bg-white border-slate-200 hover:border-slate-300'}`}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${active ? 'text-white shadow-sm' : 'text-slate-500 bg-white border-slate-200 hover:border-slate-300'}`}
                     style={active ? { backgroundColor: d.color, borderColor: d.color } : {}}
                   >
                     <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: active ? '#fff' : d.color }}></span>
@@ -435,7 +435,7 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
         )}
 
         {chartSeries.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-xs font-medium">
+          <div className="text-center py-12 text-slate-500 text-xs font-medium">
             Selecione ao menos uma variável para visualizar o gráfico.
           </div>
         ) : (
@@ -451,7 +451,7 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 {cols.map(ci => (
-                  <th key={ci} className={`p-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${ci === 0 ? 'sticky left-0 bg-slate-50' : ''} ${COL_COLORS[ci] || 'text-slate-400'}`}>
+                  <th key={ci} className={`p-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${ci === 0 ? 'sticky left-0 bg-slate-50' : ''} ${COL_COLORS[ci] || 'text-slate-500'}`}>
                     {COL_LABELS[ci]}
                   </th>
                 ))}
@@ -477,7 +477,7 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
                   ))}
                   <td className="p-3">
                     {/* Visível por padrão em telas de toque (sem hover); no desktop aparece no hover da linha. after:-inset expande a área tocável pra ≥24px sem mudar o visual. */}
-                    <button onClick={() => abrirEdit(i)} className="relative after:absolute after:-inset-2 after:content-[''] opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity text-slate-300 hover:text-intento-blue" title="Editar registro">
+                    <button onClick={() => abrirEdit(i)} className="relative after:absolute after:-inset-2 after:content-[''] opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity text-slate-400 hover:text-intento-blue" title="Editar registro">
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                     </button>
                   </td>
@@ -494,7 +494,7 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg flex flex-col overflow-hidden max-h-[90vh]">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
               <h2 className="text-sm font-semibold text-intento-blue">Editar Registro — {registros[editIdx][0]}</h2>
-              <button onClick={() => setEditIdx(null)} className="text-slate-300 hover:text-slate-500 transition-colors">
+              <button onClick={() => setEditIdx(null)} className="text-slate-400 hover:text-slate-500 transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
@@ -502,7 +502,7 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {EDIT_FIELDS.map(f => (
                   <div key={f.idx}>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">{f.label}</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">{f.label}</label>
                     <input
                       type={f.type}
                       step={f.step || undefined}
@@ -530,7 +530,7 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
 // --- ESTÉTICA INTENTO ---
 const cardClass = "bg-white rounded-xl border border-slate-200 p-6 shadow-sm transition-colors";
 const inputClass = "w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue transition-all font-medium text-intento-blue";
-const labelClass = "block text-xs font-medium text-slate-400 uppercase mb-2 tracking-wider";
+const labelClass = "block text-xs font-medium text-slate-500 uppercase mb-2 tracking-wider";
 
 // --- CONSTANTES ---
 const DIAS = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
@@ -541,7 +541,7 @@ const CATEGORIAS = {
   'Hábitos':     { cor: 'bg-yellow-100 text-yellow-800 border-yellow-200',  btn: 'bg-yellow-500 hover:bg-yellow-600 text-white',  dot: 'bg-yellow-500'  },
   'Aula':        { cor: 'bg-violet-100 text-violet-800 border-violet-200',  btn: 'bg-violet-500 hover:bg-violet-600 text-white',  dot: 'bg-violet-500'  },
   'Simulados':   { cor: 'bg-red-100 text-red-800 border-red-200',          btn: 'bg-red-500 hover:bg-red-600 text-white',          dot: 'bg-red-500'    },
-  'Outros':      { cor: 'bg-slate-100 text-slate-800 border-slate-200',    btn: 'bg-slate-400 hover:bg-slate-500 text-white',    dot: 'bg-slate-400'   },
+  'Outros':      { cor: 'bg-slate-100 text-slate-800 border-slate-200',    btn: 'bg-slate-500 hover:bg-slate-600 text-white',    dot: 'bg-slate-400'   },
 };
 
 const TEMPLATE_BASE = (() => {
@@ -672,9 +672,9 @@ function VisaoGeral({ registros, diarios, simulados, tipoAluno, escola, proximaP
   const horasTotal = Math.round(somaHoras * 10) / 10; // evita lixo de ponto flutuante
   const stat = (label, valor, sub) => (
     <div className="flex-1 min-w-[90px]">
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{label}</p>
+      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{label}</p>
       <span className="text-lg font-bold text-intento-blue">{valor}</span>
-      {sub && <span className="ml-1 text-[10px] text-slate-400 font-medium">{sub}</span>}
+      {sub && <span className="ml-1 text-[10px] text-slate-500 font-medium">{sub}</span>}
     </div>
   );
   const corProva = proximaProva
@@ -686,11 +686,11 @@ function VisaoGeral({ registros, diarios, simulados, tipoAluno, escola, proximaP
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
       <div className="flex items-center gap-2 mb-3">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visão geral</p>
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Visão geral</p>
         {tipoAluno === 'EM' && <span className="text-[9px] font-bold bg-intento-yellow/15 text-intento-yellow border border-intento-yellow/30 px-1.5 py-0.5 rounded uppercase tracking-wider">EM{escola ? ` · ${escola}` : ''}</span>}
       </div>
       {!ult && !proximaProva ? (
-        <p className="text-xs text-slate-400 font-medium">Sem registros semanais ainda.</p>
+        <p className="text-xs text-slate-500 font-medium">Sem registros semanais ainda.</p>
       ) : (
         <div className="flex flex-wrap gap-4">
           {stat('Horas totais', `${horasTotal}h`)}
@@ -701,9 +701,9 @@ function VisaoGeral({ registros, diarios, simulados, tipoAluno, escola, proximaP
           {stat('Simulados', nSimulados)}
           {proximaProva && (
             <div className="flex-1 min-w-[110px]">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">📅 Próx. prova</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">📅 Próx. prova</p>
               <span className={`text-lg font-bold ${corProva}`}>{countdownProva}</span>
-              <span className="ml-1 text-[10px] text-slate-400 font-medium">{proximaProva.materia}</span>
+              <span className="ml-1 text-[10px] text-slate-500 font-medium">{proximaProva.materia}</span>
             </div>
           )}
         </div>
@@ -757,10 +757,10 @@ function LinhaDoTempo({ diarios, registros, onEditarEncontro, idAluno, nomeAluno
       </div>
 
       {itens.length === 0 ? (
-        <div className="p-8 border-2 border-dashed rounded-xl text-center text-slate-400 font-bold">Nada registrado ainda.</div>
+        <div className="p-8 border-2 border-dashed rounded-xl text-center text-slate-500 font-bold">Nada registrado ainda.</div>
       ) : grupos.map(g => (
         <div key={g.chave}>
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 capitalize">{g.chave}</p>
+          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3 capitalize">{g.chave}</p>
           <div className="space-y-3">
             {g.itens.map(it => it.tipo === 'encontro'
               ? <CardEncontro key={it.id} it={it} aberto={aberto === it.id} onToggle={() => setAberto(aberto === it.id ? null : it.id)} onEditar={onEditarEncontro} idAluno={idAluno} nomeAluno={nomeAluno} />
@@ -797,24 +797,24 @@ function CardEncontro({ it, aberto, onToggle, onEditar, idAluno, nomeAluno }) {
         <div className="flex items-center gap-2 shrink-0">
           {totalMetas > 0 && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${corStatus}`}>{totalAval < totalMetas ? `${totalMetas} metas` : `${totalBatidas}/${totalMetas} batidas`}</span>}
           <div className="hidden sm:flex gap-0.5">{[1, 2, 3, 4, 5].map(n => <span key={n} className={`text-xs ${n <= (parseInt(enc.autoavaliacao) || 0) ? 'text-intento-yellow' : 'text-slate-200'}`}>★</span>)}</div>
-          <span className={`text-slate-300 transition-transform ${aberto ? 'rotate-180' : ''}`}>▾</span>
+          <span className={`text-slate-400 transition-transform ${aberto ? 'rotate-180' : ''}`}>▾</span>
         </div>
       </div>
       {aberto && (
         <div className="px-5 pb-5 pt-1 border-t border-slate-100 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Vitórias</p><p className="text-sm text-slate-700 whitespace-pre-wrap">{enc.vitorias || '—'}</p></div>
-            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Maiores desafios</p><p className="text-sm text-slate-700 whitespace-pre-wrap">{enc.desafios || '—'}</p></div>
+            <div><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Vitórias</p><p className="text-sm text-slate-700 whitespace-pre-wrap">{enc.vitorias || '—'}</p></div>
+            <div><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Maiores desafios</p><p className="text-sm text-slate-700 whitespace-pre-wrap">{enc.desafios || '—'}</p></div>
           </div>
-          {enc.exploracao && <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Exploração</p><p className="text-sm text-slate-700 whitespace-pre-wrap">{enc.exploracao}</p></div>}
+          {enc.exploracao && <div><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Exploração</p><p className="text-sm text-slate-700 whitespace-pre-wrap">{enc.exploracao}</p></div>}
           {totalMetas > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Metas combinadas</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Metas combinadas</p>
               <div className="space-y-1.5">
                 {metasComStatus.map((m, i) => (
                   <div key={i} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-3 py-1.5">
                     <span className="text-sm text-slate-700 font-medium">{i + 1}. {m.meta}</span>
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${m.status === 'Batida' ? 'bg-emerald-100 text-emerald-800' : m.status === 'Parcial' ? 'bg-yellow-100 text-yellow-800' : m.status === 'Não batida' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-400'}`}>{m.status || 'aguardando'}</span>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${m.status === 'Batida' ? 'bg-emerald-100 text-emerald-800' : m.status === 'Parcial' ? 'bg-yellow-100 text-yellow-800' : m.status === 'Não batida' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-500'}`}>{m.status || 'aguardando'}</span>
                   </div>
                 ))}
               </div>
@@ -822,12 +822,12 @@ function CardEncontro({ it, aberto, onToggle, onEditar, idAluno, nomeAluno }) {
           )}
           {acoes.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Plano de ação</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Plano de ação</p>
               <div className="space-y-1.5">
                 {acoes.map((a, i) => (
                   <div key={i} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-3 py-1.5">
                     <span className="text-sm text-slate-700 font-medium">{i + 1}. {a.acao}</span>
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${a.resultado === 'Realizado' ? 'bg-emerald-100 text-emerald-800' : a.resultado === 'Realizado Parcialmente' ? 'bg-yellow-100 text-yellow-800' : a.resultado === 'Não realizado' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-400'}`}>{a.resultado || 'aguardando'}</span>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${a.resultado === 'Realizado' ? 'bg-emerald-100 text-emerald-800' : a.resultado === 'Realizado Parcialmente' ? 'bg-yellow-100 text-yellow-800' : a.resultado === 'Não realizado' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-500'}`}>{a.resultado || 'aguardando'}</span>
                   </div>
                 ))}
               </div>
@@ -841,7 +841,7 @@ function CardEncontro({ it, aberto, onToggle, onEditar, idAluno, nomeAluno }) {
           )}
           <div className="flex gap-3 pt-1">
             <button onClick={(e) => { e.stopPropagation(); onEditar(enc); }} className="text-xs font-bold text-intento-blue hover:underline">Editar encontro</button>
-            <Link href={`/mentor/ig/diario?id=${idAluno}&linha=${enc.linha}&nome=${encodeURIComponent(nomeAluno || '')}`} onClick={(e) => e.stopPropagation()} className="text-xs font-bold text-slate-400 hover:text-intento-blue">Exportar diário →</Link>
+            <Link href={`/mentor/ig/diario?id=${idAluno}&linha=${enc.linha}&nome=${encodeURIComponent(nomeAluno || '')}`} onClick={(e) => e.stopPropagation()} className="text-xs font-bold text-slate-500 hover:text-intento-blue">Exportar diário →</Link>
           </div>
         </div>
       )}
@@ -865,10 +865,10 @@ function CardSemana({ it, aberto, onToggle }) {
           <span className="shrink-0 bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg text-[11px] font-semibold">{r[0] || fmtDataBR(it.date)}</span>
         </div>
         <div className="flex items-center gap-2 sm:gap-4 shrink-0 text-xs font-bold tabular-nums">
-          <span className="w-[80px] text-right text-slate-600">{horas != null ? `${horas}h` : '—'}{meta != null && <span className="text-slate-300 font-medium">/{meta}h</span>}</span>
-          <span className="w-[60px] text-right text-intento-blue">{dom != null ? `${dom}%` : '—'}<span className="text-slate-400 font-medium"> dom</span></span>
-          <span className="w-[60px] text-right text-emerald-600">{toPercent(r[6]) != null ? `${toPercent(r[6])}%` : '—'}<span className="text-slate-400 font-medium"> prog</span></span>
-          <span className={`w-3 text-center text-slate-300 transition-transform ${aberto ? 'rotate-180' : ''}`}>▾</span>
+          <span className="w-[80px] text-right text-slate-600">{horas != null ? `${horas}h` : '—'}{meta != null && <span className="text-slate-400 font-medium">/{meta}h</span>}</span>
+          <span className="w-[60px] text-right text-intento-blue">{dom != null ? `${dom}%` : '—'}<span className="text-slate-500 font-medium"> dom</span></span>
+          <span className="w-[60px] text-right text-emerald-600">{toPercent(r[6]) != null ? `${toPercent(r[6])}%` : '—'}<span className="text-slate-500 font-medium"> prog</span></span>
+          <span className={`w-3 text-center text-slate-400 transition-transform ${aberto ? 'rotate-180' : ''}`}>▾</span>
         </div>
       </div>
       {aberto && (
@@ -880,18 +880,18 @@ function CardSemana({ it, aberto, onToggle }) {
             <Mini label="Revisões atras." valor={numOrNullDossie(r[7]) ?? '—'} />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Check-in emocional</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Check-in emocional</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {EMO_COLS.map(e => <Mini key={e.c} label={e.l} valor={toPercentCheckin(r[e.c], org) != null ? `${toPercentCheckin(r[e.c], org)}%` : '—'} />)}
             </div>
           </div>
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Por disciplina (domínio · progresso)</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Por disciplina (domínio · progresso)</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {DISCIPLINAS_CONFIG.map(d => (
                 <div key={d.key} className="bg-slate-50 rounded-lg p-2">
                   <p className="text-[10px] font-bold text-slate-500">{d.label}</p>
-                  <p className="text-sm font-bold text-intento-blue">{toPercent(r[d.dCol]) != null ? `${toPercent(r[d.dCol])}%` : '—'} <span className="text-[10px] font-medium text-slate-400">· {toPercent(r[d.pCol]) != null ? `${toPercent(r[d.pCol])}%` : '—'}</span></p>
+                  <p className="text-sm font-bold text-intento-blue">{toPercent(r[d.dCol]) != null ? `${toPercent(r[d.dCol])}%` : '—'} <span className="text-[10px] font-medium text-slate-500">· {toPercent(r[d.pCol]) != null ? `${toPercent(r[d.pCol])}%` : '—'}</span></p>
                 </div>
               ))}
             </div>
@@ -904,7 +904,7 @@ function CardSemana({ it, aberto, onToggle }) {
 function Mini({ label, valor }) {
   return (
     <div className="bg-slate-50 rounded-lg p-2">
-      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{label}</p>
+      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">{label}</p>
       <p className="text-sm font-bold text-intento-blue">{valor}</p>
     </div>
   );
@@ -1487,7 +1487,7 @@ export default function GestaoIndividualAluno() {
         
         {/* HEADER GERAL */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-          <button onClick={tentarVoltar} className="text-sm font-medium text-slate-400 hover:text-intento-blue transition-colors self-start shrink-0">← Voltar</button>
+          <button onClick={tentarVoltar} className="text-sm font-medium text-slate-500 hover:text-intento-blue transition-colors self-start shrink-0">← Voltar</button>
           <div className="flex gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
             <button onClick={() => trocarAba('timeline')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'timeline' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Linha do Tempo</button>
             <button onClick={() => trocarAba('diario')} className={`px-4 sm:px-5 py-2 font-semibold rounded-lg transition-all text-sm whitespace-nowrap shrink-0 ${abaInterna === 'diario' ? 'bg-intento-blue text-white' : 'bg-slate-50 text-slate-600 border border-slate-300 hover:border-intento-blue hover:text-intento-blue hover:bg-white'}`}>Diário de Bordo</button>
@@ -1509,7 +1509,7 @@ export default function GestaoIndividualAluno() {
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={() => router.push(`/mentor/${params.id}/encontro?nome=${encodeURIComponent(nomeAluno || '')}`)}
-              className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold px-4 py-2 rounded-lg transition-all text-sm whitespace-nowrap"
+              className="bg-intento-yellow hover:bg-yellow-500 text-intento-blue font-bold px-4 py-2 rounded-lg transition-all text-sm whitespace-nowrap"
             >
               + Novo Diário
             </button>
@@ -1555,7 +1555,7 @@ export default function GestaoIndividualAluno() {
         {abaInterna === 'diario' && (
           <div className="space-y-5 animate-in fade-in duration-500">
             {historicoDiarios.length === 0 ? (
-              <div className="p-8 border-2 border-dashed rounded-xl text-center text-slate-400 font-bold">Nenhum encontro registrado.</div>
+              <div className="p-8 border-2 border-dashed rounded-xl text-center text-slate-500 font-bold">Nenhum encontro registrado.</div>
             ) : (() => {
               const itens = historicoDiarios.map((enc, i) => ({
                 enc, i,
@@ -1571,7 +1571,7 @@ export default function GestaoIndividualAluno() {
               });
               return grupos.map(g => (
                 <div key={g.chave}>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 capitalize">{g.chave}</p>
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3 capitalize">{g.chave}</p>
                   <div className="space-y-3">
                     {g.itens.map(it => (
                       <CardEncontro
@@ -1598,7 +1598,7 @@ export default function GestaoIndividualAluno() {
 
               <div className="bg-white px-8 py-5 border-b border-slate-200 flex justify-between items-center">
                 <h2 className="text-base font-semibold text-intento-blue">Editar Encontro — {encontroEdit.data}</h2>
-                <button onClick={fecharEdicaoEncontro} className="text-slate-400 hover:text-red-500 transition-colors">
+                <button onClick={fecharEdicaoEncontro} className="text-slate-500 hover:text-red-500 transition-colors">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </div>
@@ -1705,7 +1705,7 @@ export default function GestaoIndividualAluno() {
                       </div>
                       <div>
                         <label className={labelClass}>Metas para o Próximo Encontro</label>
-                        <p className="text-[10px] text-slate-400 font-medium mb-2 -mt-1">Até 3 metas.</p>
+                        <p className="text-[10px] text-slate-500 font-medium mb-2 -mt-1">Até 3 metas.</p>
                         <div className="space-y-2">
                           {[0,1,2].map(idx => (
                             <div key={idx} className="flex gap-2 items-center">
@@ -1767,7 +1767,7 @@ export default function GestaoIndividualAluno() {
               </div>
 
               <div className="bg-white p-6 border-t border-slate-200 flex justify-end gap-4">
-                <button onClick={fecharEdicaoEncontro} className="px-6 py-2.5 font-medium text-slate-400 hover:text-slate-700 transition-colors text-sm">
+                <button onClick={fecharEdicaoEncontro} className="px-6 py-2.5 font-medium text-slate-500 hover:text-slate-700 transition-colors text-sm">
                   Cancelar
                 </button>
                 <button onClick={salvarEdicaoEncontro} disabled={salvandoEdicao} className="bg-intento-blue hover:bg-blue-900 text-white font-semibold px-8 py-2.5 rounded-lg shadow-sm transition-all text-sm disabled:opacity-60">
@@ -1811,9 +1811,9 @@ export default function GestaoIndividualAluno() {
                     onChange={e => { setMetaHorasSemanal(e.target.value); setGradeModificada(true); }}
                     className="w-24 p-2 border border-slate-200 rounded-lg font-bold text-center text-slate-700 outline-none focus:border-intento-yellow bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                  <span className="text-xs text-slate-400 font-medium">horas/semana</span>
+                  <span className="text-xs text-slate-500 font-medium">horas/semana</span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-2 leading-snug">
+                <p className="text-[11px] text-slate-500 mt-2 leading-snug">
                   {metaHorasSemanal.trim() === ''
                     ? 'Vazio = calculada automaticamente a partir da grade. Defina um valor para fixar a meta manualmente.'
                     : 'Meta manual — substitui a contagem da grade no registro do aluno.'}
@@ -1848,7 +1848,7 @@ export default function GestaoIndividualAluno() {
                     })}
                     <p className="text-xs font-medium text-right pt-1 text-slate-500">
                       Planejado: <span className="font-bold text-slate-700">{Object.values(resumoHoras).reduce((a, b) => a + b, 0)}h</span>
-                      {metaHorasSemanal.trim() !== '' && <span className="text-slate-400"> · meta {metaHorasSemanal}h</span>}
+                      {metaHorasSemanal.trim() !== '' && <span className="text-slate-500"> · meta {metaHorasSemanal}h</span>}
                     </p>
                   </div>
                 </div>
@@ -1857,7 +1857,7 @@ export default function GestaoIndividualAluno() {
               {/* Ações globais */}
               <div className="space-y-2">
                 <button onClick={salvarSemana} disabled={salvandoRotina}
-                  className="w-full bg-intento-yellow text-white font-semibold py-2.5 rounded-lg shadow-sm hover:bg-yellow-500 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-70">
+                  className="w-full bg-intento-yellow text-intento-blue font-semibold py-2.5 rounded-lg shadow-sm hover:bg-yellow-500 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-70">
                   {salvandoRotina && <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
                   {salvandoRotina ? 'Sincronizando...' : 'Salvar Rotina'}
                 </button>
@@ -1900,7 +1900,7 @@ export default function GestaoIndividualAluno() {
               <table className="w-full text-xs border-collapse min-w-[700px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="p-3 w-14 text-slate-400 font-medium border-r text-center">Hora</th>
+                    <th className="p-3 w-14 text-slate-500 font-medium border-r text-center">Hora</th>
                     {DIAS.map(dia => (
                       <th key={dia} className="p-2 font-semibold text-intento-blue border-r last:border-0 text-center">
                         <span className="hidden sm:inline">{dia.split('-')[0]}</span>
@@ -1912,7 +1912,7 @@ export default function GestaoIndividualAluno() {
                 <tbody>
                   {HORARIOS.map(hora => (
                     <tr key={hora} className="border-b border-slate-100 last:border-0">
-                      <td className="p-2 text-center text-[10px] font-bold text-slate-400 border-r bg-slate-50 whitespace-nowrap">{hora}</td>
+                      <td className="p-2 text-center text-[10px] font-bold text-slate-500 border-r bg-slate-50 whitespace-nowrap">{hora}</td>
                       {DIAS.map(dia => {
                         const id = `${dia}_${hora}`;
                         const isSelected = selecaoAtual.includes(id);
@@ -1952,7 +1952,7 @@ export default function GestaoIndividualAluno() {
                   <input autoFocus type="text" value={semDetalhe} onChange={e => setSemDetalhe(e.target.value)}
                     placeholder="Descrição (opcional)"
                     className="w-full p-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue mb-2" />
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Atividade</p>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wide mb-1">Atividade</p>
                   <div className="grid grid-cols-2 gap-1.5">
                     {Object.entries(CATEGORIAS).map(([c, cfg]) => (
                       <button key={c} onClick={() => aplicarSemana(c)}
@@ -1961,7 +1961,7 @@ export default function GestaoIndividualAluno() {
                       </button>
                     ))}
                   </div>
-                  <button onClick={limparHorarios} className="w-full mt-2 text-[11px] font-semibold text-slate-400 hover:text-red-500 py-1">Limpar horários</button>
+                  <button onClick={limparHorarios} className="w-full mt-2 text-[11px] font-semibold text-slate-500 hover:text-red-500 py-1">Limpar horários</button>
                 </div>
               </>
             )}
@@ -2003,37 +2003,37 @@ export default function GestaoIndividualAluno() {
               {abaMetrica === 'ENEM' ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className={cardClass + ' text-center bg-slate-50'}>
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Simulados Realizados</p>
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Simulados Realizados</p>
                     <p className="text-3xl font-bold text-intento-blue mt-1">{mEnem.realizados || 0}</p>
-                    <p className="text-[10px] font-medium text-slate-400 mt-1">total ENEM</p>
+                    <p className="text-[10px] font-medium text-slate-500 mt-1">total ENEM</p>
                   </div>
                   <div className={cardClass + ' text-center border-b-2 border-b-intento-yellow'}>
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Acertos</p>
-                    <p className="text-4xl font-bold text-intento-yellow mt-1">{mEnem.medAcertos || 0}<span className="text-base text-slate-400 font-medium">/180</span></p>
-                    <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Média de Acertos</p>
+                    <p className="text-4xl font-bold text-intento-yellow mt-1">{mEnem.medAcertos || 0}<span className="text-base text-slate-500 font-medium">/180</span></p>
+                    <p className="text-[10px] font-medium text-slate-500 mt-1">últimos 3 simulados</p>
                   </div>
                   <div className={cardClass + ' text-center border-b-2 border-b-intento-blue'}>
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Redação</p>
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Média de Redação</p>
                     <p className="text-4xl font-bold text-intento-blue mt-1">{mEnem.medRedacao || 0}</p>
-                    <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                    <p className="text-[10px] font-medium text-slate-500 mt-1">últimos 3 simulados</p>
                   </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className={cardClass + ' text-center bg-slate-50'}>
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Simulados Realizados</p>
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Simulados Realizados</p>
                     <p className="text-3xl font-bold text-intento-blue mt-1">{mCustom.realizados || 0}</p>
-                    <p className="text-[10px] font-medium text-slate-400 mt-1">outros vestibulares</p>
+                    <p className="text-[10px] font-medium text-slate-500 mt-1">outros vestibulares</p>
                   </div>
                   <div className={cardClass + ' text-center border-b-2 border-b-intento-yellow'}>
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Aproveitamento Médio</p>
-                    <p className="text-4xl font-bold text-intento-yellow mt-1">{mCustom.aprovMedio || 0}<span className="text-base text-slate-400 font-medium">%</span></p>
-                    <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Aproveitamento Médio</p>
+                    <p className="text-4xl font-bold text-intento-yellow mt-1">{mCustom.aprovMedio || 0}<span className="text-base text-slate-500 font-medium">%</span></p>
+                    <p className="text-[10px] font-medium text-slate-500 mt-1">últimos 3 simulados</p>
                   </div>
                   <div className={cardClass + ' text-center border-b-2 border-b-intento-blue'}>
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">Média de Redação</p>
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Média de Redação</p>
                     <p className="text-4xl font-bold text-intento-blue mt-1">{mCustom.medRedacao || 0}</p>
-                    <p className="text-[10px] font-medium text-slate-400 mt-1">últimos 3 simulados</p>
+                    <p className="text-[10px] font-medium text-slate-500 mt-1">últimos 3 simulados</p>
                   </div>
                 </div>
               )}
@@ -2041,7 +2041,7 @@ export default function GestaoIndividualAluno() {
               {/* Disciplinas (ENEM) ou matérias (Custom) */}
               {abaMetrica === 'ENEM' ? (
                 <div>
-                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-3">Média por disciplina · últimos 3 simulados</p>
+                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-3">Média por disciplina · últimos 3 simulados</p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
                       { label: 'Linguagens',   key: 'medLG',  color: '#0ea5e9', tw: 'text-sky-600' },
@@ -2050,23 +2050,23 @@ export default function GestaoIndividualAluno() {
                       { label: 'Matemática',   key: 'medMAT', color: '#ef4444', tw: 'text-red-500' },
                     ].map(d => (
                       <div key={d.key} className={cardClass + ' text-center py-4'} style={{ borderTop: `3px solid ${d.color}` }}>
-                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{d.label}</p>
-                        <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{mEnem[d.key] || 0}<span className="text-xs text-slate-400 font-medium">/45</span></p>
+                        <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">{d.label}</p>
+                        <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{mEnem[d.key] || 0}<span className="text-xs text-slate-500 font-medium">/45</span></p>
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
                 <div>
-                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-3">Aproveitamento médio por matéria</p>
+                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-3">Aproveitamento médio por matéria</p>
                   {(!mCustom.porMateria || mCustom.porMateria.length === 0) ? (
-                    <p className="text-xs text-slate-400 font-medium py-6 text-center bg-white rounded-xl border border-slate-200">Nenhum simulado de outros vestibulares ainda.</p>
+                    <p className="text-xs text-slate-500 font-medium py-6 text-center bg-white rounded-xl border border-slate-200">Nenhum simulado de outros vestibulares ainda.</p>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {mCustom.porMateria.map(m => (
                         <div key={m.nome} className={cardClass + ' text-center py-4'} style={{ borderTop: '3px solid #060242' }}>
-                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{m.nome}</p>
-                          <p className="text-2xl font-bold mt-1 text-intento-blue">{m.pct}<span className="text-xs text-slate-400 font-medium">%</span></p>
+                          <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">{m.nome}</p>
+                          <p className="text-2xl font-bold mt-1 text-intento-blue">{m.pct}<span className="text-xs text-slate-500 font-medium">%</span></p>
                         </div>
                       ))}
                     </div>
@@ -2077,10 +2077,10 @@ export default function GestaoIndividualAluno() {
               {/* Tipos de erros + Histórico */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className={cardClass + ' col-span-1'}>
-                  <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Tipos de Erros</h3>
-                  <p className="text-[10px] font-medium text-slate-400 mb-5">média dos últimos 3 simulados</p>
+                  <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Tipos de Erros</h3>
+                  <p className="text-[10px] font-medium text-slate-500 mb-5">média dos últimos 3 simulados</p>
                   {totalErros === 0 ? (
-                    <p className="text-xs text-slate-400 font-medium py-8 text-center">Sem simulados analisados.</p>
+                    <p className="text-xs text-slate-500 font-medium py-8 text-center">Sem simulados analisados.</p>
                   ) : (
                     <div className="space-y-3">
                       {tipos.map(t => {
@@ -2092,7 +2092,7 @@ export default function GestaoIndividualAluno() {
                                 <span className={`w-2 h-2 rounded-full ${t.dot}`} />
                                 <span className="text-xs font-semibold text-slate-700">{t.nome}</span>
                               </div>
-                              <span className="text-[11px] font-medium text-slate-400">{t.valor} <span className="text-slate-300">·</span> {pct}%</span>
+                              <span className="text-[11px] font-medium text-slate-500">{t.valor} <span className="text-slate-300">·</span> {pct}%</span>
                             </div>
                             <div className={`w-full h-2 rounded-full ${t.trilho} overflow-hidden`}>
                               <div className={`h-full rounded-full ${t.barra} transition-all duration-500`} style={{ width: `${pct}%` }} />
@@ -2105,7 +2105,7 @@ export default function GestaoIndividualAluno() {
                 </div>
 
                 <div className={cardClass + ' col-span-2'}>
-                  <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Histórico de Provas</h3>
+                  <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Histórico de Provas</h3>
                   <div className="h-64">
                     {abaMetrica === 'ENEM' ? (
                       <Line
@@ -2127,7 +2127,7 @@ export default function GestaoIndividualAluno() {
                       />
                     ) : (
                       (histCustom.labels || []).length === 0 ? (
-                        <div className="h-full flex items-center justify-center"><p className="text-xs text-slate-400 font-medium">Sem histórico de outros vestibulares ainda.</p></div>
+                        <div className="h-full flex items-center justify-center"><p className="text-xs text-slate-500 font-medium">Sem histórico de outros vestibulares ainda.</p></div>
                       ) : (
                         <Line
                           data={{
@@ -2150,9 +2150,9 @@ export default function GestaoIndividualAluno() {
 
               {/* Lista de simulados — mais recentes primeiro */}
               <div className="pt-4 border-t border-slate-100">
-                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-4">Simulados realizados</h3>
+                <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-4">Simulados realizados</h3>
                 {lista.length === 0 ? (
-                  <p className="text-xs text-slate-400 font-medium py-8 text-center">Nenhum simulado registrado.</p>
+                  <p className="text-xs text-slate-500 font-medium py-8 text-center">Nenhum simulado registrado.</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {lista.slice().sort((a, b) => String(b.data || '').localeCompare(String(a.data || ''))).map(sim => {
@@ -2173,15 +2173,15 @@ export default function GestaoIndividualAluno() {
                           </div>
                           <div className="p-4 flex-1 space-y-3">
                             <div>
-                              <p className="text-xs text-slate-400 font-medium">{sim.modelo || 'ENEM'}</p>
+                              <p className="text-xs text-slate-500 font-medium">{sim.modelo || 'ENEM'}</p>
                               <h4 className="text-sm font-semibold text-intento-blue mt-0.5">{sim.especificacao || '—'}</h4>
-                              <p className="text-[11px] text-slate-400 mt-0.5">{formatSimuladoDate(sim.data)}</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">{formatSimuladoDate(sim.data)}</p>
                             </div>
                             <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex justify-between items-center">
                               <span className="text-xs font-medium text-slate-500">{isCustom ? 'Aproveitamento' : 'Acertos'}</span>
                               {isCustom
                                 ? <span className="font-bold text-intento-blue text-sm">{sim.aproveitamento ?? 0}%</span>
-                                : <span className="font-bold text-intento-blue text-sm">{total}<span className="text-xs text-slate-400 font-normal">/180</span></span>}
+                                : <span className="font-bold text-intento-blue text-sm">{total}<span className="text-xs text-slate-500 font-normal">/180</span></span>}
                             </div>
                             {isCustom ? (
                               (sim.materias || []).length > 0 && (
@@ -2189,7 +2189,7 @@ export default function GestaoIndividualAluno() {
                                   {(sim.materias || []).map((m, i) => (
                                     <div key={i} className="flex justify-between items-center text-[11px] bg-slate-50 rounded px-2 py-1 border border-slate-100">
                                       <span className="text-slate-600 font-medium truncate">{m.materia}</span>
-                                      <span className="font-bold text-slate-700 shrink-0 ml-2">{m.acertos || 0}<span className="text-slate-400 font-normal">/{m.questoes || 0}</span></span>
+                                      <span className="font-bold text-slate-700 shrink-0 ml-2">{m.acertos || 0}<span className="text-slate-500 font-normal">/{m.questoes || 0}</span></span>
                                     </div>
                                   ))}
                                 </div>
@@ -2198,7 +2198,7 @@ export default function GestaoIndividualAluno() {
                               <div className="grid grid-cols-4 gap-1.5 text-center">
                                 {[['LG', sim.lg, 'text-sky-600'], ['CH', sim.ch, 'text-orange-500'], ['CN', sim.cn, 'text-emerald-600'], ['MAT', sim.mat, 'text-red-500']].map(([l, v, tw]) => (
                                   <div key={l} className="bg-slate-50 rounded p-1.5 border border-slate-100">
-                                    <p className="text-[9px] text-slate-400 font-medium uppercase">{l}</p>
+                                    <p className="text-[9px] text-slate-500 font-medium uppercase">{l}</p>
                                     <p className={`text-sm font-bold ${tw}`}>{v || 0}</p>
                                   </div>
                                 ))}
@@ -2267,14 +2267,14 @@ export default function GestaoIndividualAluno() {
                 {/* Header */}
                 <div className="bg-white px-8 py-5 border-b border-slate-200 flex justify-between items-start gap-4">
                   <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{sim.modelo || 'ENEM'} · {formatSimuladoDate(sim.data)}</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{sim.modelo || 'ENEM'} · {formatSimuladoDate(sim.data)}</p>
                     <h2 className="text-base font-semibold text-intento-blue mt-0.5">{sim.especificacao || 'Análise do Simulado'}</h2>
                     <div className="flex items-center gap-4 mt-2 text-xs">
                       <span className="text-slate-500">Acertos: <span className="font-bold text-intento-blue">{totalAcertos}/{totalQuestoes}</span></span>
                       {sim.redacao > 0 && <span className="text-slate-500">Redação: <span className="font-bold text-intento-blue">{sim.redacao}</span></span>}
                     </div>
                   </div>
-                  <button onClick={() => setSimuladoAberto(null)} className="text-slate-400 hover:text-red-500 transition-colors shrink-0">
+                  <button onClick={() => setSimuladoAberto(null)} className="text-slate-500 hover:text-red-500 transition-colors shrink-0">
                     <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
                 </div>
@@ -2286,17 +2286,17 @@ export default function GestaoIndividualAluno() {
                   <section>
                     <div className="flex items-baseline justify-between mb-4">
                       <h3 className="text-sm font-semibold text-intento-blue">Análise Objetiva</h3>
-                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{(sim.errosLista || []).length} erros classificados</p>
+                      <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{(sim.errosLista || []).length} erros classificados</p>
                     </div>
                     {(!sim.errosLista || sim.errosLista.length === 0) ? (
-                      <p className="text-xs text-slate-400 font-medium py-4 text-center bg-white rounded-xl border border-slate-200">Nenhum erro registrado.</p>
+                      <p className="text-xs text-slate-500 font-medium py-4 text-center bg-white rounded-xl border border-slate-200">Nenhum erro registrado.</p>
                     ) : (
                       <div className="space-y-4">
                         {Object.entries(errosPorArea).map(([area, erros]) => (
                           <div key={area} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                             <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2" style={{ borderLeft: `3px solid ${ESTILO_AREA[area] || '#94a3b8'}` }}>
                               <p className="text-xs font-bold text-intento-blue">{area}</p>
-                              <span className="text-[10px] text-slate-400 font-medium">· {erros.length} {erros.length === 1 ? 'erro' : 'erros'}</span>
+                              <span className="text-[10px] text-slate-500 font-medium">· {erros.length} {erros.length === 1 ? 'erro' : 'erros'}</span>
                             </div>
                             <div className="divide-y divide-slate-100">
                               {erros.map(e => {
@@ -2307,11 +2307,11 @@ export default function GestaoIndividualAluno() {
                                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">{e.questao || '—'}</span>
                                     </div>
                                     <div className="md:col-span-4">
-                                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Disciplina</p>
+                                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Disciplina</p>
                                       <p className="text-xs font-semibold text-slate-700 mt-0.5">{e.disciplina || '—'}</p>
                                     </div>
                                     <div className="md:col-span-5">
-                                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tópico</p>
+                                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tópico</p>
                                       <p className="text-xs font-medium text-slate-600 mt-0.5">{e.topico || '—'}</p>
                                     </div>
                                     <div className="md:col-span-2 flex md:justify-end">
@@ -2343,14 +2343,14 @@ export default function GestaoIndividualAluno() {
                           { titulo: 'Por quê',         texto: sim.aar?.porque,    accent: 'border-l-purple-400', full: true },
                         ].filter(b => b.texto).map(b => (
                           <div key={b.titulo} className={`bg-white rounded-xl border border-slate-200 border-l-4 ${b.accent} p-4 ${b.full ? 'md:col-span-2' : ''}`}>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{b.titulo}</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">{b.titulo}</p>
                             <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{b.texto}</p>
                           </div>
                         ))}
                       </div>
                       {(sim.aar?.acoes || []).filter(a => a.texto).length > 0 && (
                         <div className="mt-4 bg-white rounded-xl border border-slate-200 border-l-4 border-l-emerald-400 p-4">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Plano de ação</p>
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">Plano de ação</p>
                           <div className="space-y-2">
                             {sim.aar.acoes.filter(a => a.texto).map((a, i) => (
                               <div key={i} className="flex justify-between items-center gap-3 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
@@ -2378,13 +2378,13 @@ export default function GestaoIndividualAluno() {
                           { titulo: 'Ação',          texto: sim.kolb?.acao,    accent: 'border-l-emerald-400' },
                         ].filter(b => b.texto).map(b => (
                           <div key={b.titulo} className={`bg-white rounded-xl border border-slate-200 border-l-4 ${b.accent} p-4`}>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{b.titulo}</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">{b.titulo}</p>
                             <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{b.texto}</p>
                           </div>
                         ))}
                         {sim.kolb?.redacao && (
                           <div className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-rose-400 p-4 md:col-span-2">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Análise da Redação</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Análise da Redação</p>
                             <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{sim.kolb.redacao}</p>
                           </div>
                         )}
@@ -2417,13 +2417,13 @@ export default function GestaoIndividualAluno() {
               </div>
             )}
             {!carregandoOnboarding && !erroOnboarding && !dadosOnboarding && (
-              <div className="text-center py-12 text-slate-400 text-sm">Nenhum dado de onboarding encontrado.</div>
+              <div className="text-center py-12 text-slate-500 text-sm">Nenhum dado de onboarding encontrado.</div>
             )}
             {!carregandoOnboarding && dadosOnboarding && (() => {
               const ob = dadosOnboarding;
               const campo = (label, valor) => valor ? (
                 <div key={label}>
-                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">{label}</p>
+                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-0.5">{label}</p>
                   <p className="text-sm font-medium text-intento-blue">{String(valor)}</p>
                 </div>
               ) : null;
@@ -2507,7 +2507,7 @@ export default function GestaoIndividualAluno() {
                         ['Redação', ob.Nota_Redacao],
                       ].map(([label, val]) => (
                         <div key={label} className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100">
-                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+                          <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">{label}</p>
                           <p className="text-2xl font-bold text-intento-blue">{val || '—'}</p>
                         </div>
                       ))}
@@ -2519,11 +2519,11 @@ export default function GestaoIndividualAluno() {
                     <div className="flex items-baseline justify-between mb-4 border-b pb-3">
                       <h2 className="text-base font-semibold text-intento-blue">Diagnóstico Teórico</h2>
                       {dadosDiagnostico?.data && (
-                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Realizado em {dadosDiagnostico.data}</p>
+                        <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Realizado em {dadosDiagnostico.data}</p>
                       )}
                     </div>
                     {!dadosDiagnostico ? (
-                      <p className="text-sm text-slate-400 font-medium py-4 text-center">O aluno ainda não realizou o diagnóstico.</p>
+                      <p className="text-sm text-slate-500 font-medium py-4 text-center">O aluno ainda não realizou o diagnóstico.</p>
                     ) : (() => {
                       const disc = [
                         { label: 'Biologia',   key: 'biologia',   color: '#10b981', tw: 'text-emerald-600' },
@@ -2540,9 +2540,9 @@ export default function GestaoIndividualAluno() {
                               const acertos = dadosDiagnostico[d.key] || 0;
                               return (
                                 <div key={d.key} className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100" style={{ borderTop: `3px solid ${d.color}` }}>
-                                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{d.label}</p>
-                                  <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{acertos}<span className="text-xs text-slate-400 font-medium">/45</span></p>
-                                  <p className="text-[10px] text-slate-400 mt-1">{pct(acertos)}%</p>
+                                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">{d.label}</p>
+                                  <p className={`text-2xl font-bold mt-1 ${d.tw}`}>{acertos}<span className="text-xs text-slate-500 font-medium">/45</span></p>
+                                  <p className="text-[10px] text-slate-500 mt-1">{pct(acertos)}%</p>
                                 </div>
                               );
                             })}
@@ -2558,7 +2558,7 @@ export default function GestaoIndividualAluno() {
                                       <span className="w-2 h-2 rounded-full" style={{ background: d.color }} />
                                       <span className="text-xs font-semibold text-slate-700">{d.label}</span>
                                     </div>
-                                    <span className="text-[11px] font-medium text-slate-400">{acertos}/45 <span className="text-slate-300">·</span> {p}%</span>
+                                    <span className="text-[11px] font-medium text-slate-500">{acertos}/45 <span className="text-slate-300">·</span> {p}%</span>
                                   </div>
                                   <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                                     <div className="h-full rounded-full transition-all duration-500" style={{ width: `${p}%`, background: d.color }} />
@@ -2569,7 +2569,7 @@ export default function GestaoIndividualAluno() {
                           </div>
                           <div className="mt-5 pt-4 border-t border-slate-100 flex items-baseline justify-between">
                             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</span>
-                            <span className="text-sm font-bold text-intento-blue">{total}<span className="text-xs text-slate-400 font-medium">/180 · {Math.round((total/180)*100)}%</span></span>
+                            <span className="text-sm font-bold text-intento-blue">{total}<span className="text-xs text-slate-500 font-medium">/180 · {Math.round((total/180)*100)}%</span></span>
                           </div>
                         </>
                       );
