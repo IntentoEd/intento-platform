@@ -2474,6 +2474,18 @@ function agregarMetricasBase_(alunos) {
   var totalSim4W = 0;
   var quatroSemanasAtras = new Date(new Date().getTime() - 28 * 24 * 60 * 60 * 1000);
 
+  // Ciclo FECHADO mais recente — espelho de marcoCicloPendente (lib/carimbos.js):
+  // trimestre anterior a hoje; pendente = aluno em escopo que viveu o ciclo
+  // (≥1 diário no trimestre) sem linha em BD_Marcos. Alimenta a fila de
+  // fechamentos pendentes por mentor no /lider.
+  var hojeMarco = new Date();
+  var qIdxMarco = hojeMarco.getMonth() <= 2 ? 0 : hojeMarco.getMonth() <= 5 ? 1 : hojeMarco.getMonth() <= 8 ? 2 : 3;
+  var fechIdx = qIdxMarco === 0 ? 3 : qIdxMarco - 1;
+  var fechAno = qIdxMarco === 0 ? hojeMarco.getFullYear() - 1 : hojeMarco.getFullYear();
+  var fechCicloId = ['C1', 'C2', 'C3', 'C4'][fechIdx];
+  var fechIni = new Date(fechAno, fechIdx * 3, 1);
+  var fechFim = new Date(fechAno, fechIdx * 3 + 3, 0, 23, 59, 59);
+
   // Domínio e progresso são gravados em formato misto (decimal 0–1 ou
   // percentual 0–100). Normaliza pra percentual antes de agregar.
   function normPct(valor) {
@@ -2515,6 +2527,8 @@ function agregarMetricasBase_(alunos) {
     var alunoRevAtrasadas = null; // snapshot Revisões Atrasadas do app (carry-forward no horizonte)
     var alunoSimResumo = null;    // resumo do carimbo Simulado (reset ANTES do try — erro não pode vazar o do aluno anterior)
     var alunoNivelAlvo = 85;
+    var alunoViveuFech = false;   // ≥1 diário no ciclo fechado (guarda de vivência do marco)
+    var alunoTemMarcoFech = false;
 
     try {
       var ss = SpreadsheetApp.openById(alunos[a].idAluno);
@@ -2660,7 +2674,10 @@ function agregarMetricasBase_(alunos) {
           var alvoM = Number(marcosAg[mi2].nivelAlvo);
           if (alvoM > 70 && alvoM <= 100) { alunoNivelAlvo = alvoM; break; }
         }
-      } catch (eMarcosAg) { /* sem BD_Marcos → padrão 85 */ }
+        alunoTemMarcoFech = marcosAg.some(function (mm) {
+          return Number(mm.ano) === fechAno && mm.ciclo === fechCicloId;
+        });
+      } catch (eMarcosAg) { /* sem BD_Marcos → padrão 85 / sem marco */ }
 
       // Encontros do mês corrente (BD_Diario)
       var abaDiario = ss.getSheetByName(ABA.ENCONTROS);
@@ -2683,6 +2700,7 @@ function agregarMetricasBase_(alunos) {
           if (dd && !isNaN(dd.getTime()) && dd.getMonth() === mesAtual && dd.getFullYear() === anoAtual) {
             contMes++;
           }
+          if (dd && !isNaN(dd.getTime()) && dd >= fechIni && dd <= fechFim) alunoViveuFech = true;
         }
         alunos[a].encontrosMesCorrente = contMes;
       }
@@ -2697,7 +2715,12 @@ function agregarMetricasBase_(alunos) {
       checkin4w: alunoCheckin4w,
       revisoesAtrasadas: alunoRevAtrasadas,
       simuladoResumo: alunoSimResumo,
-      nivelAlvoSimulado: alunoNivelAlvo
+      nivelAlvoSimulado: alunoNivelAlvo,
+      // Fechamento de Ciclo pendente (escopo ENEM+app, viveu o ciclo, sem marco)
+      marcoPendente: (((alunos[a].tipoAluno || 'ENEM') === 'ENEM')
+        && alunos[a].statusApp !== 'Não se adaptou' && alunos[a].statusApp !== 'Nunca vai usar'
+        && alunoViveuFech && !alunoTemMarcoFech)
+        ? { ciclo: fechCicloId, ano: fechAno } : null
     };
   }
 

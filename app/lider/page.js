@@ -533,6 +533,9 @@ export default function PainelLider() {
     return Object.values(g).map(grp => {
       grp.carga = grp.alunos.length;
       grp.emRisco = grp.alunos.filter(({ d }) => d.alerta); // listados dentro do card, abaixo das métricas
+      // Fechamentos de Ciclo pendentes (computados no GAS — agregarMetricasBase_):
+      // a cobrança do ritual do marco mora aqui, não na fila clínica.
+      grp.marcosPend = grp.alunos.filter(({ a }) => a.metricas && a.metricas.marcoPendente);
       grp.atrasados = grp.alunos.filter(({ d }) => d.cobMed != null && d.cobMed < ciclo.cobMin).length;
       grp.acompPct = grp.acompTot ? Math.round(grp.acompVerde / grp.acompTot * 100) : null;
       grp.encPct = grp.encEsp ? Math.round(grp.encFeitos / grp.encEsp * 100) : null;
@@ -1016,6 +1019,17 @@ export default function PainelLider() {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+                  {(m.marcosPend || []).length > 0 && (
+                    <div className="mb-4 rounded-lg border border-amber-100 overflow-hidden"
+                      title="O Fechamento de Ciclo aparece automaticamente no próximo Diário de Bordo de cada aluno — pendente = o encontro ainda não aconteceu ou o mentor adiou.">
+                      <p className="text-[9px] font-bold text-amber-700 uppercase tracking-wide bg-amber-50 px-3 py-1.5">
+                        🏁 Fechamento de Ciclo pendente · {m.marcosPend.length} aluno{m.marcosPend.length !== 1 ? 's' : ''} ({m.marcosPend[0].a.metricas.marcoPendente.ciclo})
+                      </p>
+                      <p className="px-3 py-2 text-[11px] font-medium text-slate-600 leading-relaxed">
+                        {m.marcosPend.map(({ a }) => a.nome).join(' · ')}
+                      </p>
                     </div>
                   )}
                   <DistribDim label="Perfis" dist={m.distrib} total={m.distTotal || 1} />
