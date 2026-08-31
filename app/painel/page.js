@@ -10,7 +10,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import { Bar, Line } from '@/components/Charts';
-import { getCache, setCache } from '@/lib/cacheClient';
+import { getCache, setCache, tempoRelativo } from '@/lib/cacheClient';
 import { SIMULADO_ANO_MIN, SIMULADO_TITULO_MIN, ENEM_AREA_MAX, isSimuladoDateValid, formatSimuladoDate, histSimulado, metricasSimulado, tituloSimuladoValido, simuladoDataMinISO, simuladoDataMaxISO, ENEM_ESCOPO_DEFAULT, areasDoEscopo, escopoDoSimulado, escopoTemRedacao } from '@/lib/simuladoData';
 import { agregarMensalPorMes } from '@/lib/semanaLabel';
 import PushToggle from '@/components/PushToggle';
@@ -185,14 +185,67 @@ export default function PainelDoAluno() {
 
   const [simuladosLista, setSimuladosLista] = useState([]);
 
+  // Exclusão de card do caderno passa pelo ConfirmDialog (antes apagava direto)
+  const [excluindoCard, setExcluindoCard] = useState(null);
+
+  // Dirty-guard dos modais: snapshot do form ao abrir + confirm antes de descartar
+  const [snapshotSimulado, setSnapshotSimulado] = useState(null);
+  const [snapshotCaderno, setSnapshotCaderno] = useState(null);
+  const [confirmDescartar, setConfirmDescartar] = useState(null); // 'simulado' | 'caderno'
+
+  // Frescor dos dados: timestamp do último carregamento (cache ou servidor)
+  const [dadosTs, setDadosTs] = useState(null);
+  const [atualizandoDados, setAtualizandoDados] = useState(false);
+
   const mostrarToast = (message, tipo = 'success') => {
     setToast({ show: true, message, tipo });
     setTimeout(() => setToast({ show: false, message: '', tipo: 'success' }), 3500);
   };
 
+  // Aplica a resposta do login na UI (vinda do servidor ou do cache).
+  // Extraída do boot pra ser reutilizada pelo recarregarDados().
+  const aplicarSessao = (resposta) => {
+    setSessao(resposta);
+    const d = new Date('2026-11-01T00:00:00');
+    const diff = Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
+    setDiasEnem(diff > 0 ? diff : 0);
+    if (resposta.dadosPainel?.sim?.lista) setSimuladosLista(resposta.dadosPainel.sim.lista);
+    else setSimuladosLista([]);
+    const savedChecks = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('Intento_')) savedChecks[key] = localStorage.getItem(key) === 'true';
+    }
+    setCheckboxes(savedChecks);
+  };
+
+  // Rebusca os dados do aluno (mesma ação `login` do boot) e atualiza o estado
+  // no lugar — substitui os window.location.reload() pós-save. O caderno também
+  // é recarregado de tabela: o setSessao dispara o effect que chama listarCaderno.
+  const recarregarDados = async () => {
+    const email = auth.currentUser?.email || sessionStorage.getItem('emailLogado') || sessao?.email;
+    if (!email) return false;
+    setAtualizandoDados(true);
+    try {
+      const res = await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'login', email }) });
+      const resposta = await res.json();
+      if (resposta.status === 200 && resposta.perfil !== 'PENDENTE') {
+        aplicarSessao(resposta);
+        setCache('login_' + email, resposta);
+        setDadosTs(Date.now());
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    } finally {
+      setAtualizandoDados(false);
+    }
+  };
+
   useEffect(() => {
     document.documentElement.classList.remove('dark');
-    
+
     const buscarTopicos = async () => {
       try {
         const res = await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'buscarTopicosGlobais' }) });
@@ -209,26 +262,11 @@ export default function PainelDoAluno() {
 
       const cacheKey = 'login_' + emailDefinitivo;
 
-      // Aplica resposta na UI (server ou cache)
-      const aplicar = (resposta) => {
-        setSessao(resposta);
-        const d = new Date('2026-11-01T00:00:00');
-        const diff = Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
-        setDiasEnem(diff > 0 ? diff : 0);
-        if (resposta.dadosPainel?.sim?.lista) setSimuladosLista(resposta.dadosPainel.sim.lista);
-        else setSimuladosLista([]);
-        const savedChecks = {};
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('Intento_')) savedChecks[key] = localStorage.getItem(key) === 'true';
-        }
-        setCheckboxes(savedChecks);
-      };
-
       // 1) Cache imediato se válido (aluno completo)
       const cached = getCache(cacheKey);
       if (cached && cached.data && cached.data.status === 200 && cached.data.perfil !== 'PENDENTE') {
-        aplicar(cached.data);
+        aplicarSessao(cached.data);
+        setDadosTs(cached.ts);
         setCarregando(false);
       }
 
@@ -240,8 +278,9 @@ export default function PainelDoAluno() {
         if (resposta.status === 200) {
           if (resposta.perfil === 'PENDENTE') { router.push('/hub'); }
           else {
-            aplicar(resposta);
+            aplicarSessao(resposta);
             setCache(cacheKey, resposta);
+            setDadosTs(Date.now());
           }
         } else if (!cached) { router.push('/'); }
       } catch (e) { if (!cached) router.push('/'); }
@@ -382,8 +421,10 @@ export default function PainelDoAluno() {
     setEditandoSimuladoId(null);
     setTipoModelo('ENEM');
     setEscopoSimulado(ENEM_ESCOPO_DEFAULT);
-    setFormRegistro({ data: '', especificacao: '', lg: '', ch: '', cn: '', mat: '', redacao: '' });
+    const form = { data: '', especificacao: '', lg: '', ch: '', cn: '', mat: '', redacao: '' };
+    setFormRegistro(form);
     setMateriasCustom([]);
+    setSnapshotSimulado(JSON.stringify({ form, materias: [] }));
     setErroDataSimulado(''); setErroTituloSimulado('');
     setModalRegistroAberto(true);
   };
@@ -394,7 +435,7 @@ export default function PainelDoAluno() {
     setEditandoSimuladoId(sim.id);
     setTipoModelo(isCustom ? 'Custom' : 'ENEM');
     setEscopoSimulado(isCustom ? ENEM_ESCOPO_DEFAULT : escopoDoSimulado(sim));
-    setFormRegistro({
+    const form = {
       data: sim.data || '',
       especificacao: sim.especificacao || '',
       lg: sim.lg != null ? String(sim.lg) : '',
@@ -402,13 +443,25 @@ export default function PainelDoAluno() {
       cn: sim.cn != null ? String(sim.cn) : '',
       mat: sim.mat != null ? String(sim.mat) : '',
       redacao: sim.redacao ? String(sim.redacao) : '',
-    });
-    setMateriasCustom(isCustom ? (sim.materias || []).map(m => ({ materia: m.materia, questoes: String(m.questoes ?? ''), acertos: String(m.acertos ?? '') })) : []);
+    };
+    const materias = isCustom ? (sim.materias || []).map(m => ({ materia: m.materia, questoes: String(m.questoes ?? ''), acertos: String(m.acertos ?? '') })) : [];
+    setFormRegistro(form);
+    setMateriasCustom(materias);
+    setSnapshotSimulado(JSON.stringify({ form, materias }));
     setErroDataSimulado(''); setErroTituloSimulado('');
     setModalRegistroAberto(true);
   };
 
+  // Fecha o modal de simulado. Se houver algo digitado e não salvo (diff contra
+  // o snapshot de abertura), pede confirmação antes de descartar.
   const fecharModalSimulado = () => {
+    const mudou = snapshotSimulado !== JSON.stringify({ form: formRegistro, materias: materiasCustom });
+    if (mudou) { setConfirmDescartar('simulado'); return; }
+    descartarModalSimulado();
+  };
+
+  const descartarModalSimulado = () => {
+    setConfirmDescartar(null);
     setModalRegistroAberto(false);
     setEditandoSimuladoId(null);
     setMateriasCustom([]);
@@ -431,9 +484,9 @@ export default function PainelDoAluno() {
       });
       const data = await res.json();
       if (data.status === 'sucesso') {
-        mostrarToast('Simulado excluído. A página será atualizada.', 'success');
-        sessionStorage.setItem('_painelAba', String(abaAtiva));
-        setTimeout(() => window.location.reload(), 1200);
+        setSimuladosLista(prev => prev.filter(s => s.id !== sim.id));
+        await recarregarDados();
+        mostrarToast('Simulado excluído.', 'success');
       } else {
         mostrarToast('Erro no servidor: ' + data.mensagem, 'error');
       }
@@ -522,14 +575,13 @@ export default function PainelDoAluno() {
 
       if (data.status === 'sucesso') {
         const msg = editando
-          ? (data.analiseResetada ? "Alterações salvas. A análise de erros foi reiniciada (os números mudaram)." : "Alterações salvas. A página será atualizada.")
-          : "Registro Salvo! A página será atualizada.";
-        mostrarToast(msg, "success");
+          ? (data.analiseResetada ? "Alterações salvas. A análise de erros foi reiniciada (os números mudaram)." : "Alterações salvas.")
+          : "Registro salvo!";
         setModalRegistroAberto(false);
         setEditandoSimuladoId(null);
         setMateriasCustom([]);
-        sessionStorage.setItem('_painelAba', String(abaAtiva));
-        setTimeout(() => window.location.reload(), 1500);
+        await recarregarDados();
+        mostrarToast(msg, "success");
       } else {
         mostrarToast("Erro no servidor: " + data.mensagem, "error");
       }
@@ -582,10 +634,9 @@ export default function PainelDoAluno() {
       });
       const data = await res.json();
       if (data.status === 'sucesso') {
-        mostrarToast("Análise gravada com sucesso!", "success");
         setSimuladoAnalise(null);
-        sessionStorage.setItem('_painelAba', String(abaAtiva));
-        setTimeout(() => window.location.reload(), 1500);
+        await recarregarDados();
+        mostrarToast("Análise gravada com sucesso!", "success");
       }
     } catch (e) {
       mostrarToast("Erro ao sincronizar análise.", "error");
@@ -617,10 +668,9 @@ export default function PainelDoAluno() {
           aar: formAutopsia.aar
         })
       });
-      mostrarToast("Progresso salvo!", "success");
       setSimuladoAnalise(null);
-      sessionStorage.setItem('_painelAba', String(abaAtiva));
-      setTimeout(() => window.location.reload(), 1000);
+      await recarregarDados();
+      mostrarToast("Progresso salvo!", "success");
     } catch (e) {
       mostrarToast("Erro ao salvar progresso.", "error");
     }
@@ -725,19 +775,37 @@ export default function PainelDoAluno() {
   // =========================================================================
   // MENU DE NAVEGAÇÃO LATERAL
   // =========================================================================
-  const MENU_ITENS = [
-    // Jornada no topo (pedido de 23/08/2026) — porta de entrada da experiência;
-    // gated até a chave geral (lib/selos.js)
-    ...(jornadaVisivel(sessao?.email, sessao?.tipoAluno, sessao?.statusApp) ? [{ id: 9, nome: 'Jornada', icone: 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z' }] : []),
-    { id: 1, nome: 'Visão Geral', icone: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-    { id: 2, nome: 'Acompanhamento Semanal', icone: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-    { id: 3, nome: 'Mentoria', icone: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
-    { id: 4, nome: 'Semana Padrão', icone: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
-    { id: 5, nome: 'Simulados', icone: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-    { id: 7, nome: 'Caderno de Erros', icone: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
-    ...(sessao?.tipoAluno === 'EM' ? [{ id: 8, nome: 'Boletim', icone: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' }] : []),
-    { id: 6, nome: 'Recursos', icone: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1' }
+  // Menu agrupado: "Sua semana" (rotina) e "Seus resultados" (dados), com
+  // Recursos solto no fim. Ids, condicionais (Jornada/Boletim) e a lógica das
+  // abas seguem intactos — só a apresentação ganhou cabeçalhos.
+  const MENU_GRUPOS = [
+    {
+      titulo: 'Sua semana',
+      itens: [
+        { id: 1, nome: 'Visão Geral', icone: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+        { id: 2, nome: 'Acompanhamento Semanal', icone: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+        { id: 3, nome: 'Mentoria', icone: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
+        { id: 4, nome: 'Semana Padrão', icone: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+      ],
+    },
+    {
+      titulo: 'Seus resultados',
+      itens: [
+        // Jornada gated até a chave geral (lib/selos.js)
+        ...(jornadaVisivel(sessao?.email, sessao?.tipoAluno, sessao?.statusApp) ? [{ id: 9, nome: 'Jornada', icone: 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z' }] : []),
+        { id: 5, nome: 'Simulados', icone: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+        { id: 7, nome: 'Caderno de Erros', icone: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
+        ...(sessao?.tipoAluno === 'EM' ? [{ id: 8, nome: 'Boletim', icone: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' }] : []),
+      ],
+    },
+    {
+      titulo: null,
+      itens: [
+        { id: 6, nome: 'Recursos', icone: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1' },
+      ],
+    },
   ];
+  const MENU_ITENS = MENU_GRUPOS.flatMap(g => g.itens);
 
   // ── Caderno de Erros ─────────────────────────────────────────────────────────
   const disciplinasCaderno = ['Biologia', 'Química', 'Física', 'Matemática', 'Linguagens', 'Humanas', 'Redação'];
@@ -773,6 +841,26 @@ export default function PainelDoAluno() {
     hoje:     { borda: 'border-l-4 border-l-amber-400',   badge: 'bg-amber-50 text-amber-700 border-amber-200',     icon: '●' },
     novo:     { borda: 'border-l-4 border-l-amber-400',   badge: 'bg-amber-50 text-amber-700 border-amber-200',     icon: '★' },
     'em-dia': { borda: 'border-l-4 border-l-emerald-300', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: '✓' },
+  };
+
+  // Abre o modal do caderno com form zerado (disciplina pré-selecionada quando
+  // vier do filtro da aba) e guarda o snapshot pro dirty-guard.
+  const abrirModalCaderno = (disciplina = '') => {
+    const form = { disciplina, topico: '', data: new Date().toISOString().split('T')[0], fonte: '', classificacao: '', pergunta: '', resposta: '' };
+    setFormCaderno(form);
+    setSnapshotCaderno(JSON.stringify(form));
+    setModalCadernoAberto(true);
+  };
+
+  // Fecha o modal do caderno; com campos preenchidos, pede confirmação.
+  const fecharModalCaderno = () => {
+    if (snapshotCaderno !== JSON.stringify(formCaderno)) { setConfirmDescartar('caderno'); return; }
+    descartarModalCaderno();
+  };
+
+  const descartarModalCaderno = () => {
+    setConfirmDescartar(null);
+    setModalCadernoAberto(false);
   };
 
   const salvarCardCaderno = async () => {
@@ -828,14 +916,23 @@ export default function PainelDoAluno() {
     }
   };
 
-  const deletarCardCaderno = async (id) => {
+  // Exclui o card confirmado no ConfirmDialog. Remoção otimista, mas com
+  // await + catch: se a rede falhar, o card volta pra lista e o aluno vê um
+  // toast — antes a falha era engolida e a UI mentia que tinha apagado.
+  const confirmarExclusaoCard = async () => {
+    const card = excluindoCard;
+    if (!card) return;
+    setExcluindoCard(null);
     const idPlanilha = getSpreadsheetId();
-    setCaderno(prev => prev.filter(c => c.id !== id));
-    if (idPlanilha) apiFetch('/api/mentor', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'deletarCardCaderno', idPlanilha, id }),
-    });
+    setCaderno(prev => prev.filter(c => c.id !== card.id));
+    if (!idPlanilha) return;
+    try {
+      await callMentor('deletarCardCaderno', { idPlanilha, id: card.id });
+      mostrarToast('Anotação apagada.');
+    } catch (e) {
+      setCaderno(prev => [card, ...prev]);
+      mostrarToast('Não deu pra apagar agora — a anotação foi mantida. Tente de novo.', 'error');
+    }
   };
 
   const togglePlanoCheck = (i) => {
@@ -921,23 +1018,33 @@ export default function PainelDoAluno() {
           </div>
         )}
 
-        {/* Nav */}
-        <nav className={`flex-1 overflow-y-auto custom-scrollbar py-3 ${sidebarColapsada ? 'px-2 space-y-1' : 'px-4 space-y-1'}`}>
-          {MENU_ITENS.map(item => (
-            <button
-              key={item.id}
-              onClick={() => { setAbaAtiva(item.id); setSimuladoAnalise(null); setMenuMobileAberto(false); }}
-              title={sidebarColapsada ? item.nome : undefined}
-              className={`w-full flex items-center rounded-lg font-medium text-sm transition-all text-left leading-tight ${sidebarColapsada ? 'justify-center p-2.5' : 'gap-3 px-4 py-2.5'} ${abaAtiva === item.id && !simuladoAnalise ? 'bg-intento-blue text-white' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
-            >
-              <svg className="w-4 h-4 shrink-0" style={{ opacity: abaAtiva === item.id && !simuladoAnalise ? 1 : 0.6 }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icone}></path></svg>
-              {!sidebarColapsada && <span className="flex-1">{item.nome}</span>}
-              {item.id === 7 && (() => {
-                const hoje = new Date().toISOString().split('T')[0];
-                const due = caderno.filter(c => !c.proxima_revisao || c.proxima_revisao <= hoje).length;
-                return due > 0 ? <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center ${abaAtiva === item.id && !simuladoAnalise ? 'bg-white text-intento-blue' : 'bg-red-500 text-white'}`}>{due}</span> : null;
-              })()}
-            </button>
+        {/* Nav — grupos com cabeçalho (ocultos quando a sidebar está colapsada) */}
+        <nav className={`flex-1 overflow-y-auto custom-scrollbar py-3 ${sidebarColapsada ? 'px-2' : 'px-4'}`}>
+          {MENU_GRUPOS.map((grupo, gi) => (
+            <div key={grupo.titulo || 'solto'} className={gi > 0 ? 'mt-4' : ''}>
+              {grupo.titulo && !sidebarColapsada && (
+                <p className="px-4 pb-1.5 text-[11px] uppercase text-slate-400 font-semibold tracking-wider">{grupo.titulo}</p>
+              )}
+              {sidebarColapsada && gi > 0 && <div className="border-t border-slate-100 mb-2 mx-1" />}
+              <div className="space-y-1">
+                {grupo.itens.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => { setAbaAtiva(item.id); setSimuladoAnalise(null); setMenuMobileAberto(false); }}
+                    title={sidebarColapsada ? item.nome : undefined}
+                    className={`w-full flex items-center rounded-lg font-medium text-sm transition-all text-left leading-tight ${sidebarColapsada ? 'justify-center p-2.5' : 'gap-3 px-4 py-2.5'} ${abaAtiva === item.id && !simuladoAnalise ? 'bg-intento-blue text-white' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
+                  >
+                    <svg className="w-4 h-4 shrink-0" style={{ opacity: abaAtiva === item.id && !simuladoAnalise ? 1 : 0.6 }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icone}></path></svg>
+                    {!sidebarColapsada && <span className="flex-1">{item.nome}</span>}
+                    {item.id === 7 && (() => {
+                      const hoje = new Date().toISOString().split('T')[0];
+                      const due = caderno.filter(c => !c.proxima_revisao || c.proxima_revisao <= hoje).length;
+                      return due > 0 ? <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center ${abaAtiva === item.id && !simuladoAnalise ? 'bg-white text-intento-blue' : 'bg-red-500 text-white'}`}>{due}</span> : null;
+                    })()}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
@@ -982,10 +1089,26 @@ export default function PainelDoAluno() {
         </div>
 
         <div className="p-4 md:p-8 max-w-6xl mx-auto w-full space-y-8 flex-1">
-          
-          {/* TÍTULO DA ABA ATIVA — oculto nas abas com header próprio */}
-          {!simuladoAnalise && abaAtiva !== 5 && abaAtiva !== 7 && (
-            <div className="mb-4 animate-in fade-in">
+
+          {/* FRESCOR DOS DADOS — "Atualizado há X" + refresh manual sem reload */}
+          {dadosTs && (
+            <div className="flex items-center justify-end gap-0.5 text-xs text-slate-400 -mb-6">
+              <span>Atualizado {tempoRelativo(dadosTs)}</span>
+              <button
+                onClick={async () => { const ok = await recarregarDados(); if (!ok) mostrarToast('Não deu pra atualizar agora. Tente de novo.', 'error'); }}
+                disabled={atualizandoDados}
+                aria-label="Atualizar dados"
+                title="Atualizar dados"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-intento-blue hover:bg-slate-100 transition-colors disabled:opacity-60"
+              >
+                <svg className={`w-4 h-4 ${atualizandoDados ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              </button>
+            </div>
+          )}
+
+          {/* TÍTULO DA ABA ATIVA — oculto nas abas com header próprio (5, 7 e 9/Jornada) */}
+          {!simuladoAnalise && abaAtiva !== 5 && abaAtiva !== 7 && abaAtiva !== 9 && (
+            <div className="mb-4">
               <h1 className="text-2xl font-semibold text-intento-blue">{MENU_ITENS.find(m => m.id === abaAtiva)?.nome}</h1>
             </div>
           )}
@@ -1301,7 +1424,7 @@ export default function PainelDoAluno() {
                                   <span className={`flex-1 text-sm font-medium transition-colors ${t.concluida ? 'line-through text-slate-300' : 'text-slate-700'}`}>
                                     {t.texto}
                                   </span>
-                                  <button onClick={() => removerTarefa(t.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all text-xs">✕</button>
+                                  <button onClick={() => removerTarefa(t.id)} aria-label="Remover tarefa" className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all text-xs p-2 -m-2">✕</button>
                                 </li>
                               ))}
                             </ul>
@@ -1314,10 +1437,12 @@ export default function PainelDoAluno() {
                             <div className="bg-intento-yellow rounded-xl p-5 text-center shadow-sm flex flex-col items-center justify-center">
                               <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Progresso Geral</p>
                               <p className="text-5xl font-bold text-white leading-none">{progressoGeral}<span className="text-2xl font-medium text-white/60">%</span></p>
+                              <p className="text-xs text-white/60 leading-snug mt-2">quanto do conteúdo planejado você já percorreu</p>
                             </div>
                             <div className="bg-intento-blue rounded-xl p-5 text-center shadow-sm flex flex-col items-center justify-center">
                               <p className="text-xs font-medium text-white/50 uppercase tracking-wider mb-1">Domínio Geral</p>
                               <p className="text-5xl font-bold text-white leading-none">{dominioGeral}<span className="text-2xl font-medium text-white/40">%</span></p>
+                              <p className="text-xs text-white/60 leading-snug mt-2">quanto você acerta do que já estudou</p>
                             </div>
                           </div>
                           <div className="bg-white rounded-xl border border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm">
@@ -1346,6 +1471,22 @@ export default function PainelDoAluno() {
                       </div>
                     );
                   })()}
+
+                  {/* AÇÃO PRIMÁRIA — atalhos de escrita direto da Visão Geral.
+                      Os modais são renderizados no nível da página, então
+                      funcionam de qualquer aba. */}
+                  <div className={`${cardClass} py-5`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div>
+                        <h2 className="text-base font-semibold text-intento-blue">O que fazer agora</h2>
+                        <p className="text-xs text-slate-400 mt-0.5">Registre por aqui mesmo, sem trocar de aba.</p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                        <button onClick={abrirNovoSimulado} className={`${btnPrimary} px-4 py-2.5`}>+ Registrar simulado</button>
+                        <button onClick={() => abrirModalCaderno()} className={`${btnGhost} px-4 py-2.5`}>+ Anotar erro no caderno</button>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* PROGRESSIVE DISCLOSURE — Análise Completa */}
                   <div>
@@ -1393,7 +1534,7 @@ export default function PainelDoAluno() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Execução (Horas vs Meta)</h3><div className="h-64"><Bar data={{ labels: mensalMes.labels, datasets: [{ type: 'line', label: 'Meta', data: mensalMes.meta, borderColor: '#64748b', tension: 0.1 }, { type: 'bar', label: 'Horas', data: mensalMes.horas, backgroundColor: '#D4B726', borderRadius: 4 }] }} options={opcoesMes} /></div></div>
                           <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Domínio e Progresso</h3><div className="h-64"><Bar data={{ labels: mensalMes.labels, datasets: [{ type: 'line', label: 'Domínio', data: mensalMes.domTot, borderColor: '#3b82f6', tension: 0.3 }, { type: 'bar', label: 'Progresso', data: mensalMes.progTot, backgroundColor: 'rgba(100, 116, 139, 0.2)', borderRadius: 4 }] }} options={opcoesMes} /></div></div>
-                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-4">Estilo de Vida</h3><div className="h-64"><Line data={{ labels: mensalMes.labels, datasets: [{ label: 'Estresse', data: mensalMes.estresse, borderColor: '#ef4444' }, { label: 'Ansiedade', data: mensalMes.ansiedade, borderColor: '#f97316' }, { label: 'Sono', data: mensalMes.sono, borderColor: '#8b5cf6' }] }} options={{...opcoesMes, scales: { ...opcoesMes.scales, y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } } }}} /></div></div>
+                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Estilo de Vida</h3><p className="text-[10px] text-slate-400 mb-3">Seu check-in é feito no Aplicativo Intento — os dados aparecem pro seu mentor.</p><div className="h-64"><Line data={{ labels: mensalMes.labels, datasets: [{ label: 'Estresse', data: mensalMes.estresse, borderColor: '#ef4444' }, { label: 'Ansiedade', data: mensalMes.ansiedade, borderColor: '#f97316' }, { label: 'Sono', data: mensalMes.sono, borderColor: '#8b5cf6' }] }} options={{...opcoesMes, scales: { ...opcoesMes.scales, y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } } }}} /></div></div>
                         </div>
                       </div>
                     )}
@@ -1529,7 +1670,11 @@ export default function PainelDoAluno() {
                     <>
                       {semanal.isFirstWeek && <div className="bg-blue-50 text-blue-700 p-4 rounded-xl font-medium text-sm border border-blue-100">Esta é a sua primeira semana. Comparativos aparecerão na próxima!</div>}
                       <div><h2 className="text-base font-semibold text-slate-700 mb-5">Aspectos Gerais</h2><div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10"><RenderMiniCards dataArray={semanal.geral} isFirstWeek={semanal.isFirstWeek} fullBorder={false} /></div></div>
-                      <div><h2 className="text-base font-semibold text-slate-700 mb-5">Estilo de Vida</h2><div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10"><RenderMiniCards dataArray={semanal.estilo} isFirstWeek={semanal.isFirstWeek} fullBorder={false} /></div></div>
+                      <div>
+                        <h2 className="text-base font-semibold text-slate-700 mb-1">Estilo de Vida</h2>
+                        <p className="text-xs text-slate-400 mb-5">Seu check-in é feito no <button onClick={() => setAbaAtiva(6)} className="font-semibold text-intento-blue hover:underline">Aplicativo Intento</button> — os dados aparecem pro seu mentor.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10"><RenderMiniCards dataArray={semanal.estilo} isFirstWeek={semanal.isFirstWeek} fullBorder={false} /></div>
+                      </div>
                       <div><h2 className="text-base font-semibold text-slate-700 mb-5">Desempenho</h2><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(0, 2)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(2, 4)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(4, 6)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(6, 8)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div></div></div>
                     </>
                   )}
@@ -2118,7 +2263,7 @@ export default function PainelDoAluno() {
                           <button key={d} onClick={() => setFiltroCaderno(d)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filtroCaderno === d ? 'bg-intento-blue text-white' : 'bg-white border border-slate-200 text-slate-500 hover:border-intento-blue'}`}>{d}</button>
                         ))}
                       </div>
-                      <button onClick={() => { setModalCadernoAberto(true); if (filtroCaderno !== 'Todas') setFormCaderno(f => ({ ...f, disciplina: filtroCaderno })); }} className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm shadow-sm transition-all shrink-0">+ Anotar erro</button>
+                      <button onClick={() => abrirModalCaderno(filtroCaderno !== 'Todas' ? filtroCaderno : '')} className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm shadow-sm transition-all shrink-0">+ Anotar erro</button>
                     </div>
                   </div>
 
@@ -2149,7 +2294,7 @@ export default function PainelDoAluno() {
                           : 'Nenhuma entrada neste status.'}
                       </p>
                       {cardsDaDisciplina.length === 0 && (
-                        <button onClick={() => setModalCadernoAberto(true)} className="mt-4 text-sm text-intento-blue font-semibold underline underline-offset-2 hover:text-intento-yellow transition">Anotar primeiro erro →</button>
+                        <button onClick={() => abrirModalCaderno()} className="mt-4 text-sm text-intento-blue font-semibold underline underline-offset-2 hover:text-intento-yellow transition">Anotar primeiro erro →</button>
                       )}
                     </div>
                   ) : (
@@ -2212,7 +2357,7 @@ export default function PainelDoAluno() {
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                                 Nível {card.estagio ?? 0}{card.proxima_revisao ? ` · ${card.proxima_revisao}` : ''}
                               </span>
-                              <button onClick={() => deletarCardCaderno(card.id)} className="text-slate-300 hover:text-red-400 transition-colors" aria-label="Apagar entrada">
+                              <button onClick={() => setExcluindoCard(card)} className="p-2 -m-2 text-slate-300 hover:text-red-400 transition-colors" aria-label="Apagar entrada">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                               </button>
                             </div>
@@ -2347,13 +2492,36 @@ export default function PainelDoAluno() {
         onCancelar={() => setExcluindoSimulado(null)}
       />
 
+      <ConfirmDialog
+        aberto={!!excluindoCard}
+        titulo="Apagar esta anotação?"
+        descricao={excluindoCard
+          ? `A anotação${excluindoCard.disciplina ? ` de ${excluindoCard.disciplina}` : ''} sai do seu caderno de erros e não dá pra desfazer.`
+          : ''}
+        textoConfirmar="Apagar"
+        tom="danger"
+        onConfirmar={confirmarExclusaoCard}
+        onCancelar={() => setExcluindoCard(null)}
+      />
+
+      <ConfirmDialog
+        aberto={!!confirmDescartar}
+        titulo="Descartar o que você preencheu?"
+        descricao="Tem informações não salvas neste formulário. Se fechar agora, você perde o que digitou."
+        textoConfirmar="Descartar"
+        textoCancelar="Continuar editando"
+        tom="danger"
+        onConfirmar={() => (confirmDescartar === 'simulado' ? descartarModalSimulado() : descartarModalCaderno())}
+        onCancelar={() => setConfirmDescartar(null)}
+      />
+
       {/* MODAL CADERNO DE ERROS */}
       {modalCadernoAberto && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/60 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white w-full max-w-lg rounded-xl shadow-lg flex flex-col overflow-hidden max-h-full">
             <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center shrink-0">
               <h2 className="text-base font-semibold text-intento-blue">Anotar erro — Caderno de Erros</h2>
-              <button onClick={() => setModalCadernoAberto(false)} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+              <button onClick={fecharModalCaderno} aria-label="Fechar modal" className="text-slate-300 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
             <div className="p-7 space-y-4 min-h-0 overflow-y-auto overscroll-contain">
               <div className="grid grid-cols-2 gap-4">
@@ -2400,7 +2568,7 @@ export default function PainelDoAluno() {
               </div>
             </div>
             <div className="px-7 py-5 border-t border-slate-100 flex justify-end gap-3 shrink-0">
-              <button onClick={() => setModalCadernoAberto(false)} className={btnGhost}>Cancelar</button>
+              <button onClick={fecharModalCaderno} className={btnGhost}>Cancelar</button>
               <button onClick={salvarCardCaderno} disabled={salvandoCaderno} className={btnPrimary + ' disabled:opacity-60'}>{salvandoCaderno ? 'Salvando...' : 'Anotar erro'}</button>
             </div>
           </div>
