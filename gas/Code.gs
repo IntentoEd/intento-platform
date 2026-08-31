@@ -267,6 +267,13 @@ const COL_BD_ONB = {
 // pra false — mas NUNCA faça deploy em produção com false.
 const VALIDAR_TOKEN = false;
 
+// Dry-run: NÃO bloqueia nada — só loga (visível em Executions) quando um request
+// NÃO carregaria o token certo. Serve pra validar, SEM risco de outage, que 100%
+// do tráfego real bate com a Script Property API_TOKEN antes de ligar o
+// VALIDAR_TOKEN de verdade. Zero linhas "[VALIDAR_TOKEN]" no log por um período
+// representativo = seguro pra ligar o enforcement.
+const VALIDAR_TOKEN_DRYRUN = true;
+
 
 // =====================================================================
 // HELPERS
@@ -343,14 +350,21 @@ function doPost(e) {
   try {
     const dados = JSON.parse(e.postData.contents);
 
-    if (VALIDAR_TOKEN) {
+    if (VALIDAR_TOKEN || VALIDAR_TOKEN_DRYRUN) {
       const tokenEsperado = PropertiesService.getScriptProperties().getProperty("API_TOKEN");
-      if (!tokenEsperado) {
-        Logger.log("ERRO DE CONFIG: API_TOKEN não está em Script Properties. Setar via Project Settings > Script Properties.");
-        return responderJSON({ status: "erro", mensagem: "Servidor mal configurado." }, 500);
+      const okToken = !!tokenEsperado && dados.token === tokenEsperado;
+      if (!okToken) {
+        // Dry-run loga o que ACONTECERIA; só o enforcement (VALIDAR_TOKEN) bloqueia.
+        Logger.log('[VALIDAR_TOKEN] ' + (VALIDAR_TOKEN ? 'BLOQUEARIA' : 'dry-run (passaria)') +
+                   ' acao=' + (dados.acao || dados.tipo || '?') +
+                   ' tokenPresente=' + (!!dados.token) +
+                   ' propConfigurada=' + (!!tokenEsperado));
+        if (VALIDAR_TOKEN) {
+          if (!tokenEsperado)
+            return responderJSON({ status: "erro", mensagem: "Servidor mal configurado." }, 500);
+          return responderJSON({ status: "erro", mensagem: "Não autorizado." }, 401);
+        }
       }
-      if (dados.token !== tokenEsperado)
-        return responderJSON({ status: "erro", mensagem: "Não autorizado." }, 401);
     }
 
     const acao = dados.acao || dados.tipo || "onboarding";
