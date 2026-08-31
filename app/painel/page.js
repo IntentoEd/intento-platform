@@ -1051,7 +1051,7 @@ export default function PainelDoAluno() {
         {/* Logout + Toggle */}
         <div className={`border-t border-slate-100 ${sidebarColapsada ? 'p-2 flex flex-col items-center gap-2' : 'p-4 space-y-2'}`}>
           {!sidebarColapsada && sessao?.email && (
-            <div className="px-1 pb-1"><PushToggle email={sessao.email} /></div>
+            <div className="px-1 pb-1 flex justify-center"><PushToggle email={sessao.email} /></div>
           )}
           <button
             onClick={() => { sessionStorage.removeItem('emailLogado'); auth.signOut(); router.push('/'); }}
