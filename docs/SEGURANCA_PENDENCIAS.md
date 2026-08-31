@@ -53,14 +53,17 @@ Workspace (sempre verificado), então é invisível pra eles; o ataque de regist
 GAS. (Firebase: "proteção contra enumeração de e-mails" está ligada — não fecha
 essa falha, só esconde quais emails existem.)
 
-### RESÍDUO em aberto (avaliar)
+### RESÍDUO — N/A (invariante: todo staff no domínio)
 
-- **Mentor/vendedor cadastrado em BD_Mentores/BD_Vendedores com email PESSOAL**
-  (não-domínio): não é pego pelo `ehStaffPrivilegiado` (o gateway não lê BD_*).
-  Fechar exige checagem no GAS (passar `emailVerificado` do gateway e negar
-  callers que resolvem a mentor/vendedor sem verificação) — deploy casado.
-  Risco é estreito: enumeration protection ligada + o atacante teria que saber
-  que aquele email pessoal específico é staff. **TODO se existir staff assim.**
+Confirmado em 31/08/2026 (Filippe) que **não há mentor/vendedor ativo com email
+fora de `@metodointento.com.br`**. Logo `ehStaffPrivilegiado` (domínio) cobre 100%
+do staff e a opção (c) está completa — sem necessidade de layer no GAS.
+
+**Invariante a manter:** se um dia entrar mentor/vendedor com email PESSOAL
+(não-domínio) em BD_Mentores/BD_Vendedores, ele NÃO é coberto pelo gateway (que
+não lê BD_*). Aí sim reabre o resíduo: fechar exige checagem no GAS (passar
+`emailVerificado` do gateway e negar caller que resolve a mentor/vendedor sem
+verificação) — deploy casado.
 
 ### Opção (a) — adiada (defesa em profundidade pro aluno)
 
