@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LinhaDoAno, CarimboBadge, BarraCarimbo } from '@/components/Carimbos';
 import { CARIMBO_LABEL } from '@/lib/carimboCores';
-import { diagnosticoDimensional, registrosParaMetricas, cicloIdx, CICLOS_INFO, DIM_LABEL, marcoCicloPendente, resumoSimulados, nivelAlvoDosMarcos, SIMULADO_ATIVO_A_PARTIR } from '@/lib/carimbos';
+import { diagnosticoDimensional, registrosParaMetricas, cicloIdx, CICLOS_INFO, DIM_LABEL, marcoCicloPendente, resumoSimulados, nivelAlvoDosMarcos } from '@/lib/carimbos';
 import { computarSelos } from '@/lib/selos';
 
 // Selo postal: círculo navy com anel serrilhado; tier em romano no centro.
@@ -124,7 +124,7 @@ export default function Jornada({ sessao, caderno }) {
       key: 'simulado',
       texto: diag.simulado
         ? `${Math.round(diag.simMed)}% de aproveitamento`
-        : new Date() < SIMULADO_ATIVO_A_PARTIR ? 'chega em outubro' : 'sem simulado recente',
+        : 'sem simulado recente — que tal um Ensaio Geral?',
     },
   ];
 

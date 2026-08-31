@@ -1263,7 +1263,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
                   {proposto
                     ? <>proposta dos dados: {CARIMBO_LABEL[proposto]}{ajustado ? ' · ajustado por você' : ''}</>
                     : dim === 'simulado'
-                      ? 'sem simulado recente (ou dimensão inativa) — marque só se tiver leitura'
+                      ? 'sem simulado concluído nas últimas 10 semanas — marque só se tiver leitura'
                       : 'sem dado suficiente pra proposta'}
                 </p>
               </div>
