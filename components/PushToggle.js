@@ -107,15 +107,17 @@ export default function PushToggle({ email }) {
 
   if (estado === 'checking' || estado === 'unsupported') return null;
 
+  // Status ≠ ação: só "Ativar notificações" (ação pendente) tem cara de botão.
+  // "Ativas" e "bloqueadas" são estados — texto discreto no padrão dos links
+  // quietos ("Sair"), sem pill/borda, mas ainda clicável pra desativar.
   if (estado === 'denied') {
     return (
-      <button
-        disabled
+      <span
         title="Permissão bloqueada — habilite nas configurações do navegador"
-        className="text-[11px] font-semibold text-slate-300 px-3 py-1.5 rounded-lg border border-slate-200 cursor-not-allowed"
+        className="text-[11px] font-semibold text-slate-300 px-1 py-1.5 cursor-not-allowed select-none"
       >
         🔕 Notificações bloqueadas
-      </button>
+      </span>
     );
   }
 
@@ -124,10 +126,11 @@ export default function PushToggle({ email }) {
       <button
         onClick={estado === 'active' ? desativar : ativar}
         disabled={estado === 'working'}
-        className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg transition disabled:opacity-50 ${
+        title={estado === 'active' ? 'Clique pra desativar as notificações' : undefined}
+        className={`text-[11px] font-semibold transition disabled:opacity-50 ${
           estado === 'active'
-            ? 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
-            : 'text-intento-blue bg-white border border-intento-blue/30 hover:bg-intento-blue/5'
+            ? 'text-slate-400 hover:text-slate-600 px-1 py-1.5'
+            : 'text-intento-blue bg-white border border-intento-blue/30 hover:bg-intento-blue/5 px-3 py-1.5 rounded-lg'
         }`}
       >
         {estado === 'working' ? '...'
