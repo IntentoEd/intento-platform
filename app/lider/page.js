@@ -735,7 +735,7 @@ export default function PainelLider() {
               <div className="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-3 min-w-[260px] z-10 max-h-[300px] overflow-y-auto">
                 {listaMentoresUnicos.map(m => (
                   <label key={m.email} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-slate-50 px-2 rounded">
-                    <input type="checkbox" checked={mentoresSelecionados.includes(m.email)} onChange={(e) => { if (e.target.checked) setMentoresSelecionados(prev => [...prev, m.email]); else setMentoresSelecionados(prev => prev.filter(x => x !== m.email)); }} className="w-3.5 h-3.5" />
+                    <input type="checkbox" checked={mentoresSelecionados.includes(m.email)} onChange={(e) => { if (e.target.checked) setMentoresSelecionados(prev => [...prev, m.email]); else setMentoresSelecionados(prev => prev.filter(x => x !== m.email)); }} className="w-4 h-4" />
                     <span className="text-xs font-medium text-slate-700 flex-1 truncate">{m.nome}</span>
                     <span className="text-[10px] text-slate-400 font-medium">{m.count}</span>
                   </label>
@@ -940,10 +940,11 @@ export default function PainelLider() {
                       <button onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')} className="hover:text-intento-blue transition">
                         {a.nome} <span className="text-slate-400 font-normal">· {a.mentorNome || a.mentor}</span>
                       </button>
-                      {ehGestor && <>
-                        <button onClick={() => abrirDesignacao(a)} title="Trocar de mentor" className="text-slate-400 hover:text-intento-blue transition px-0.5">⇄</button>
-                        <button onClick={() => abrirSaida(a)} title="Registrar saída da mentoria" className="text-slate-400 hover:text-red-600 transition px-0.5">×</button>
-                      </>}
+                      {/* Ações destrutivas adjacentes: p-1.5 dá hit area ≥24px, gap-2 separa os alvos; -my-1.5 devolve a altura compacta do chip. */}
+                      {ehGestor && <span className="inline-flex items-center gap-2">
+                        <button onClick={() => abrirDesignacao(a)} title="Trocar de mentor" className="p-1.5 -my-1.5 text-slate-400 hover:text-intento-blue transition">⇄</button>
+                        <button onClick={() => abrirSaida(a)} title="Registrar saída da mentoria" className="p-1.5 -my-1.5 text-slate-400 hover:text-red-600 transition">×</button>
+                      </span>}
                     </span>
                   ))}
                 </div>

@@ -93,6 +93,10 @@ function useCientesAlerta(email) {
 
 function useAlertaMentor(ehDemo) {
   const [itens, setItens] = useState([]);
+  // Fechamento de Ciclo pendente por aluno (idAluno → {ciclo, ano}), extraído do
+  // MESMO payload do dashboardMentor (metricas.marcoPendente, calculado no GAS
+  // em agregarMetricasBase_) — nenhuma chamada extra. Alimenta o chip do card.
+  const [marcosPendentes, setMarcosPendentes] = useState({});
   useEffect(() => {
     if (ehDemo) return;
     let vivo = true;
@@ -108,12 +112,14 @@ function useAlertaMentor(ehDemo) {
           .filter(it => it.motivos.length > 0)
           .sort((x, y) => (y.motivos.some(m => m.tipo === 'clinico') - x.motivos.some(m => m.tipo === 'clinico'))
             || (x.a.nome || '').localeCompare(y.a.nome || ''));
-        if (vivo) setItens(lista);
+        const pend = {};
+        (d.alunos || []).forEach(a => { if (a?.metricas?.marcoPendente) pend[String(a.idAluno)] = a.metricas.marcoPendente; });
+        if (vivo) { setItens(lista); setMarcosPendentes(pend); }
       } catch { /* rede/GAS indisponível → faixa fica oculta */ }
     })();
     return () => { vivo = false; };
   }, [ehDemo]);
-  return itens;
+  return { itens, marcosPendentes };
 }
 
 const chaveAlunoAlerta = (a) => a.idAluno || a.nome;
@@ -218,7 +224,7 @@ export default function PainelGlobalMentor() {
   const perfilHref = (aluno) => ehDemo ? '/mentor/demo' : `/mentor/${aluno.id}?nome=${encodeURIComponent(aluno.nome || '')}`;
   const irParaPerfil = (aluno) => router.push(perfilHref(aluno));
 
-  const alertaItens = useAlertaMentor(ehDemo);
+  const { itens: alertaItens, marcosPendentes } = useAlertaMentor(ehDemo);
   const { cientes, marcarCiente, desfazerCientes } = useCientesAlerta(emailMentor);
 
   if (carregando) return <LoadingScreen mensagem="Sincronizando Painel..." />;
@@ -310,7 +316,7 @@ export default function PainelGlobalMentor() {
                   role="button"
                   tabIndex={0}
                   onClick={() => irParaPerfil(aluno)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') irParaPerfil(aluno); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); irParaPerfil(aluno); } }}
                   onMouseEnter={() => { if (!ehDemo) prefetchAluno(aluno.id); }}
                   className={`bg-white rounded-xl border-2 p-5 shadow-sm cursor-pointer transition-all flex flex-col gap-3 group
                     ${jaEnviou ? 'border-emerald-200 hover:border-emerald-300' : 'border-slate-200 hover:border-intento-blue/30'}`}
@@ -366,6 +372,13 @@ export default function PainelGlobalMentor() {
                     <p className={`text-[11px] font-semibold flex items-center gap-1.5 ${aluno.proximaProva.dias <= 3 ? 'text-red-600' : aluno.proximaProva.dias <= 7 ? 'text-amber-700' : 'text-slate-500'}`}>
                       <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       Prova: {aluno.proximaProva.materia} · {aluno.proximaProva.dias === 0 ? 'hoje' : aluno.proximaProva.dias === 1 ? 'amanhã' : `em ${aluno.proximaProva.dias} dias`}
+                    </p>
+                  )}
+
+                  {/* Fechamento de Ciclo pendente (dado do dashboardMentor — ver useAlertaMentor) */}
+                  {marcosPendentes[String(aluno.id)] && (
+                    <p className="text-xs">
+                      <span className="inline-flex items-center gap-1 font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">🏁 Fechamento de ciclo no próximo encontro</span>
                     </p>
                   )}
 

@@ -44,7 +44,7 @@ function seloOrigem(origem) {
     return (
       <span title="Gerado automaticamente do app — revise os números"
         className="text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0">
-        Auto
+        Auto · revisar
       </span>
     );
   }
@@ -476,7 +476,8 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
                     </td>
                   ))}
                   <td className="p-3">
-                    <button onClick={() => abrirEdit(i)} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-intento-blue" title="Editar registro">
+                    {/* Visível por padrão em telas de toque (sem hover); no desktop aparece no hover da linha. after:-inset expande a área tocável pra ≥24px sem mudar o visual. */}
+                    <button onClick={() => abrirEdit(i)} className="relative after:absolute after:-inset-2 after:content-[''] opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity text-slate-300 hover:text-intento-blue" title="Editar registro">
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                     </button>
                   </td>
@@ -2367,7 +2368,7 @@ export default function GestaoIndividualAluno() {
                   {!temAAR && (sim.kolb?.exp || sim.kolb?.ref || sim.kolb?.con || sim.kolb?.acao || sim.kolb?.redacao) && (
                     <section>
                       <div className="flex items-baseline justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-intento-blue">Análise Subjetiva (Kolb)</h3>
+                        <h3 className="text-sm font-semibold text-intento-blue">Análise Subjetiva</h3>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {[
