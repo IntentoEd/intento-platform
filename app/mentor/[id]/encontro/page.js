@@ -227,6 +227,7 @@ export default function ModoEncontro() {
   const [modalSemana, setModalSemana] = useState(false);
   const [modalRegistros, setModalRegistros] = useState(false);
   const [diarioExpandido, setDiarioExpandido] = useState(false);
+  const [contextoAberto, setContextoAberto] = useState(false); // acordeão "Onde paramos" no mobile
   const [salvandoSemana, setSalvandoSemana] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
@@ -559,6 +560,114 @@ export default function ModoEncontro() {
     );
   }
 
+  // ── Painel de contexto (consulta + ações) — renderizado 2x: coluna lateral
+  // em lg+ e acordeão "Onde paramos" acima do formulário no mobile (o insumo
+  // da conversa não pode ficar abaixo do form inteiro quando tudo empilha).
+  // É um const de JSX (não um componente local) de propósito: componente
+  // definido no render remontaria os textareas a cada tecla.
+  const painelContexto = (
+    <>
+      {/* Onde paramos */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Onde paramos</p>
+        {!ultimo ? (
+          <p className="text-xs text-slate-400 font-medium">Primeiro encontro registrado — sem histórico anterior.</p>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-bold text-slate-500">Último encontro · {ultimo.data ? new Date(ultimo.data).toLocaleDateString('pt-BR') : '—'}</p>
+              {ultimo.categoria && <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border shrink-0 ${CAT_COR[ultimo.categoria] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>{ultimo.categoria}</span>}
+            </div>
+            {(ultimo.metas || []).filter(m => String(m || '').trim()).map((m, i) => (
+              <div key={i} className="flex gap-1.5 items-start text-xs text-slate-600">
+                <span className="text-intento-yellow font-black shrink-0">•</span>
+                <span className="font-medium leading-snug">{m}</span>
+              </div>
+            ))}
+            {diarioExpandido && (
+              <div className="max-h-[45vh] overflow-y-auto space-y-3 border-t border-slate-100 pt-3 mt-1 pr-1">
+                {(parseInt(ultimo.autoavaliacao) || 0) > 0 && (
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Autoavaliação</p>
+                    <StarRating rating={parseInt(ultimo.autoavaliacao) || 0} readOnly small />
+                  </div>
+                )}
+                <CampoDiario label="Vitórias" texto={ultimo.vitorias} />
+                <CampoDiario label="Maiores desafios" texto={ultimo.desafios} />
+                <CampoDiario label="Exploração" texto={ultimo.exploracao} />
+                {(ultimo.acoes || []).some(a => String(a || '').trim()) && (
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Plano de ação</p>
+                    <div className="space-y-1">
+                      {(ultimo.acoes || [])
+                        .map((a, i) => ({ acao: a, resultado: form.resultadosAnteriores?.[i] || '' }))
+                        .filter(x => String(x.acao || '').trim())
+                        .map((x, i) => (
+                          <div key={i} className="flex items-start justify-between gap-2 bg-slate-50 rounded-lg px-2.5 py-1.5">
+                            <span className="text-xs text-slate-600 font-medium leading-snug">{x.acao}</span>
+                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${COR_RESULTADO[x.resultado] || 'bg-slate-100 text-slate-400'}`}>{x.resultado || 'aguardando'}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+                {ultimo.notasPrivadas && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                    <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider mb-1">🔒 Anotação privada</p>
+                    <p className="text-xs text-slate-600 font-medium whitespace-pre-wrap leading-snug">{ultimo.notasPrivadas}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            <button onClick={() => setDiarioExpandido(v => !v)}
+              className="w-full mt-1 bg-intento-blue/5 text-intento-blue font-bold text-xs py-2 rounded-lg hover:bg-intento-blue/10 transition-all">
+              {diarioExpandido ? 'recolher ▴' : 'Ver diário completo ▾'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Snapshot dos números + atalho pro mês */}
+      {snapshot && (
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">📈 Última semana · {snapshot.semanaLabel}</p>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <Metric label="Horas" valor={snapshot.horas != null ? `${snapshot.horas}h` : '—'} delta={snapshot.hDelta} />
+            <Metric label="Domínio" valor={snapshot.dominio != null ? `${snapshot.dominio}%` : '—'} delta={snapshot.dDelta} pct />
+            <Metric label="Progresso" valor={snapshot.progresso != null ? `${snapshot.progresso}%` : '—'} />
+            <Metric label="Revisões atras." valor={snapshot.revisoes != null ? snapshot.revisoes : '—'} invertido />
+          </div>
+          <button onClick={() => setModalRegistros(true)}
+            className="w-full mt-3 bg-intento-blue/5 text-intento-blue font-bold text-xs py-2 rounded-lg hover:bg-intento-blue/10 transition-all">
+            Ver mês, tendência e disciplinas →
+          </button>
+        </div>
+      )}
+
+      {/* Semana Padrão — consulta + edição */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">🗓️ Semana Padrão</p>
+          <button onClick={() => setModalSemana(true)} className="text-[11px] font-bold text-intento-blue hover:text-intento-blue/70 transition-colors">Editar ✎</button>
+        </div>
+        <SemanaHeatmap grade={grade} />
+        {metaHorasSemanal && <p className="text-[10px] text-slate-400 font-medium mt-2">Meta de horas: {metaHorasSemanal}h</p>}
+      </div>
+
+      {/* Nota privada (fixa) */}
+      <div className="bg-amber-50 border-2 border-dashed border-amber-300 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">🔒 Anotação privada</p>
+          <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded uppercase tracking-wider">Só você vê</span>
+        </div>
+        <textarea
+          className="w-full p-2.5 text-xs font-medium text-slate-700 bg-white border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-amber-300"
+          rows="4" placeholder="Observações que NÃO aparecem pro aluno..."
+          value={form.notasPrivadas} onChange={e => upd({ notasPrivadas: e.target.value })} />
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
       {/* ── Barra superior ─────────────────────────────────────────────────── */}
@@ -576,6 +685,12 @@ export default function ModoEncontro() {
               {sujo
                 ? <><svg className="w-3 h-3 animate-spin text-slate-300" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg> rascunho salvo localmente</>
                 : <>✓ tudo em rascunho</>}
+            </span>
+            {/* Versão compacta no mobile — a ansiedade de "gravou?" é maior aqui */}
+            <span className="flex sm:hidden items-center gap-1.5 text-[10px] font-semibold text-slate-400"
+              title={sujo ? 'rascunho salvo localmente' : 'tudo em rascunho'}>
+              <span className={`w-2 h-2 rounded-full shrink-0 ${sujo ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`} />
+              salvo
             </span>
             <button onClick={finalizarEncontro} disabled={salvando}
               className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition-all text-sm disabled:opacity-60">
@@ -630,20 +745,38 @@ export default function ModoEncontro() {
           </div>
         </nav>
 
+        {/* ── Contexto no mobile: acordeão colapsado acima do formulário ───── */}
+        <div className="lg:hidden">
+          <button type="button" onClick={() => setContextoAberto(v => !v)}
+            className="w-full bg-white border border-slate-200 rounded-xl shadow-sm px-4 py-3 flex items-center justify-between gap-2"
+            aria-expanded={contextoAberto}>
+            <span className="text-xs font-bold text-intento-blue uppercase tracking-wider">Onde paramos</span>
+            <span className="text-xs font-bold text-slate-400">{contextoAberto ? '▴' : '▾'}</span>
+          </button>
+          {contextoAberto && <div className="mt-3 space-y-4">{painelContexto}</div>}
+        </div>
+
         {/* ── Centro: passo ativo + Exploração fixa ────────────────────────── */}
         <main className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 flex flex-col">
-            <PassoAtivo stepAtivo={stepAtivo} form={form} upd={upd} updArr={updArr} updFech={updFech} ultimo={ultimo} nomeAluno={nomeAluno}
-              stepsVisiveis={stepsVisiveis} marcoPend={marcoPend} retroCiclo={retroCiclo} diagAtual={diagAtual} carimboFinal={carimboFinal} />
-            <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between">
-              <button onClick={() => irPara(-1)} disabled={idxAtivo <= 0}
-                className="text-sm font-semibold text-slate-400 hover:text-intento-blue transition-colors disabled:opacity-30">← Anterior</button>
-              <span className="text-[11px] font-medium text-slate-300">{idxAtivo + 1} de {stepsVisiveis.length}</span>
-              {idxAtivo < stepsVisiveis.length - 1 ? (
-                <button onClick={() => irPara(1)} className="text-sm font-semibold text-intento-blue hover:text-intento-blue/70 transition-colors">Próximo →</button>
-              ) : (
-                <button onClick={finalizarEncontro} disabled={salvando} className="text-sm font-bold text-intento-yellow hover:text-yellow-600 transition-colors disabled:opacity-50">Salvar Diário ✓</button>
-              )}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col">
+            <div className="p-6 pb-0 flex-1 flex flex-col">
+              <PassoAtivo stepAtivo={stepAtivo} form={form} upd={upd} updArr={updArr} updFech={updFech} ultimo={ultimo} nomeAluno={nomeAluno}
+                stepsVisiveis={stepsVisiveis} marcoPend={marcoPend} retroCiclo={retroCiclo} diagAtual={diagAtual} carimboFinal={carimboFinal} />
+            </div>
+            {/* Navegação do wizard: barra fixa no rodapé da tela em <lg (não some
+                na rolagem do passo); em lg+ volta a ser o rodapé estático do card.
+                safe-area-bottom no wrapper pra não brigar com o py-* interno. */}
+            <div className="sticky bottom-0 z-10 lg:static mt-6 bg-white/95 border-t border-slate-200 lg:border-slate-100 rounded-b-xl safe-area-bottom">
+              <div className="px-6 py-3 lg:pt-5 lg:pb-6 flex items-center justify-between">
+                <button onClick={() => irPara(-1)} disabled={idxAtivo <= 0}
+                  className="text-sm font-semibold text-slate-400 hover:text-intento-blue transition-colors disabled:opacity-30">← Anterior</button>
+                <span className="text-[11px] font-medium text-slate-300">{idxAtivo + 1} de {stepsVisiveis.length}</span>
+                {idxAtivo < stepsVisiveis.length - 1 ? (
+                  <button onClick={() => irPara(1)} className="text-sm font-semibold text-intento-blue hover:text-intento-blue/70 transition-colors">Próximo →</button>
+                ) : (
+                  <button onClick={finalizarEncontro} disabled={salvando} className="text-sm font-bold text-intento-yellow hover:text-yellow-600 transition-colors disabled:opacity-50">Salvar Diário ✓</button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -667,106 +800,9 @@ export default function ModoEncontro() {
           <button onClick={descartarRascunho} className="text-[11px] text-slate-300 hover:text-red-400 font-semibold transition-colors">descartar rascunho</button>
         </main>
 
-        {/* ── Painel de contexto (consulta + ações) ────────────────────────── */}
-        <aside className="lg:sticky lg:top-20 lg:self-start space-y-4">
-          {/* Onde paramos */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Onde paramos</p>
-            {!ultimo ? (
-              <p className="text-xs text-slate-400 font-medium">Primeiro encontro registrado — sem histórico anterior.</p>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-bold text-slate-500">Último encontro · {ultimo.data ? new Date(ultimo.data).toLocaleDateString('pt-BR') : '—'}</p>
-                  {ultimo.categoria && <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border shrink-0 ${CAT_COR[ultimo.categoria] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>{ultimo.categoria}</span>}
-                </div>
-                {(ultimo.metas || []).filter(m => String(m || '').trim()).map((m, i) => (
-                  <div key={i} className="flex gap-1.5 items-start text-xs text-slate-600">
-                    <span className="text-intento-yellow font-black shrink-0">•</span>
-                    <span className="font-medium leading-snug">{m}</span>
-                  </div>
-                ))}
-                {diarioExpandido && (
-                  <div className="max-h-[45vh] overflow-y-auto space-y-3 border-t border-slate-100 pt-3 mt-1 pr-1">
-                    {(parseInt(ultimo.autoavaliacao) || 0) > 0 && (
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Autoavaliação</p>
-                        <StarRating rating={parseInt(ultimo.autoavaliacao) || 0} readOnly small />
-                      </div>
-                    )}
-                    <CampoDiario label="Vitórias" texto={ultimo.vitorias} />
-                    <CampoDiario label="Maiores desafios" texto={ultimo.desafios} />
-                    <CampoDiario label="Exploração" texto={ultimo.exploracao} />
-                    {(ultimo.acoes || []).some(a => String(a || '').trim()) && (
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Plano de ação</p>
-                        <div className="space-y-1">
-                          {(ultimo.acoes || [])
-                            .map((a, i) => ({ acao: a, resultado: form.resultadosAnteriores?.[i] || '' }))
-                            .filter(x => String(x.acao || '').trim())
-                            .map((x, i) => (
-                              <div key={i} className="flex items-start justify-between gap-2 bg-slate-50 rounded-lg px-2.5 py-1.5">
-                                <span className="text-xs text-slate-600 font-medium leading-snug">{x.acao}</span>
-                                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${COR_RESULTADO[x.resultado] || 'bg-slate-100 text-slate-400'}`}>{x.resultado || 'aguardando'}</span>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                    {ultimo.notasPrivadas && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
-                        <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider mb-1">🔒 Anotação privada</p>
-                        <p className="text-xs text-slate-600 font-medium whitespace-pre-wrap leading-snug">{ultimo.notasPrivadas}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <button onClick={() => setDiarioExpandido(v => !v)}
-                  className="w-full mt-1 bg-intento-blue/5 text-intento-blue font-bold text-xs py-2 rounded-lg hover:bg-intento-blue/10 transition-all">
-                  {diarioExpandido ? 'recolher ▴' : 'Ver diário completo ▾'}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Snapshot dos números + atalho pro mês */}
-          {snapshot && (
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">📈 Última semana · {snapshot.semanaLabel}</p>
-              <div className="grid grid-cols-2 gap-2 mt-3">
-                <Metric label="Horas" valor={snapshot.horas != null ? `${snapshot.horas}h` : '—'} delta={snapshot.hDelta} />
-                <Metric label="Domínio" valor={snapshot.dominio != null ? `${snapshot.dominio}%` : '—'} delta={snapshot.dDelta} pct />
-                <Metric label="Progresso" valor={snapshot.progresso != null ? `${snapshot.progresso}%` : '—'} />
-                <Metric label="Revisões atras." valor={snapshot.revisoes != null ? snapshot.revisoes : '—'} invertido />
-              </div>
-              <button onClick={() => setModalRegistros(true)}
-                className="w-full mt-3 bg-intento-blue/5 text-intento-blue font-bold text-xs py-2 rounded-lg hover:bg-intento-blue/10 transition-all">
-                Ver mês, tendência e disciplinas →
-              </button>
-            </div>
-          )}
-
-          {/* Semana Padrão — consulta + edição */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">🗓️ Semana Padrão</p>
-              <button onClick={() => setModalSemana(true)} className="text-[11px] font-bold text-intento-blue hover:text-intento-blue/70 transition-colors">Editar ✎</button>
-            </div>
-            <SemanaHeatmap grade={grade} />
-            {metaHorasSemanal && <p className="text-[10px] text-slate-400 font-medium mt-2">Meta de horas: {metaHorasSemanal}h</p>}
-          </div>
-
-          {/* Nota privada (fixa) */}
-          <div className="bg-amber-50 border-2 border-dashed border-amber-300 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">🔒 Anotação privada</p>
-              <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded uppercase tracking-wider">Só você vê</span>
-            </div>
-            <textarea
-              className="w-full p-2.5 text-xs font-medium text-slate-700 bg-white border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-amber-300"
-              rows="4" placeholder="Observações que NÃO aparecem pro aluno..."
-              value={form.notasPrivadas} onChange={e => upd({ notasPrivadas: e.target.value })} />
-          </div>
+        {/* ── Painel de contexto (consulta + ações) — coluna só em lg+ ─────── */}
+        <aside className="hidden lg:block lg:sticky lg:top-20 lg:self-start space-y-4">
+          {painelContexto}
         </aside>
       </div>
 
@@ -1205,6 +1241,10 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
         <p className="text-sm text-slate-500 font-medium">
           Retrato do <b>{c?.id} · {c?.nome}</b> de {marcoPend?.ano}, computado dos registros — apresente ao aluno o que o trimestre construiu antes de olhar pra frente.
         </p>
+        {/* Aviso de irreversibilidade ANTES do passo do carimbo (Lente 1.3) */}
+        <p className="text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          🏁 No fim deste encontro você grava o marco oficial do ciclo — ele fica congelado na Linha do Ano.
+        </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {tiles.map(t => (
             <div key={t.label} className="bg-slate-50 rounded-lg p-3">
@@ -1267,7 +1307,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
                       : 'sem dado suficiente pra proposta'}
                 </p>
               </div>
-              <div className="flex gap-1 flex-wrap items-center">
+              <div className="flex gap-2 flex-wrap items-center">
                 {CARIMBOS.map(nivel => {
                   const ativo = escolhido === nivel;
                   return (
@@ -1275,7 +1315,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
                       // Re-clique num override remove (volta à proposta ou a "sem
                       // carimbo"); clicar na proposta nunca vira override.
                       onClick={() => setAjuste(dim, (ativo && ajustado) ? undefined : nivel === proposto ? undefined : nivel)}
-                      className={`text-[10px] font-bold px-3 py-1.5 rounded-md uppercase tracking-wide transition-all ${ativo ? 'bg-intento-blue text-white ring-2 ring-offset-1 ring-intento-blue/40' : 'bg-white border border-slate-200 text-slate-500 hover:border-intento-blue/40'}`}>
+                      className={`text-[10px] font-bold px-3 py-2 rounded-md uppercase tracking-wide transition-all ${ativo ? 'bg-intento-blue text-white ring-2 ring-offset-1 ring-intento-blue/40' : 'bg-white border border-slate-200 text-slate-500 hover:border-intento-blue/40'}`}>
                       {CARIMBO_LABEL[nivel]}
                     </button>
                   );
@@ -1322,12 +1362,12 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
                   <span className="w-6 h-6 shrink-0 bg-intento-blue/10 text-intento-blue rounded-md flex items-center justify-center text-xs font-bold">{idx + 1}</span>
                   <span className="text-sm font-semibold text-slate-800 leading-relaxed">{meta}</span>
                 </div>
-                <div className="flex gap-1 flex-wrap">
+                <div className="flex gap-2 flex-wrap">
                   {STATUS_META_OPCOES.map(opt => {
                     const ativo = form.statusMetasAnteriores[idx] === opt;
                     return (
                       <button key={opt} type="button" onClick={() => updArr('statusMetasAnteriores', idx, ativo ? '' : opt)}
-                        className={`text-[10px] font-bold px-3 py-1.5 rounded-md uppercase tracking-wide transition-all ${ativo ? COR_STATUS_META[opt] + ' ring-2 ring-offset-1 ring-intento-blue/40' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                        className={`text-[10px] font-bold px-3 py-2 rounded-md uppercase tracking-wide transition-all ${ativo ? COR_STATUS_META[opt] + ' ring-2 ring-offset-1 ring-intento-blue/40' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                         {opt}
                       </button>
                     );
@@ -1356,12 +1396,12 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
                   <span className="w-6 h-6 shrink-0 bg-amber-100 text-amber-800 rounded-md flex items-center justify-center text-xs font-bold">{idx + 1}</span>
                   <span className="text-sm font-semibold text-slate-800 leading-relaxed">{acao}</span>
                 </div>
-                <div className="flex gap-1 flex-wrap">
+                <div className="flex gap-2 flex-wrap">
                   {RESULTADO_OPCOES.map(opt => {
                     const ativo = form.resultadosAnteriores[idx] === opt;
                     return (
                       <button key={opt} type="button" onClick={() => updArr('resultadosAnteriores', idx, ativo ? '' : opt)}
-                        className={`text-[10px] font-bold px-3 py-1.5 rounded-md uppercase tracking-wide transition-all ${ativo ? COR_RESULTADO[opt] + ' ring-2 ring-offset-1 ring-amber-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                        className={`text-[10px] font-bold px-3 py-2 rounded-md uppercase tracking-wide transition-all ${ativo ? COR_RESULTADO[opt] + ' ring-2 ring-offset-1 ring-amber-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                         {opt}
                       </button>
                     );
