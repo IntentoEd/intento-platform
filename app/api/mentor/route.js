@@ -31,7 +31,7 @@ const ACOES_AUTENTICADAS = new Set([
   'listaAlunosMentor', 'buscarDadosAluno', 'buscarOnboarding', 'buscarMetaAnterior',
   'dashboardMentor',
   // Mentor — escrita de registros/encontros/simulados
-  'salvarDiario', 'salvarSemanaLote', 'salvarRegistroGlobal', 'deletarRegistro',
+  'salvarDiario', 'salvarSemanaLote',
   'verificarRegistroSemana', 'editarRegistro', 'salvarStatusApp', 'registrarExportacao',
   'marcarAcompanhamento',
   'salvarNovoEncontro', 'avaliarEncontroPassado', 'editarEncontro',
@@ -39,6 +39,8 @@ const ACOES_AUTENTICADAS = new Set([
   // Caderno (aluno/mentor)
   'listarCaderno', 'salvarCardCaderno', 'incrementarRepeticao',
   'deletarCardCaderno', 'registrarRevisaoCaderno',
+  // Plano de Ação — checks do aluno (email DEVE vir do token: só o próprio aluno marca)
+  'salvarChecksPlano',
   // Push notifications (email DEVE vir do token, não do body)
   'subscribePush', 'unsubscribePush',
   // Admin: listar subscriptions (chamado por /api/push/send — protegido por GAS_API_TOKEN)
@@ -73,12 +75,11 @@ const TTL_MS = {
 function chavesParaInvalidar(acaoEscrita, dados) {
   const ids = [dados.idPlanilha, dados.idPlanilhaAluno, dados.idAluno].filter(Boolean);
   switch (acaoEscrita) {
-    case 'salvarRegistroGlobal':
     case 'editarRegistro':
-    case 'deletarRegistro':
     case 'salvarNovoEncontro':
     case 'avaliarEncontroPassado':
     case 'editarEncontro':
+    case 'salvarChecksPlano':
     case 'salvarSemanaLote':
     case 'salvarSimulado':
     case 'editarSimulado':

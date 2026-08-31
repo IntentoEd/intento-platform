@@ -206,13 +206,20 @@ const COL_ENC = {
   ACAO_1: 7, ACAO_2: 8, ACAO_3: 9, ACAO_4: 10, ACAO_5: 11,
   RESULTADO_1: 12, RESULTADO_2: 13, RESULTADO_3: 14, RESULTADO_4: 15, RESULTADO_5: 16,
   NOTAS_PRIVADAS: 17,  // ⚠️ Campo privado do mentor — NÃO incluir em obterDadosDoPainel
-  STATUS_METAS_ANTERIORES: 18  // Status (Batida/Parcial/Não batida) das metas do encontro anterior. String \n-separated.
+  STATUS_METAS_ANTERIORES: 18, // Status (Batida/Parcial/Não batida) das metas do encontro anterior. String \n-separated.
+  CHECKS: 19           // Checks do aluno no Plano de Ação: JSON {c:[bool×5], em:"<ISO>"}. Vazia = nenhum check.
 };
-const COL_ENC_TOTAL = 19;
+const COL_ENC_TOTAL = 20;
 
 function _garantirColunasEnc(abaDiario) {
   if (abaDiario.getMaxColumns() < COL_ENC_TOTAL) {
     abaDiario.insertColumnsAfter(abaDiario.getMaxColumns(), COL_ENC_TOTAL - abaDiario.getMaxColumns());
+  }
+  // Migração lazy do header da coluna de checks (mesmo padrão do
+  // STATUS_METAS_ANTERIORES): planilhas antigas ganham a coluna acima e o
+  // título aqui, sem migração manual.
+  if (!abaDiario.getRange(1, COL_ENC.CHECKS + 1).getValue()) {
+    abaDiario.getRange(1, COL_ENC.CHECKS + 1).setValue("Checks Aluno");
   }
 }
 
@@ -375,11 +382,9 @@ function doPost(e) {
     if (acao === "listaAlunosMentor")       return handleListaAlunosMentor(dados);
     if (acao === "salvarDiario")            return handleSalvarDiario(dados);
     if (acao === "salvarSemanaLote")        return handleSalvarSemanaLote(dados);
-    if (acao === "salvarRegistroGlobal")    return handleSalvarRegistroGlobal(dados);
     if (acao === "salvarStatusApp")         return handleSalvarStatusApp(dados);
     if (acao === "registrarExportacao")     return handleRegistrarExportacao(dados);
     if (acao === "marcarAcompanhamento")    return handleMarcarAcompanhamento(dados);
-    if (acao === "deletarRegistro")         return handleDeletarRegistro(dados);
     if (acao === "verificarRegistroSemana") return handleVerificarRegistroSemana(dados);
     if (acao === "buscarDadosAluno")        return handleBuscarDadosAluno(dados);
     if (acao === "buscarMetaAnterior")      return handleBuscarMetaAnterior(dados);
@@ -399,6 +404,7 @@ function doPost(e) {
     if (acao === "registrarRevisaoCaderno") return handleRegistrarRevisaoCaderno(dados);
     if (acao === "editarRegistro")          return handleEditarRegistro(dados);
     if (acao === "editarEncontro")          return handleEditarEncontro(dados);
+    if (acao === "salvarChecksPlano")       return handleSalvarChecksPlano(dados);
     if (acao === "dashboardLider")          return handleDashboardLider(dados);
     if (acao === "dashboardMentor")         return handleDashboardMentor(dados);
     if (acao === "marcarEncontroLider")     return handleMarcarEncontroLider(dados);
@@ -498,7 +504,9 @@ function handleLogin(dados) {
 
   const ssAluno      = SpreadsheetApp.openById(idPlanilhaAluno);
   const dashboardData = obterDadosDoPainel(ssAluno, emailAluno);
-  return responderJSON({ status: 200, email: emailAluno, idPlanilha: idPlanilhaAluno, tipoAluno: tipoAlunoLogin, statusApp: statusAppLogin, dadosPainel: dashboardData });
+  // temMentor: sinaliza pro /painel se o aluno já tem mentor designado (banner
+  // "mentor sendo designado" enquanto false).
+  return responderJSON({ status: 200, email: emailAluno, idPlanilha: idPlanilhaAluno, tipoAluno: tipoAlunoLogin, statusApp: statusAppLogin, temMentor: !!mentorAluno, dadosPainel: dashboardData });
 }
 
 
@@ -896,6 +904,25 @@ function obterDadosDoPainel(ss, emailAluno) {
         const acoes = [row[COL_ENC.ACAO_1], row[COL_ENC.ACAO_2], row[COL_ENC.ACAO_3], row[COL_ENC.ACAO_4], row[COL_ENC.ACAO_5]];
         plano.acao  = acoes.map(function(a) { return txt(a); }).filter(function(a) { return a !== ""; });
 
+        // Linha do plano ativo (1-indexed) — alvo do salvarChecksPlano — e
+        // checks do aluno ALINHADOS a plano.acao (projeção das posições
+        // não-vazias). Parse defensivo: JSON corrompido/vazio ⇒ tudo false.
+        plano.linha = i + 1;
+        const checksBrutos = [false, false, false, false, false];
+        try {
+          const rawChecks = txt(row[COL_ENC.CHECKS]);
+          if (rawChecks) {
+            const parsedChecks = JSON.parse(rawChecks);
+            if (parsedChecks && Array.isArray(parsedChecks.c)) {
+              for (let k = 0; k < 5; k++) checksBrutos[k] = parsedChecks.c[k] === true;
+            }
+          }
+        } catch (eChecks) { /* checks ilegíveis ⇒ tudo false */ }
+        plano.checks = [];
+        for (let k = 0; k < 5; k++) {
+          if (txt(acoes[k]) !== "") plano.checks.push(checksBrutos[k]);
+        }
+
         ultimoEncontro = {
           data:          dataFmt,
           autoavaliacao: parseInt(row[COL_ENC.AUTOAVALIACAO]) || 0,
@@ -1222,7 +1249,9 @@ function handleEditarEncontro(dados) {
     if (!linha || linha < 2) throw new Error("Linha inválida.");
     const acoes      = Array.isArray(dados.acoes) ? dados.acoes : [];
     const resultados = Array.isArray(dados.resultados) ? dados.resultados : [];
-    abaDiario.getRange(linha, 1, 1, COL_ENC_TOTAL).setValues([[
+    // Escreve só até STATUS_METAS_ANTERIORES (19 colunas): a coluna CHECKS é
+    // do aluno (handleSalvarChecksPlano) e não pode ser apagada numa edição.
+    abaDiario.getRange(linha, 1, 1, COL_ENC.CHECKS).setValues([[
       txt(dados.data),
       txt(dados.autoavaliacao),
       txt(dados.vitorias),
@@ -1235,6 +1264,63 @@ function handleEditarEncontro(dados) {
       txt(dados.notasPrivadas),
       txt(dados.statusMetasAnteriores)
     ]]);
+    return responderJSON({ status: "sucesso" });
+  } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
+  finally     { lock.releaseLock(); }
+}
+
+// Checks do Plano de Ação: o ALUNO marca no /painel as ações do plano ativo
+// que já fez. Grava JSON {c:[bool×5], em:"<ISO>"} na coluna CHECKS do BD_Diario.
+// O front manda `checks` alinhado a plano.acao (que filtra ações vazias) —
+// aqui remapeamos pro array bruto de 5 posições antes de gravar.
+function handleSalvarChecksPlano(dados) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const idPlanilha = exigirIdPlanilha(dados);
+    const acesso = _exigirAcessoAluno(dados.email, idPlanilha);
+    if (acesso.papel !== 'aluno')
+      return responderJSON({ status: "erro", codigo: 403, mensagem: "Só o aluno marca os próprios checks." });
+    const abaDiario = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.ENCONTROS);
+    if (!abaDiario) throw new Error("Aba '" + ABA.ENCONTROS + "' não encontrada.");
+
+    const checks = dados.checks;
+    if (!Array.isArray(checks) || checks.length > 5)
+      return responderJSON({ status: "erro", mensagem: "checks inválido (esperado array de até 5 booleanos)." });
+    const linha = parseInt(dados.linha);
+    if (!linha || linha < 2 || linha > abaDiario.getLastRow())
+      return responderJSON({ status: "erro", mensagem: "Linha inválida." });
+
+    // Só o plano ATIVO aceita checks: a última linha do BD_Diario com DATA
+    // preenchida. Se o mentor registrou encontro novo entre o load e o clique,
+    // o front recebe PLANO_DESATUALIZADO e recarrega.
+    const matriz = abaDiario.getDataRange().getValues();
+    let linhaAtiva = -1;
+    for (let i = matriz.length - 1; i >= 1; i--) {
+      if (matriz[i][COL_ENC.DATA]) { linhaAtiva = i + 1; break; }
+    }
+    if (linha !== linhaAtiva)
+      return responderJSON({ status: "erro", codigo: "PLANO_DESATUALIZADO", mensagem: "O plano de ação foi atualizado pelo mentor." });
+
+    // Remapeamento filtrado→bruto: identifica as posições não-vazias de
+    // ACAO_1..5 EM ORDEM e distribui os checks do front nelas. Nunca usa o
+    // índice do front como posição bruta (false nas posições vazias).
+    const rowAtiva = matriz[linhaAtiva - 1];
+    const acoesBrutas = [
+      rowAtiva[COL_ENC.ACAO_1], rowAtiva[COL_ENC.ACAO_2], rowAtiva[COL_ENC.ACAO_3],
+      rowAtiva[COL_ENC.ACAO_4], rowAtiva[COL_ENC.ACAO_5]
+    ];
+    const arrayBruto = [false, false, false, false, false];
+    let j = 0;
+    for (let p = 0; p < 5; p++) {
+      if (txt(acoesBrutas[p]) === "") continue;
+      arrayBruto[p] = checks[j] === true; // coerção estrita: só `true` literal marca
+      j++;
+    }
+
+    _garantirColunasEnc(abaDiario);
+    abaDiario.getRange(linha, COL_ENC.CHECKS + 1)
+      .setValue(JSON.stringify({ c: arrayBruto, em: new Date().toISOString() }));
     return responderJSON({ status: "sucesso" });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
   finally     { lock.releaseLock(); }
@@ -1508,7 +1594,7 @@ function handleBuscarMetaAnterior(dados) {
     if (!aba) return responderJSON({ status: "sucesso", metaSemanal: "" });
     const last = aba.getLastRow();
     if (last < 2) return responderJSON({ status: "sucesso", metaSemanal: "" });
-    // Col 4 = meta_semanal (ver handleSalvarRegistroGlobal)
+    // Col 4 = meta_semanal (COL_REG.META, 0-indexed 3)
     const valor = aba.getRange(last, 4).getValue();
     return responderJSON({ status: "sucesso", metaSemanal: txt(valor) });
   } catch (e) {
@@ -1516,65 +1602,6 @@ function handleBuscarMetaAnterior(dados) {
     return responderJSON({ status: "erro", mensagem: e.message });
   }
 }
-
-function handleSalvarRegistroGlobal(dados) {
-  const lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(10000);
-    const idPlanilha = exigirIdPlanilha(dados, "idAluno");
-    _exigirAcessoAluno(dados.email, idPlanilha);
-    const ssAluno    = SpreadsheetApp.openById(idPlanilha);
-    const abaDB      = ssAluno.getSheetByName(ABA.REGISTROS);
-    if (!abaDB) return responderJSON({ status: "erro", mensagem: "Aba '" + ABA.REGISTROS + "' não encontrada." });
-
-    const semanaSalvar = txt(dados.semana);
-    if (semanaSalvar) {
-      const existing = abaDB.getDataRange().getValues();
-      for (let j = 1; j < existing.length; j++) {
-        if (txt(existing[j][COL_REG.SEMANA]) === semanaSalvar) {
-          return responderJSON({ status: "erro", codigo: "duplicado", mensagem: "Já existe registro para essa semana." });
-        }
-      }
-    }
-
-    const novaLinha = [
-      txt(dados.semana),
-      txt(dados.mes),
-      txt(dados.dataRegistro),
-      txt(dados.metaSemanal),          // texto, não número
-      num(dados.horasEstudadas),
-      num(dados.dominioTotal),
-      num(dados.progressoTotal),
-      num(dados.revisoesAtrasadas),
-      num(dados.estresse),
-      num(dados.ansiedade),
-      num(dados.motivacao),
-      num(dados.sono),
-      num(dados.dominioBio),
-      num(dados.progressoBio),
-      num(dados.dominioQui),
-      num(dados.progressoQui),
-      num(dados.dominioFis),
-      num(dados.progressoFis),
-      num(dados.dominioMat),
-      num(dados.progressoMat),
-      ORIGEM_REG.MANUAL
-    ];
-
-    _garantirColunaOrigem(abaDB);
-    const colA = abaDB.getRange(1, 1, abaDB.getMaxRows(), 1).getValues();
-    let ultimaLinhaComDados = 0;
-    for (let i = colA.length - 1; i >= 0; i--) {
-      if (String(colA[i][0]).trim() !== "") { ultimaLinhaComDados = i + 1; break; }
-    }
-    const linhaDestino = ultimaLinhaComDados + 1;
-    abaDB.getRange(linhaDestino, 1, 1, novaLinha.length).setValues([novaLinha]);
-    _atualizarCacheUltimoRegistro(idPlanilha, abaDB);
-    return responderJSON({ status: "sucesso" });
-  } catch (erro) { return responderJSON({ status: "erro", mensagem: erro.message }); }
-  finally        { lock.releaseLock(); }
-}
-
 
 // =====================================================================
 // LER DADOS COMPLETOS DO ALUNO
@@ -1762,6 +1789,20 @@ function handleBuscarDadosAluno(dados) {
       const matriz = abaDiario.getDataRange().getValues();
       for (let i = 1; i < matriz.length; i++) {
         if (matriz[i][COL_ENC.DATA]) {
+          // Checks do aluno no Plano de Ação: array BRUTO de 5 bools (alinhado
+          // a acoes/resultados) + timestamp ISO. Parse defensivo ⇒ tudo false.
+          const checksAluno = [false, false, false, false, false];
+          let checksAlunoEm = null;
+          try {
+            const rawChecks = txt(matriz[i][COL_ENC.CHECKS]);
+            if (rawChecks) {
+              const parsedChecks = JSON.parse(rawChecks);
+              if (parsedChecks && Array.isArray(parsedChecks.c)) {
+                for (let k = 0; k < 5; k++) checksAluno[k] = parsedChecks.c[k] === true;
+              }
+              if (parsedChecks && parsedChecks.em) checksAlunoEm = String(parsedChecks.em);
+            }
+          } catch (eChecks) { /* checks ilegíveis ⇒ tudo false */ }
           encontros.push({
             linha: i + 1, data: matriz[i][COL_ENC.DATA],
             autoavaliacao: matriz[i][COL_ENC.AUTOAVALIACAO], vitorias: matriz[i][COL_ENC.VITORIAS],
@@ -1770,7 +1811,9 @@ function handleBuscarDadosAluno(dados) {
             acoes: [matriz[i][COL_ENC.ACAO_1], matriz[i][COL_ENC.ACAO_2], matriz[i][COL_ENC.ACAO_3], matriz[i][COL_ENC.ACAO_4], matriz[i][COL_ENC.ACAO_5]],
             resultados: [matriz[i][COL_ENC.RESULTADO_1], matriz[i][COL_ENC.RESULTADO_2], matriz[i][COL_ENC.RESULTADO_3], matriz[i][COL_ENC.RESULTADO_4], matriz[i][COL_ENC.RESULTADO_5]],
             notasPrivadas: txt(matriz[i][COL_ENC.NOTAS_PRIVADAS]),
-            statusMetasAnteriores: txt(matriz[i][COL_ENC.STATUS_METAS_ANTERIORES])
+            statusMetasAnteriores: txt(matriz[i][COL_ENC.STATUS_METAS_ANTERIORES]),
+            checksAluno: checksAluno,
+            checksAlunoEm: checksAlunoEm
           });
         }
       }
@@ -1824,7 +1867,7 @@ function handleLoginGlobal(dados) {
     const abaAlunos = ss.getSheetByName(ABA.MESTRE);
     if (!abaAlunos) throw new Error("Aba '" + ABA.MESTRE + "' não encontrada.");
     const ultimaLinha = abaAlunos.getLastRow();
-    if (ultimaLinha < 2) return responderJSON({ status: "sucesso", perfil: "aluno", rota: "/hub", novo: true });
+    if (ultimaLinha < 2) return responderJSON({ status: "sucesso", perfil: "aluno", rota: "/hub", novo: true, statusOnboarding: null });
 
     // Pode haver duplicatas (bug histórico em handleOnboarding que permitia
     // recriar). Em vez de pegar a primeira de baixo pra cima, escolhe a "melhor"
@@ -1850,9 +1893,11 @@ function handleLoginGlobal(dados) {
       if (statusBH === "Onboarding Completo")        rotaDestino = "/painel";
       else if (statusBH === "Aguardando Diagnóstico") rotaDestino = "/diagnostico";
       else                                           rotaDestino = "/hub";
-      return responderJSON({ status: "sucesso", perfil: "aluno", rota: rotaDestino, nome: melhorLinha[COL_MESTRE.NOME] || "Estudante", idPlanilha: idPlanilha });
+      // statusOnboarding cru pro /hub derivar o progresso real do funil
+      // (onboarding/diagnóstico) sem depender só do localStorage.
+      return responderJSON({ status: "sucesso", perfil: "aluno", rota: rotaDestino, nome: melhorLinha[COL_MESTRE.NOME] || "Estudante", idPlanilha: idPlanilha, statusOnboarding: statusBH });
     }
-    return responderJSON({ status: "sucesso", perfil: "aluno", rota: "/hub", nome: "Novo Aluno" });
+    return responderJSON({ status: "sucesso", perfil: "aluno", rota: "/hub", nome: "Novo Aluno", statusOnboarding: null });
   } catch (erro) { return responderJSON({ status: "erro", mensagem: "Erro no Porteiro: " + erro.message }); }
 }
 
@@ -2408,30 +2453,6 @@ function handleVerificarRegistroSemana(dados) {
     return responderJSON({ status: "erro", mensagem: e.message });
   }
 }
-
-function handleDeletarRegistro(dados) {
-  const lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(10000);
-    const idPlanilha = exigirIdPlanilha(dados, "idAluno");
-    _exigirAcessoAluno(dados.email, idPlanilha);
-    const aba = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.REGISTROS);
-    if (!aba) return responderJSON({ status: "erro", mensagem: "'" + ABA.REGISTROS + "' não encontrada." });
-    const semana = txt(dados.semana);
-    if (!semana) return responderJSON({ status: "erro", mensagem: "semana obrigatória" });
-    const matrix = aba.getDataRange().getValues();
-    for (let i = matrix.length - 1; i >= 1; i--) {
-      if (txt(matrix[i][COL_REG.SEMANA]) === semana) {
-        aba.deleteRow(i + 1);
-        _atualizarCacheUltimoRegistro(idPlanilha, aba);
-        return responderJSON({ status: "sucesso" });
-      }
-    }
-    return responderJSON({ status: "erro", mensagem: "Registro não encontrado." });
-  } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
-  finally     { lock.releaseLock(); }
-}
-
 
 // =====================================================================
 // PAINEL DO LÍDER

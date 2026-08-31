@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api';
 
 const ITENS = [
   {
@@ -79,6 +80,42 @@ export default function HubChecklist() {
     if (salvo) setProgresso(JSON.parse(salvo));
     setIsAndroid(/android/i.test(navigator.userAgent || ''));
     setCarregado(true);
+
+    // Estado REAL do funil vindo do servidor (loginGlobal, ação pública no
+    // proxy): onboarding/diagnóstico deixam de depender só do localStorage.
+    // Servidor true VENCE localStorage; nunca o inverso (whatsapp/plataforma/
+    // appstore seguem locais). Falha de rede → comportamento atual, silencioso.
+    const email = sessionStorage.getItem('emailLogado');
+    if (!email) return;
+    (async () => {
+      try {
+        const res = await apiFetch('/api/mentor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ acao: 'loginGlobal', email }),
+        });
+        const data = await res.json();
+        if (!res.ok || data?.status !== 'sucesso') return;
+        let onb = false, diag = false;
+        if ('statusOnboarding' in data) {
+          // GAS novo: statusOnboarding cru (null = aluno novo)
+          onb  = data.statusOnboarding === 'Aguardando Diagnóstico' || data.statusOnboarding === 'Onboarding Completo';
+          diag = data.statusOnboarding === 'Onboarding Completo';
+        } else {
+          // Fallback GAS velho: deriva da rota de destino
+          if (data.rota === '/painel')      { onb = true; diag = true; }
+          else if (data.rota === '/diagnostico') { onb = true; }
+          // /hub (ou outra rota) → nenhum
+        }
+        if (onb || diag) {
+          setProgresso(prev => ({
+            ...prev,
+            onboarding:  prev.onboarding  || onb,
+            diagnostico: prev.diagnostico || diag,
+          }));
+        }
+      } catch { /* rede falhou — segue o localStorage */ }
+    })();
   }, []);
 
   const marcarConcluido = (key) => {
@@ -142,18 +179,23 @@ export default function HubChecklist() {
 
         {/* ── Banner de conclusão ───────────────────────────────────────── */}
         {tudoConcluido && (
-          <div className="bg-white border border-emerald-200 rounded-xl p-6 shadow-sm flex items-start gap-4">
-            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-              </svg>
+          <div className="bg-white border border-emerald-200 rounded-xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-start gap-4 flex-1">
+              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-intento-blue">Todas as etapas concluídas!</p>
+                <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                  Seu painel já está liberado. Seu mentor entrará em contato pelo WhatsApp para marcar o primeiro encontro.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-intento-blue">Todas as etapas concluídas!</p>
-              <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-                Seu mentor já recebeu suas informações e entrará em contato pelo WhatsApp assim que o acesso for liberado.
-              </p>
-            </div>
+            <Link href="/painel" className="shrink-0 text-center px-5 py-2 bg-intento-blue text-white font-semibold rounded-lg text-sm hover:bg-blue-900 transition-all">
+              Ir para o painel
+            </Link>
           </div>
         )}
 

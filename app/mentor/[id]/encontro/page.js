@@ -1395,6 +1395,11 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
                 <div className="flex gap-2 items-start flex-1">
                   <span className="w-6 h-6 shrink-0 bg-amber-100 text-amber-800 rounded-md flex items-center justify-center text-xs font-bold">{idx + 1}</span>
                   <span className="text-sm font-semibold text-slate-800 leading-relaxed">{acao}</span>
+                  {/* checksAluno é o array BRUTO de 5 do buscarDadosAluno; `idx`
+                      aqui é a posição bruta (o filter preserva o índice do map). */}
+                  {ultimo?.checksAluno?.[idx] === true && (
+                    <span className="shrink-0 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2 py-0.5 mt-0.5">aluno marcou como feita ✓</span>
+                  )}
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   {RESULTADO_OPCOES.map(opt => {

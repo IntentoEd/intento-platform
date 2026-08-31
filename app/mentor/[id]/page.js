@@ -783,7 +783,9 @@ function CardEncontro({ it, aberto, onToggle, onEditar, idAluno, nomeAluno }) {
     : totalBatidas === totalMetas ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
     : totalBatidas === 0 ? 'bg-red-100 text-red-800 border-red-200'
     : 'bg-yellow-100 text-yellow-800 border-yellow-200';
-  const acoes = (enc.acoes || []).map((a, idx) => ({ acao: a, resultado: enc.resultados?.[idx] || '' })).filter(x => String(x.acao || '').trim());
+  // checkAluno capturado no map (idx bruto, ANTES do filter) — checksAluno é o
+  // array bruto de 5 do buscarDadosAluno, alinhado a acoes/resultados.
+  const acoes = (enc.acoes || []).map((a, idx) => ({ acao: a, resultado: enc.resultados?.[idx] || '', checkAluno: enc.checksAluno?.[idx] === true })).filter(x => String(x.acao || '').trim());
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
       <div role="button" tabIndex={0} onClick={onToggle}
@@ -827,7 +829,12 @@ function CardEncontro({ it, aberto, onToggle, onEditar, idAluno, nomeAluno }) {
                 {acoes.map((a, i) => (
                   <div key={i} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-3 py-1.5">
                     <span className="text-sm text-slate-700 font-medium">{i + 1}. {a.acao}</span>
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${a.resultado === 'Realizado' ? 'bg-emerald-100 text-emerald-800' : a.resultado === 'Realizado Parcialmente' ? 'bg-yellow-100 text-yellow-800' : a.resultado === 'Não realizado' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-500'}`}>{a.resultado || 'aguardando'}</span>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      {a.checkAluno && (
+                        <span title="O aluno marcou esta ação como feita no painel" className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2 py-0.5">✓ aluno</span>
+                      )}
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${a.resultado === 'Realizado' ? 'bg-emerald-100 text-emerald-800' : a.resultado === 'Realizado Parcialmente' ? 'bg-yellow-100 text-yellow-800' : a.resultado === 'Não realizado' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-500'}`}>{a.resultado || 'aguardando'}</span>
+                    </span>
                   </div>
                 ))}
               </div>
