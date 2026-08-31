@@ -2,7 +2,7 @@
 
 import { apiFetch } from '@/lib/api';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -71,6 +71,9 @@ const opcoesCota = ['Não','Ensino Público','Racial','Indígena'];
 
 const RASCUNHO_KEY = 'intento_onboarding_rascunho';
 
+// 6 telas reais: passos 1-3 + as 3 seções do passo 4
+const TOTAL_TELAS = (PASSOS.length - 1) + SECOES_HABITOS.length;
+
 const ESTADO_INICIAL = {
   dadosPessoais:    { nome: '', dataNascimento: '', telefone: '', responsavelFinanceiro: '', email: '', cidade: '', estado: '' },
   perfilAcademico:  { escolaridade: '', origemEnsinoMedio: '', cota: '', fezEnemAntes: '', provasInteresse: '', cursoInteresse: '', plataformaOnline: '', historicoEstudos: '', tresMaioresObstaculos: '', expectativasMentoria: '' },
@@ -99,7 +102,12 @@ export default function OnboardingWizard() {
   const [aceiteLgpd, setAceiteLgpd]           = useState(false);
   const [aceiteResponsavelMenor, setAceiteResponsavelMenor] = useState(false);
 
-  // Carrega rascunho e bloqueia saída acidental
+  // dirty = aluno mexeu em alguma resposta nesta visita; enviado = onboarding concluído.
+  // Refs (e não state) porque o handler de beforeunload é registrado uma vez só.
+  const dirtyRef   = useRef(false);
+  const enviadoRef = useRef(false);
+
+  // Carrega rascunho (respostas + posição) e bloqueia saída acidental se houver mudança não enviada
   useEffect(() => {
     const emailLogado = sessionStorage.getItem('emailLogado');
     if (!emailLogado) { window.location.replace('/'); return; }
@@ -108,9 +116,23 @@ export default function OnboardingWizard() {
     if (rascunho) {
       try {
         const salvo = JSON.parse(rascunho);
+        // Formato novo: { respostas, passoAtual, subSecao }. Formato antigo: o próprio objeto de respostas.
+        const resp = salvo.respostas || salvo;
         // Garante que o email logado sobrescreve qualquer rascunho
-        salvo.dadosPessoais = { ...salvo.dadosPessoais, email: emailLogado };
-        setRespostas(salvo);
+        resp.dadosPessoais = { ...resp.dadosPessoais, email: emailLogado };
+        setRespostas(resp);
+
+        // Restaura a posição salva (se válida) — recarregar não volta mais pro passo 1
+        const passoSalvo = Number(salvo.passoAtual);
+        if (Number.isInteger(passoSalvo) && passoSalvo >= 1 && passoSalvo <= PASSOS.length) {
+          setPassoAtual(passoSalvo);
+          // Quem chegou ao passo N passou pela validação dos anteriores
+          setPassosCompletos(Array.from({ length: passoSalvo - 1 }, (_, i) => i + 1));
+          const subSalva = Number(salvo.subSecao);
+          if (passoSalvo === PASSOS.length && Number.isInteger(subSalva) && subSalva >= 0 && subSalva < SECOES_HABITOS.length) {
+            setSubSecao(subSalva);
+          }
+        }
         setRascunhoRecuperado(true);
       } catch {
         setRespostas(prev => ({ ...prev, dadosPessoais: { ...prev.dadosPessoais, email: emailLogado } }));
@@ -120,6 +142,8 @@ export default function OnboardingWizard() {
     }
 
     const handleBeforeUnload = (e) => {
+      // Só avisa quem preencheu algo nesta visita e ainda não concluiu o envio
+      if (!dirtyRef.current || enviadoRef.current) return;
       e.preventDefault();
       e.returnValue = '';
     };
@@ -127,14 +151,15 @@ export default function OnboardingWizard() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 
-  // Auto-save sempre que respostas mudam
+  // Auto-save sempre que respostas ou posição mudam (posição junto pro reload voltar onde parou)
   useEffect(() => {
     if (respostas.dadosPessoais.email) {
-      localStorage.setItem(RASCUNHO_KEY, JSON.stringify(respostas));
+      localStorage.setItem(RASCUNHO_KEY, JSON.stringify({ respostas, passoAtual, subSecao }));
     }
-  }, [respostas]);
+  }, [respostas, passoAtual, subSecao]);
 
   const set = (cat, campo, val) => {
+    dirtyRef.current = true;
     setRespostas(prev => ({ ...prev, [cat]: { ...prev[cat], [campo]: val } }));
     setErro('');
     if (errosInline[campo]) setErrosInline(prev => { const n = { ...prev }; delete n[campo]; return n; });
@@ -252,9 +277,10 @@ export default function OnboardingWizard() {
       if (data.status === 'erro' || data.error) {
         throw new Error(data.mensagem || data.error || 'erro_desconhecido');
       }
-      // Só limpa rascunho APÓS confirmação de sucesso — se rede caiu antes,
+      // Só limpa rascunho (respostas + posição) APÓS confirmação de sucesso — se rede caiu antes,
       // aluno consegue tentar de novo sem perder o que digitou.
       localStorage.removeItem(RASCUNHO_KEY);
+      enviadoRef.current = true;
       setSucesso(true);
       window.scrollTo(0, 0);
       const email = sessionStorage.getItem('emailLogado') || 'anonimo';
@@ -269,9 +295,9 @@ export default function OnboardingWizard() {
     }
   };
 
-  const progresso = passoAtual < 4
-    ? ((passoAtual - 1) / 4) * 100
-    : 75 + (subSecao / SECOES_HABITOS.length) * 25;
+  // Progresso honesto: conta as 6 telas reais (passos 1-3 + 3 seções do passo 4)
+  const telaAtual = passoAtual < 4 ? passoAtual : 4 + subSecao;
+  const progresso = ((telaAtual - 1) / TOTAL_TELAS) * 100;
 
   const secaoAtual  = SECOES_HABITOS[subSecao];
   const respondidas = passoAtual === 4 ? secaoAtual.perguntas.filter(q => respostas.diagnosticoTecnica[q.id]).length : 0;
@@ -315,12 +341,12 @@ export default function OnboardingWizard() {
           </p>
           <div className="bg-slate-50 border-l-4 border-intento-yellow p-5 rounded-r-xl mb-6 text-left space-y-2">
             <h3 className="font-semibold text-intento-blue text-sm flex items-center gap-2">
-              <span className="bg-intento-yellow text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">!</span>
+              <span className="bg-intento-yellow text-intento-blue w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">!</span>
               Próximo passo obrigatório
             </h3>
             <p className="text-sm text-slate-600 leading-relaxed">Realize o <b>Diagnóstico Teórico</b> para que seu mentor possa montar um plano cirúrgico baseado nas suas reais lacunas.</p>
           </div>
-          <Link href="/diagnostico" className="block w-full py-3 px-6 bg-intento-yellow text-white font-semibold text-sm rounded-lg hover:bg-yellow-500 transition-all">
+          <Link href="/diagnostico" className="block w-full py-3 px-6 bg-intento-yellow text-intento-blue font-semibold text-sm rounded-lg hover:bg-yellow-500 transition-all">
             Iniciar Diagnóstico Teórico →
           </Link>
         </div>
@@ -342,7 +368,7 @@ export default function OnboardingWizard() {
             </p>
           </div>
           <p className="text-xs font-semibold text-intento-blue">
-            {passoAtual < 4 ? `${passoAtual} de 4` : `Seção ${subSecao + 1} de ${SECOES_HABITOS.length}`}
+            Tela {telaAtual} de {TOTAL_TELAS}
           </p>
         </div>
         <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
@@ -363,6 +389,7 @@ export default function OnboardingWizard() {
               <div className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                 <div className="bg-intento-yellow h-full transition-all duration-700" style={{ width: `${progresso}%` }} />
               </div>
+              <p className="text-[10px] text-slate-400 font-medium mt-1.5">Tela {telaAtual} de {TOTAL_TELAS}</p>
             </div>
             <nav className="p-3 space-y-1">
               {PASSOS.map((p) => {
@@ -426,6 +453,7 @@ export default function OnboardingWizard() {
                 <div>
                   <h2 className="text-xl font-semibold text-intento-blue">Vamos te conhecer melhor</h2>
                   <p className="text-slate-400 text-sm font-medium mt-1">Preencha seus dados pessoais para criarmos seu perfil.</p>
+                  <p className="text-xs text-slate-500 mt-2">Leva uns 12 minutos. Suas respostas ficam salvas neste navegador.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="md:col-span-2">
@@ -654,6 +682,7 @@ export default function OnboardingWizard() {
                       type="checkbox"
                       checked={aceiteLgpd}
                       onChange={(e) => {
+                        dirtyRef.current = true;
                         setAceiteLgpd(e.target.checked);
                         if (errosInline.aceiteLgpd) setErrosInline(prev => { const n = { ...prev }; delete n.aceiteLgpd; return n; });
                       }}
@@ -688,6 +717,7 @@ export default function OnboardingWizard() {
                         type="checkbox"
                         checked={aceiteResponsavelMenor}
                         onChange={(e) => {
+                          dirtyRef.current = true;
                           setAceiteResponsavelMenor(e.target.checked);
                           if (errosInline.aceiteResponsavelMenor) setErrosInline(prev => { const n = { ...prev }; delete n.aceiteResponsavelMenor; return n; });
                         }}
