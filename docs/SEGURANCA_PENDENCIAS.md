@@ -32,31 +32,42 @@ Tudo abaixo é código; a parte Next deploya no merge (Vercel), a parte GAS exig
 6. **Todas as chamadas Next→GAS passam pelo `chamarGAS`** (carregam o token).
    Isso é pré-requisito pra ligar `VALIDAR_TOKEN` sem quebrar push.
 
-## PENDENTE #1 (crítico) — escalada de privilégio por email não verificado
+## #1 — escalada de privilégio por email não verificado
 
 **Risco:** o login aceita email/senha (`createUserWithEmailAndPassword`) e o
 cadastro nunca envia verificação. Conta email/senha nasce com
 `email_verified = false`. O `verificarUsuario` (lib/auth.js) até calcula
-`emailVerificado`, mas **ninguém lê**. Como o GAS autoriza por email
+`emailVerificado`, mas **ninguém lia**. Como o GAS autoriza por email
 (`_ehLider('filippe@...')` → líder; `endsWith('@metodointento.com.br')` →
-mentor), dá pra cadastrar o email de um mentor/líder ainda não registrado no
+mentor), dava pra cadastrar o email de um mentor/líder ainda não registrado no
 Firebase, receber um token válido com aquele email **sem provar posse da caixa**,
 e assumir o papel.
 
-**O que segura hoje (frágil, fora do código):** a config "one account per email"
-do Firebase + o staff já ter conta Google nesses emails. Não deveria ser a única
-barreira.
+### Mitigado pela opção (c) — email verificado pros papéis do domínio
 
-**Decisão de produto necessária (uma das):**
-- (a) Passar a exigir `email_verified` no `verificarUsuario` **e** enviar
-  `sendEmailVerification` no cadastro + gating na UI. Logins Google já vêm
-  verificados, não quebram. Quebra logins email/senha existentes até verificarem.
-- (b) Desligar o provedor email/senha no Firebase e ir só Google.
-- (c) Exigir `email_verified` só pros papéis privilegiados (líder/mentor),
-  mantendo aluno no fluxo atual.
+`lib/auth.js` exporta `ehStaffPrivilegiado(email)` (líder + `@metodointento.com.br`).
+O gateway (`/api/mentor`) e `/api/vendedor/disponibilidade` passam a **rejeitar
+(403)** caller de papel privilegiado com `email_verified=false`. Staff usa Google
+Workspace (sempre verificado), então é invisível pra eles; o ataque de registrar
+`alguem@metodointento.com.br` via email/senha não verificado morre. Só Next, sem
+GAS. (Firebase: "proteção contra enumeração de e-mails" está ligada — não fecha
+essa falha, só esconde quais emails existem.)
 
-**Antes de decidir:** confirmar no console do Firebase se email/senha está mesmo
-habilitado (não dá pra checar pelo repo).
+### RESÍDUO em aberto (avaliar)
+
+- **Mentor/vendedor cadastrado em BD_Mentores/BD_Vendedores com email PESSOAL**
+  (não-domínio): não é pego pelo `ehStaffPrivilegiado` (o gateway não lê BD_*).
+  Fechar exige checagem no GAS (passar `emailVerificado` do gateway e negar
+  callers que resolvem a mentor/vendedor sem verificação) — deploy casado.
+  Risco é estreito: enumeration protection ligada + o atacante teria que saber
+  que aquele email pessoal específico é staff. **TODO se existir staff assim.**
+
+### Opção (a) — adiada (defesa em profundidade pro aluno)
+
+Exigir `email_verified` também pro aluno + `sendEmailVerification` no cadastro +
+gate na UI. Fecha a impersonação aluno↔aluno. Requer migração das contas
+email/senha atuais. Caminho: começar disparando verificação nos cadastros novos
+(sem bloquear) e, quando a taxa de verificados subir, virar a chave.
 
 ## PENDENTE #4 — ligar `VALIDAR_TOKEN` no GAS
 

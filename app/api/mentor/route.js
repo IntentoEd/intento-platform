@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { verificarUsuario } from '@/lib/auth';
+import { verificarUsuario, ehStaffPrivilegiado } from '@/lib/auth';
 import { chamarGAS } from '@/lib/gasClient';
 
 // Cache em memória: chave -> { ts, data }
@@ -158,6 +158,15 @@ export async function POST(request) {
           { status: 401 }
         );
       }
+      // Papel privilegiado (staff do domínio) exige email verificado. Bloqueia a
+      // escalada de privilégio via conta email/senha não verificada. Google
+      // Workspace sempre vem verificado, então não afeta o staff real.
+      if (ehStaffPrivilegiado(usuario.email) && !usuario.emailVerificado) {
+        return NextResponse.json(
+          { status: 'erro', mensagem: 'Conta de equipe exige email verificado. Entre com o Google.' },
+          { status: 403 }
+        );
+      }
       emailCaller = usuario.email;
       // Sobrescreve email + porEmail (criadoPor) com o email do token verificado.
       dados.email = emailCaller;
@@ -178,6 +187,14 @@ export async function POST(request) {
         return NextResponse.json(
           { status: 'erro', mensagem: 'Não autorizado: token inválido ou ausente' },
           { status: 401 }
+        );
+      }
+      // Mesmo guard: se o CALLER é staff do domínio, exige email verificado.
+      // Aluno (email pessoal) abrindo o próprio painel não é afetado.
+      if (ehStaffPrivilegiado(usuario.email) && !usuario.emailVerificado) {
+        return NextResponse.json(
+          { status: 'erro', mensagem: 'Conta de equipe exige email verificado. Entre com o Google.' },
+          { status: 403 }
         );
       }
       emailCaller = usuario.email;

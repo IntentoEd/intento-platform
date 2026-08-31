@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { verificarUsuario } from '@/lib/auth';
+import { verificarUsuario, ehStaffPrivilegiado } from '@/lib/auth';
 import { chamarGAS } from '@/lib/gasClient';
 
 const gas = chamarGAS;
@@ -13,6 +13,13 @@ export async function POST(request) {
     return NextResponse.json(
       { status: 'erro', mensagem: 'Não autorizado: token inválido ou ausente' },
       { status: 401 }
+    );
+  }
+  // Vendedor é papel privilegiado (staff do domínio): exige email verificado.
+  if (ehStaffPrivilegiado(usuario.email) && !usuario.emailVerificado) {
+    return NextResponse.json(
+      { status: 'erro', mensagem: 'Conta de equipe exige email verificado. Entre com o Google.' },
+      { status: 403 }
     );
   }
   const email = usuario.email;
