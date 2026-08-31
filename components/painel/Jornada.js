@@ -133,7 +133,9 @@ export default function Jornada({ sessao, caderno }) {
       {/* Cabeçalho */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-xl font-bold text-intento-blue">Sua Jornada</h2>
+          {/* Único título da aba: a página oculta o h1 genérico na Jornada
+              (padrão das abas com header próprio, como Simulados e Caderno). */}
+          <h1 className="text-2xl font-semibold text-intento-blue">Sua Jornada</h1>
           <p className="text-sm text-slate-500 font-medium">O ano em ciclos, seus carimbos do Método e os selos que você já estampou.</p>
         </div>
         <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase tracking-wider">{ciclo.id} · {ciclo.nome}</span>

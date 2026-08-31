@@ -46,7 +46,11 @@ export default function ConfirmDialog({
 
   if (!aberto) return null;
 
-  const btnConfirmar = tom === 'danger' ? 'btn-danger' : 'btn-primary';
+  // Classes reais de Tailwind (as antigas btn-* não existiam no globals.css e
+  // os botões renderizavam sem estilo nenhum).
+  const btnConfirmar = tom === 'danger'
+    ? 'bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg text-sm px-4 py-2 transition-all disabled:opacity-60'
+    : 'bg-intento-blue hover:bg-blue-900 text-white font-semibold rounded-lg text-sm px-4 py-2 transition-all disabled:opacity-60';
 
   return (
     <div
@@ -69,7 +73,7 @@ export default function ConfirmDialog({
         <div className="flex justify-end gap-2 mt-5">
           <button
             type="button"
-            className="btn-ghost"
+            className="text-sm font-semibold text-slate-500 hover:text-intento-blue px-4 py-2 transition-colors disabled:opacity-60"
             disabled={carregando}
             onClick={onCancelar}
           >
