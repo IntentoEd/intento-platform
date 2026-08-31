@@ -119,7 +119,7 @@ export default function HubChecklist() {
           <div className="flex items-center gap-3 shrink-0">
             <div className="text-right hidden sm:block">
               <p className="text-intento-yellow font-bold text-lg leading-none">{Math.round(porcentagem)}%</p>
-              <p className="text-slate-500 text-[10px] font-medium uppercase tracking-wider mt-0.5">{concluidos} de {total} etapas</p>
+              <p className="text-slate-400 text-[10px] font-medium uppercase tracking-wider mt-0.5">{concluidos} de {total} etapas</p>
             </div>
             <div className="w-24 bg-white/10 h-1.5 rounded-full overflow-hidden hidden sm:block">
               <div className="bg-intento-yellow h-full transition-all duration-700" style={{ width: `${porcentagem}%` }} />
@@ -192,7 +192,7 @@ export default function HubChecklist() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icone} />
                     </svg>
                   ) : (
-                    <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   )}
@@ -201,15 +201,15 @@ export default function HubChecklist() {
                 {/* Texto */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">{idx + 1}</span>
-                    <h3 className={`text-sm font-semibold ${concluido ? 'text-slate-400' : desbloqueado ? 'text-intento-blue' : 'text-slate-300'}`}>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{idx + 1}</span>
+                    <h3 className={`text-sm font-semibold ${concluido ? 'text-slate-500' : desbloqueado ? 'text-intento-blue' : 'text-slate-400'}`}>
                       {item.titulo}
                     </h3>
                     {concluido && (
                       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Concluído</span>
                     )}
                   </div>
-                  <p className={`text-xs leading-relaxed ${desbloqueado ? 'text-slate-400' : 'text-slate-300'}`}>{item.descricao}</p>
+                  <p className={`text-xs leading-relaxed ${desbloqueado ? 'text-slate-500' : 'text-slate-400'}`}>{item.descricao}</p>
                   {item.dica && desbloqueado && (
                     <p className="text-xs text-slate-500 font-medium mt-1.5">{item.dica}</p>
                   )}
@@ -225,7 +225,7 @@ export default function HubChecklist() {
 
                 {/* Botão de ação */}
                 {!desbloqueado ? (
-                  <span className="shrink-0 px-5 py-2 bg-slate-100 text-slate-300 font-semibold rounded-lg text-sm cursor-not-allowed select-none text-center">
+                  <span className="shrink-0 px-5 py-2 bg-slate-100 text-slate-400 font-semibold rounded-lg text-sm cursor-not-allowed select-none text-center">
                     Bloqueado
                   </span>
                 ) : item.externo ? (
@@ -243,7 +243,7 @@ export default function HubChecklist() {
                     className={`shrink-0 text-center px-5 py-2 font-semibold rounded-lg text-sm transition-all ${
                       concluido
                         ? 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                        : 'bg-intento-yellow text-white hover:bg-yellow-500'
+                        : 'bg-intento-yellow text-intento-blue hover:bg-yellow-500'
                     }`}>
                     {concluido ? (item.labelConcluido || item.label) : item.label}
                   </Link>

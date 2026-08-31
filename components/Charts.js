@@ -17,7 +17,7 @@ async function registrar() {
 }
 
 const placeholder = () => (
-  <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs animate-pulse">
+  <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs animate-pulse">
     Carregando gráfico…
   </div>
 );

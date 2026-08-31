@@ -34,7 +34,7 @@ export default function BoletimAluno({ idAluno }) {
   }, [idAluno]);
 
   if (provas === null && !erro) {
-    return <p className="text-sm text-slate-400 font-medium py-6 text-center">Carregando boletim…</p>;
+    return <p className="text-sm text-slate-500 font-medium py-6 text-center">Carregando boletim…</p>;
   }
   if (erro) {
     return <p className="text-sm text-red-600 font-medium py-6 text-center">{erro}</p>;
@@ -44,7 +44,7 @@ export default function BoletimAluno({ idAluno }) {
     <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
       <div className="mb-5">
         <h2 className="text-base font-semibold text-intento-blue">Boletim</h2>
-        <p className="text-[11px] text-slate-400 font-medium mt-0.5">Suas notas e desempenho por matéria — atualizado pelo mentor.</p>
+        <p className="text-[11px] text-slate-500 font-medium mt-0.5">Suas notas e desempenho por matéria — atualizado pelo mentor.</p>
       </div>
       <Boletim provas={provas} />
     </div>

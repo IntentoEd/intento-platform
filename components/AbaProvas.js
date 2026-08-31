@@ -214,7 +214,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
     const autor = (p.criadoPor || '').toLowerCase();
     if (!autor || autor === meuEmail) return null;
     return (
-      <span className="text-[10px] font-medium text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">
+      <span className="text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">
         por {autor.split('@')[0]}
       </span>
     );
@@ -432,8 +432,8 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
 
   const botoesItem = (p) => (
     <div className="flex items-center gap-1 shrink-0">
-      <button onClick={() => abrirEdicao(p)} className="text-[11px] font-semibold text-slate-400 hover:text-intento-blue px-2 py-1 transition" title="Editar">✎</button>
-      <button onClick={() => setProvaParaDeletar(p)} className="text-[11px] font-semibold text-slate-400 hover:text-red-500 px-2 py-1 transition" title="Deletar">🗑</button>
+      <button onClick={() => abrirEdicao(p)} className="text-[11px] font-semibold text-slate-500 hover:text-intento-blue px-2 py-1 transition" title="Editar">✎</button>
+      <button onClick={() => setProvaParaDeletar(p)} className="text-[11px] font-semibold text-slate-500 hover:text-red-500 px-2 py-1 transition" title="Deletar">🗑</button>
     </div>
   );
 
@@ -447,7 +447,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
     );
   }
   if (provas === null || provas === undefined) {
-    return <div className="text-sm text-slate-400 font-medium py-8 text-center">Carregando provas…</div>;
+    return <div className="text-sm text-slate-500 font-medium py-8 text-center">Carregando provas…</div>;
   }
 
   return (
@@ -456,7 +456,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100">
         <div>
           <h2 className="text-base font-bold text-intento-blue">Provas</h2>
-          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
             {proximas.length} próxima{proximas.length !== 1 ? 's' : ''}
             {aRegistrar.length > 0 && <span className="text-amber-700 font-bold"> · {aRegistrar.length} a registrar</span>}
             {' '}· {historico.length} realizada{historico.length !== 1 ? 's' : ''}
@@ -473,7 +473,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
 
       {/* Quick-add inline */}
       <div className="border border-dashed border-slate-300 rounded-xl p-3">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Adicionar rápido</p>
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Adicionar rápido</p>
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="date"
@@ -510,7 +510,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
             onChange={e => setQa(prev => ({ ...prev, observacao: e.target.value }))}
             onKeyDown={e => { if (e.key === 'Enter') salvarQuickAdd(); }}
             placeholder="observação…"
-            className="flex-1 min-w-[120px] text-xs font-medium text-slate-600 px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white placeholder:text-slate-400"
+            className="flex-1 min-w-[120px] text-xs font-medium text-slate-600 px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white placeholder:text-slate-500"
           />
           <button
             onClick={salvarQuickAdd}
@@ -529,7 +529,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
             className="mt-2 w-full sm:w-64 text-xs font-medium text-intento-blue px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white"
           />
         )}
-        <p className="text-[10px] text-slate-400 mt-1.5">salva e mantém a data — cadastre a semana de provas em sequência</p>
+        <p className="text-[10px] text-slate-500 mt-1.5">salva e mantém a data — cadastre a semana de provas em sequência</p>
         {erroQa && <p className="text-xs text-red-600 font-medium mt-1">{erroQa}</p>}
       </div>
 
@@ -578,7 +578,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
       <section>
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Próximas</h3>
         {proximas.length === 0 ? (
-          <p className="text-sm text-slate-400 italic py-4 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+          <p className="text-sm text-slate-500 italic py-4 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
             Nenhuma prova futura. Use o &quot;Adicionar rápido&quot; acima — ou peça as datas no próximo encontro.
           </p>
         ) : (
@@ -596,7 +596,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                     <p className="text-xs text-slate-500 font-medium">
                       {formatarData(p.data)} · <span className={dias <= 3 ? 'text-red-600 font-bold' : dias <= 7 ? 'text-amber-700 font-bold' : 'text-slate-500'}>{countdownLabel(dias)}</span>
                     </p>
-                    {p.observacao && <p className="text-[11px] text-slate-400 mt-1 italic truncate">{p.observacao}</p>}
+                    {p.observacao && <p className="text-[11px] text-slate-500 mt-1 italic truncate">{p.observacao}</p>}
                   </div>
                   {botoesItem(p)}
                 </div>
@@ -619,7 +619,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
         </button>
         {historicoAberto && (
           historico.length === 0 ? (
-            <p className="text-sm text-slate-400 italic py-4 text-center">Sem provas com resultado ainda.</p>
+            <p className="text-sm text-slate-500 italic py-4 text-center">Sem provas com resultado ainda.</p>
           ) : (
             <div className="space-y-2">
               {historico.map(p => (
@@ -668,9 +668,9 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
              onClick={(e) => { if (e.target === e.currentTarget) setCadastroAberto(false); }}>
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
             <div className="px-6 py-5 border-b border-slate-100 shrink-0">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cadastrar em lote</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cadastrar em lote</p>
               <h2 className="text-base font-semibold text-intento-blue mt-0.5">{alunoNome}</h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">Adicione uma ou mais provas. Salvar é atômico — se uma falhar, nenhuma entra.</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Adicione uma ou mais provas. Salvar é atômico — se uma falhar, nenhuma entra.</p>
             </div>
 
             <div className="p-6 space-y-3 overflow-y-auto flex-1">
@@ -681,7 +681,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Prova {idx + 1}</span>
                       {linhas.length > 1 && (
-                        <button onClick={() => removerLinha(idx)} className="text-xs text-slate-400 hover:text-red-500" title="Remover">🗑</button>
+                        <button onClick={() => removerLinha(idx)} className="text-xs text-slate-500 hover:text-red-500" title="Remover">🗑</button>
                       )}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -750,7 +750,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                       value={l.observacao}
                       onChange={e => atualizarLinha(idx, 'observacao', e.target.value)}
                       placeholder="Observação (opcional, ex: capítulos 5–8)"
-                      className="w-full text-xs font-medium text-slate-600 px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white placeholder:text-slate-400"
+                      className="w-full text-xs font-medium text-slate-600 px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white placeholder:text-slate-500"
                     />
                   </div>
                 );
@@ -791,19 +791,19 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
              onClick={(e) => { if (e.target === e.currentTarget) setProvaEditando(null); }}>
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
             <div className="px-6 py-5 border-b border-slate-100">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 {editModoResultado ? 'Registrar resultado' : 'Editar prova'}
               </p>
               <h2 className="text-base font-semibold text-intento-blue mt-0.5">{alunoNome}</h2>
             </div>
             <div className="p-6 space-y-3">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Data</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Data</label>
                 <input type="date" value={editData} onChange={e => setEditData(e.target.value)}
                        className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue"/>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{rotuloEntidade}</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{rotuloEntidade}</label>
                 <select value={editMateriaSel}
                         onChange={e => {
                           const sel = e.target.value;
@@ -817,11 +817,11 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                 {ehSelecaoOutra(editMateriaSel) && (
                   <input type="text" value={editMateriaTxt} onChange={e => setEditMateriaTxt(e.target.value)}
                          placeholder={placeholderOutra(editMateriaSel)}
-                         className="w-full mt-2 text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400"/>
+                         className="w-full mt-2 text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-500"/>
                 )}
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{selecaoVest(editMateriaSel) ? 'Fase' : 'Tipo'}</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{selecaoVest(editMateriaSel) ? 'Fase' : 'Tipo'}</label>
                 <select value={editTipo} onChange={e => setEditTipo(e.target.value)}
                         className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue">
                   <option value="">— escolha —</option>
@@ -833,7 +833,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                 const opcoes = opcoesParaSubstituir(materiaAtual, provaEditando.id);
                 return (
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Substitui qual prova?</label>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Substitui qual prova?</label>
                     <select value={editSubstituiId} onChange={e => setEditSubstituiId(e.target.value)}
                             disabled={!materiaAtual || opcoes.length === 0}
                             className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-amber-50 disabled:opacity-60">
@@ -855,18 +855,18 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                 );
               })()}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Observação / Como foi?</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Observação / Como foi?</label>
                 <textarea value={editObs} onChange={e => setEditObs(e.target.value)}
                           rows={2} placeholder="Antes da prova: capítulos cobrados. Depois: comentário sobre desempenho."
-                          className="w-full text-sm font-medium text-slate-700 px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400 resize-none"/>
+                          className="w-full text-sm font-medium text-slate-700 px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-500 resize-none"/>
               </div>
               {!selecaoVest(editMateriaSel) && (
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nota (0–10, opcional)</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nota (0–10, opcional)</label>
                   <input type="number" min="0" max="10" step="0.1" value={editNota}
                          onChange={e => setEditNota(e.target.value)}
                          placeholder="ex: 7.5"
-                         className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400"/>
+                         className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-500"/>
                 </div>
               )}
               {editModoResultado && selecaoVest(editMateriaSel) && (

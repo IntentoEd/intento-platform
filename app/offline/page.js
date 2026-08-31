@@ -27,7 +27,7 @@ export default function Offline() {
           Tentar novamente
         </button>
 
-        <p className="text-[11px] text-slate-400 font-medium mt-8">
+        <p className="text-[11px] text-slate-500 font-medium mt-8">
           Algumas páginas que você visitou recentemente continuam disponíveis em modo leitura.
         </p>
       </div>

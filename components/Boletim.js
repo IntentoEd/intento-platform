@@ -169,7 +169,7 @@ export default function Boletim({ provas }) {
 
   if (provas.length === 0) {
     return (
-      <p className="text-sm text-slate-400 italic py-6 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+      <p className="text-sm text-slate-500 italic py-6 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
         Sem provas cadastradas ainda — Boletim aparece quando houver dados.
       </p>
     );
@@ -193,13 +193,13 @@ export default function Boletim({ provas }) {
             <option value="4">4º bimestre (Nov-Dez)</option>
           </select>
         </div>
-        <p className="text-[11px] text-slate-400 font-medium">
+        <p className="text-[11px] text-slate-500 font-medium">
           {provasFiltradas.length} prova{provasFiltradas.length !== 1 ? 's' : ''} no período
         </p>
       </div>
 
       {provasFiltradas.length === 0 ? (
-        <p className="text-sm text-slate-400 italic py-6 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+        <p className="text-sm text-slate-500 italic py-6 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
           Nenhuma prova nesse período.
         </p>
       ) : (
@@ -245,8 +245,8 @@ export default function Boletim({ provas }) {
                       <td className="px-3 py-2.5 text-center">
                         {m.tendencia === 'up' && <span className="text-emerald-600 font-bold">↗</span>}
                         {m.tendencia === 'down' && <span className="text-red-600 font-bold">↘</span>}
-                        {m.tendencia === 'flat' && <span className="text-slate-400 font-bold">→</span>}
-                        {m.tendencia === null && <span className="text-slate-300">—</span>}
+                        {m.tendencia === 'flat' && <span className="text-slate-500 font-bold">→</span>}
+                        {m.tendencia === null && <span className="text-slate-400">—</span>}
                       </td>
                     </tr>
                   ))}
@@ -271,7 +271,7 @@ export default function Boletim({ provas }) {
                           if (next.has(m.materia)) next.delete(m.materia); else next.add(m.materia);
                           return next;
                         })}
-                        className={`text-[10px] font-bold px-2 py-1 rounded-full border transition ${oculta ? 'bg-slate-100 text-slate-400 border-slate-200' : 'text-white border-transparent'}`}
+                        className={`text-[10px] font-bold px-2 py-1 rounded-full border transition ${oculta ? 'bg-slate-100 text-slate-500 border-slate-200' : 'text-white border-transparent'}`}
                         style={oculta ? {} : { backgroundColor: corDaMateria(m.materia) }}
                       >
                         {m.materia}
@@ -305,9 +305,9 @@ export default function Boletim({ provas }) {
 function KPI({ label, valor, sub, cor }) {
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-3 text-center">
-      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{label}</p>
+      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">{label}</p>
       <p className={`text-2xl font-bold ${cor || 'text-intento-blue'}`}>{valor}</p>
-      {sub && <p className="text-[10px] text-slate-400 font-medium">{sub}</p>}
+      {sub && <p className="text-[10px] text-slate-500 font-medium">{sub}</p>}
     </div>
   );
 }

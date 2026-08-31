@@ -81,7 +81,7 @@ export default function InstallPrompt() {
         <button
           onClick={dispensar}
           aria-label="Dispensar"
-          className="text-slate-300 hover:text-slate-500 shrink-0 -mt-1 -mr-1 p-1 transition"
+          className="text-slate-400 hover:text-slate-500 shrink-0 -mt-1 -mr-1 p-1 transition"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
@@ -90,7 +90,7 @@ export default function InstallPrompt() {
         <div className="flex justify-end gap-2 mt-3">
           <button
             onClick={dispensar}
-            className="text-xs font-semibold text-slate-400 hover:text-slate-600 px-2 py-1.5 transition"
+            className="text-xs font-semibold text-slate-500 hover:text-slate-600 px-2 py-1.5 transition"
           >
             Agora não
           </button>

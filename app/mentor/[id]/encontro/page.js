@@ -106,7 +106,7 @@ const STEPS = [
 ];
 
 const labelClass = 'block text-xs font-medium text-slate-500 uppercase tracking-wider';
-const inputClass = 'w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-slate-700 placeholder:text-slate-400 transition-all';
+const inputClass = 'w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-slate-700 placeholder:text-slate-500 transition-all';
 
 const StarRating = ({ rating, setRating, readOnly = false, small = false }) => (
   <div className="flex gap-0.5">
@@ -569,9 +569,9 @@ export default function ModoEncontro() {
     <>
       {/* Onde paramos */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Onde paramos</p>
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Onde paramos</p>
         {!ultimo ? (
-          <p className="text-xs text-slate-400 font-medium">Primeiro encontro registrado — sem histórico anterior.</p>
+          <p className="text-xs text-slate-500 font-medium">Primeiro encontro registrado — sem histórico anterior.</p>
         ) : (
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
@@ -588,7 +588,7 @@ export default function ModoEncontro() {
               <div className="max-h-[45vh] overflow-y-auto space-y-3 border-t border-slate-100 pt-3 mt-1 pr-1">
                 {(parseInt(ultimo.autoavaliacao) || 0) > 0 && (
                   <div className="flex items-center gap-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Autoavaliação</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Autoavaliação</p>
                     <StarRating rating={parseInt(ultimo.autoavaliacao) || 0} readOnly small />
                   </div>
                 )}
@@ -597,7 +597,7 @@ export default function ModoEncontro() {
                 <CampoDiario label="Exploração" texto={ultimo.exploracao} />
                 {(ultimo.acoes || []).some(a => String(a || '').trim()) && (
                   <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Plano de ação</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Plano de ação</p>
                     <div className="space-y-1">
                       {(ultimo.acoes || [])
                         .map((a, i) => ({ acao: a, resultado: form.resultadosAnteriores?.[i] || '' }))
@@ -605,7 +605,7 @@ export default function ModoEncontro() {
                         .map((x, i) => (
                           <div key={i} className="flex items-start justify-between gap-2 bg-slate-50 rounded-lg px-2.5 py-1.5">
                             <span className="text-xs text-slate-600 font-medium leading-snug">{x.acao}</span>
-                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${COR_RESULTADO[x.resultado] || 'bg-slate-100 text-slate-400'}`}>{x.resultado || 'aguardando'}</span>
+                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${COR_RESULTADO[x.resultado] || 'bg-slate-100 text-slate-500'}`}>{x.resultado || 'aguardando'}</span>
                           </div>
                         ))}
                     </div>
@@ -630,7 +630,7 @@ export default function ModoEncontro() {
       {/* Snapshot dos números + atalho pro mês */}
       {snapshot && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">📈 Última semana · {snapshot.semanaLabel}</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">📈 Última semana · {snapshot.semanaLabel}</p>
           <div className="grid grid-cols-2 gap-2 mt-3">
             <Metric label="Horas" valor={snapshot.horas != null ? `${snapshot.horas}h` : '—'} delta={snapshot.hDelta} />
             <Metric label="Domínio" valor={snapshot.dominio != null ? `${snapshot.dominio}%` : '—'} delta={snapshot.dDelta} pct />
@@ -647,11 +647,11 @@ export default function ModoEncontro() {
       {/* Semana Padrão — consulta + edição */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
         <div className="flex items-center justify-between mb-1">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">🗓️ Semana Padrão</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">🗓️ Semana Padrão</p>
           <button onClick={() => setModalSemana(true)} className="text-[11px] font-bold text-intento-blue hover:text-intento-blue/70 transition-colors">Editar ✎</button>
         </div>
         <SemanaHeatmap grade={grade} />
-        {metaHorasSemanal && <p className="text-[10px] text-slate-400 font-medium mt-2">Meta de horas: {metaHorasSemanal}h</p>}
+        {metaHorasSemanal && <p className="text-[10px] text-slate-500 font-medium mt-2">Meta de horas: {metaHorasSemanal}h</p>}
       </div>
 
       {/* Nota privada (fixa) */}
@@ -674,26 +674,26 @@ export default function ModoEncontro() {
       <div className="sticky top-0 z-30 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={tentarSair} className="text-sm font-medium text-slate-400 hover:text-intento-blue transition-colors shrink-0">← Sair</button>
+            <button onClick={tentarSair} className="text-sm font-medium text-slate-500 hover:text-intento-blue transition-colors shrink-0">← Sair</button>
             <div className="min-w-0">
               <p className="text-[10px] font-bold text-intento-yellow uppercase tracking-wider">Novo Diário de Bordo</p>
               <h1 className="text-base font-bold text-intento-blue truncate">{nomeAluno || 'Aluno'}</h1>
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
+            <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
               {sujo
                 ? <><svg className="w-3 h-3 animate-spin text-slate-300" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg> rascunho salvo localmente</>
                 : <>✓ tudo em rascunho</>}
             </span>
             {/* Versão compacta no mobile — a ansiedade de "gravou?" é maior aqui */}
-            <span className="flex sm:hidden items-center gap-1.5 text-[10px] font-semibold text-slate-400"
+            <span className="flex sm:hidden items-center gap-1.5 text-[10px] font-semibold text-slate-500"
               title={sujo ? 'rascunho salvo localmente' : 'tudo em rascunho'}>
               <span className={`w-2 h-2 rounded-full shrink-0 ${sujo ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`} />
               salvo
             </span>
             <button onClick={finalizarEncontro} disabled={salvando}
-              className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition-all text-sm disabled:opacity-60">
+              className="bg-intento-yellow hover:bg-yellow-500 text-intento-blue font-bold px-5 py-2 rounded-lg shadow-sm transition-all text-sm disabled:opacity-60">
               {salvando ? 'Salvando...' : 'Salvar Diário'}
             </button>
           </div>
@@ -720,7 +720,7 @@ export default function ModoEncontro() {
 
         {/* ── Roteiro (rail) ───────────────────────────────────────────────── */}
         <nav className="lg:sticky lg:top-20 lg:self-start">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 hidden lg:block">Roteiro</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3 hidden lg:block">Roteiro</p>
           <div className="flex lg:flex-col gap-2 overflow-x-auto pb-2 lg:pb-0">
             {stepsVisiveis.map((s, i) => {
               const ativo = s.id === stepAtivo;
@@ -769,12 +769,12 @@ export default function ModoEncontro() {
             <div className="sticky bottom-0 z-10 lg:static mt-6 bg-white/95 border-t border-slate-200 lg:border-slate-100 rounded-b-xl safe-area-bottom">
               <div className="px-6 py-3 lg:pt-5 lg:pb-6 flex items-center justify-between">
                 <button onClick={() => irPara(-1)} disabled={idxAtivo <= 0}
-                  className="text-sm font-semibold text-slate-400 hover:text-intento-blue transition-colors disabled:opacity-30">← Anterior</button>
-                <span className="text-[11px] font-medium text-slate-300">{idxAtivo + 1} de {stepsVisiveis.length}</span>
+                  className="text-sm font-semibold text-slate-500 hover:text-intento-blue transition-colors disabled:opacity-30">← Anterior</button>
+                <span className="text-[11px] font-medium text-slate-500">{idxAtivo + 1} de {stepsVisiveis.length}</span>
                 {idxAtivo < stepsVisiveis.length - 1 ? (
                   <button onClick={() => irPara(1)} className="text-sm font-semibold text-intento-blue hover:text-intento-blue/70 transition-colors">Próximo →</button>
                 ) : (
-                  <button onClick={finalizarEncontro} disabled={salvando} className="text-sm font-bold text-intento-yellow hover:text-yellow-600 transition-colors disabled:opacity-50">Salvar Diário ✓</button>
+                  <button onClick={finalizarEncontro} disabled={salvando} className="text-sm font-bold bg-intento-yellow hover:bg-yellow-500 text-intento-blue px-4 py-2 rounded-lg transition-colors disabled:opacity-50">Salvar Diário ✓</button>
                 )}
               </div>
             </div>
@@ -785,7 +785,7 @@ export default function ModoEncontro() {
             <div className="flex items-center justify-between mb-2">
               <div>
                 <h3 className="text-sm font-bold text-intento-blue">Exploração</h3>
-                <p className="text-[11px] text-slate-400 font-medium">Sempre aberta — anote durante toda a reunião</p>
+                <p className="text-[11px] text-slate-500 font-medium">Sempre aberta — anote durante toda a reunião</p>
               </div>
               <button onClick={() => setExplorExpandida(true)}
                 className="text-[11px] font-bold text-intento-blue border border-intento-blue/30 rounded-lg px-2.5 py-1 hover:bg-intento-blue/5 transition-all shrink-0">
@@ -797,7 +797,7 @@ export default function ModoEncontro() {
               value={form.exploracao} onChange={e => upd({ exploracao: e.target.value })} />
           </div>
 
-          <button onClick={descartarRascunho} className="text-[11px] text-slate-300 hover:text-red-400 font-semibold transition-colors">descartar rascunho</button>
+          <button onClick={descartarRascunho} className="text-[11px] text-slate-400 hover:text-red-400 font-semibold transition-colors">descartar rascunho</button>
         </main>
 
         {/* ── Painel de contexto (consulta + ações) — coluna só em lg+ ─────── */}
@@ -812,7 +812,7 @@ export default function ModoEncontro() {
           <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-intento-blue">Exploração · {nomeAluno || 'Aluno'}</h2>
-              <p className="text-[11px] text-slate-400 font-medium">O texto é o mesmo do painel — salvo no rascunho automaticamente</p>
+              <p className="text-[11px] text-slate-500 font-medium">O texto é o mesmo do painel — salvo no rascunho automaticamente</p>
             </div>
             <button onClick={() => setExplorExpandida(false)}
               className="text-sm font-bold text-intento-blue border border-intento-blue/30 rounded-lg px-3 py-1.5 hover:bg-intento-blue/5 transition-all">recolher ✕</button>
@@ -857,11 +857,11 @@ function Metric({ label, valor, delta, pct, invertido }) {
   const ruim = delta != null && (invertido ? delta > 0 : delta < 0);
   return (
     <div className="bg-slate-50 rounded-lg p-2">
-      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{label}</p>
+      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">{label}</p>
       <div className="flex items-baseline gap-1">
         <span className="text-sm font-bold text-intento-blue">{valor}</span>
         {delta != null && delta !== 0 && (
-          <span className={`text-[10px] font-bold ${bom ? 'text-emerald-600' : ruim ? 'text-red-500' : 'text-slate-400'}`}>
+          <span className={`text-[10px] font-bold ${bom ? 'text-emerald-600' : ruim ? 'text-red-500' : 'text-slate-500'}`}>
             {delta > 0 ? '▲' : '▼'}{Math.abs(delta)}{pct ? '%' : ''}
           </span>
         )}
@@ -875,7 +875,7 @@ function CampoDiario({ label, texto }) {
   if (!String(texto || '').trim()) return null;
   return (
     <div>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</p>
       <p className="text-xs text-slate-600 font-medium whitespace-pre-wrap leading-snug">{texto}</p>
     </div>
   );
@@ -886,18 +886,18 @@ function SemanaHeatmap({ grade }) {
   const linhas = HORARIOS
     .map(hora => ({ hora, celulas: DIAS.map(dia => grade[`${dia}_${hora}`] || null) }))
     .filter(l => l.celulas.some(Boolean));
-  if (!linhas.length) return <p className="text-xs text-slate-400 font-medium mt-2">Nenhuma rotina definida.</p>;
+  if (!linhas.length) return <p className="text-xs text-slate-500 font-medium mt-2">Nenhuma rotina definida.</p>;
   return (
     <div className="mt-2 overflow-x-auto">
       <table className="w-full border-collapse">
         <thead><tr>
           <th className="p-0.5"></th>
-          {DIAS_CURTO.map(d => <th key={d} className="text-[8px] text-slate-400 font-bold p-0.5">{d}</th>)}
+          {DIAS_CURTO.map(d => <th key={d} className="text-[8px] text-slate-500 font-bold p-0.5">{d}</th>)}
         </tr></thead>
         <tbody>
           {linhas.map(({ hora, celulas }) => (
             <tr key={hora}>
-              <td className="text-[8px] text-slate-400 font-bold p-0.5 whitespace-nowrap">{hora}</td>
+              <td className="text-[8px] text-slate-500 font-bold p-0.5 whitespace-nowrap">{hora}</td>
               {celulas.map((cel, j) => (
                 <td key={j} className="p-0.5">
                   <div title={cel?.label || ''} className={`h-3 rounded-sm ${cel ? (CAT_DOT[cel.categoria] || 'bg-slate-300') : 'bg-slate-50'}`} />
@@ -983,9 +983,9 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-intento-blue">Editar Semana Padrão</h2>
-            <p className="text-[11px] text-slate-400 font-medium">Arraste (mouse ou dedo) pra selecionar os horários e escolha a atividade no balão</p>
+            <p className="text-[11px] text-slate-500 font-medium">Arraste (mouse ou dedo) pra selecionar os horários e escolha a atividade no balão</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-red-500 transition-colors">
+          <button onClick={onClose} className="text-slate-500 hover:text-red-500 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -995,7 +995,7 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
             onTouchStart={aoTocar} onTouchMove={aoArrastarToque} onTouchEnd={aoSoltarToque}>
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="p-2 w-14 text-[10px] text-slate-400 font-medium border-r text-center">Hora</th>
+                <th className="p-2 w-14 text-[10px] text-slate-500 font-medium border-r text-center">Hora</th>
                 {DIAS.map(dia => (
                   <th key={dia} className="p-2 font-semibold text-intento-blue border-r last:border-0 text-center">
                     <span className="hidden sm:inline">{dia.split('-')[0]}</span>
@@ -1007,7 +1007,7 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
             <tbody>
               {HORARIOS.map(hora => (
                 <tr key={hora} className="border-b border-slate-100 last:border-0">
-                  <td className="p-2 text-center text-[10px] font-bold text-slate-400 border-r bg-slate-50 whitespace-nowrap">{hora}</td>
+                  <td className="p-2 text-center text-[10px] font-bold text-slate-500 border-r bg-slate-50 whitespace-nowrap">{hora}</td>
                   {DIAS.map(dia => {
                     const key = `${dia}_${hora}`;
                     const cel = grade[key];
@@ -1040,9 +1040,9 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
             <input type="number" min="0" step="1" value={metaHoras}
               onChange={e => setMetaHoras(e.target.value)} placeholder="ex: 25"
               className="w-24 p-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-center font-semibold" />
-            <span className="text-xs text-slate-400 font-medium">horas</span>
+            <span className="text-xs text-slate-500 font-medium">horas</span>
           </div>
-          <p className="text-[10px] text-slate-400 font-medium sm:ml-auto">Vazio = cálculo automático pela grade.</p>
+          <p className="text-[10px] text-slate-500 font-medium sm:ml-auto">Vazio = cálculo automático pela grade.</p>
         </div>
 
         <div className="border-t border-slate-200 px-6 py-4 flex items-center justify-between gap-3">
@@ -1052,8 +1052,8 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
             ))}
           </div>
           <div className="flex gap-2 shrink-0">
-            <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-400 hover:text-slate-700 transition-colors">Cancelar</button>
-            <button onClick={onSalvar} disabled={salvando} className="bg-intento-yellow hover:bg-yellow-500 text-white font-bold text-sm px-6 py-2 rounded-lg transition-all disabled:opacity-60">
+            <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-colors">Cancelar</button>
+            <button onClick={onSalvar} disabled={salvando} className="bg-intento-yellow hover:bg-yellow-500 text-intento-blue font-bold text-sm px-6 py-2 rounded-lg transition-all disabled:opacity-60">
               {salvando ? 'Salvando...' : 'Salvar semana'}
             </button>
           </div>
@@ -1070,7 +1070,7 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
             <input autoFocus type="text" value={txt} onChange={e => setTxt(e.target.value)}
               placeholder="Descrição (opcional)"
               className="w-full p-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue mb-2" />
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Atividade</p>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wide mb-1">Atividade</p>
             <div className="grid grid-cols-2 gap-1.5">
               {EDIT_CATEGORIAS.map(c => (
                 <button key={c} onClick={() => aplicar(c)}
@@ -1079,7 +1079,7 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
                 </button>
               ))}
             </div>
-            <button onClick={limpar} className="w-full mt-2 text-[11px] font-semibold text-slate-400 hover:text-red-500 py-1">Limpar horários</button>
+            <button onClick={limpar} className="w-full mt-2 text-[11px] font-semibold text-slate-500 hover:text-red-500 py-1">Limpar horários</button>
           </div>
         </>
       )}
@@ -1099,9 +1099,9 @@ function RegistrosModal({ registros, onClose }) {
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-intento-blue">Registros — mês e tendência</h2>
-            <p className="text-[11px] text-slate-400 font-medium">{registros.length} semana(s) · consulta durante o encontro</p>
+            <p className="text-[11px] text-slate-500 font-medium">{registros.length} semana(s) · consulta durante o encontro</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-red-500 transition-colors">
+          <button onClick={onClose} className="text-slate-500 hover:text-red-500 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -1109,8 +1109,8 @@ function RegistrosModal({ registros, onClose }) {
         <div className="flex-1 overflow-auto p-6 space-y-6">
           {/* Disciplinas: domínio e progresso (último registro, delta vs início) */}
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Por disciplina · domínio e progresso</p>
-            <p className="text-[10px] text-slate-400 font-medium mb-3">Valores atuais; a variação ao lado é do domínio {periodoLabel}.</p>
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Por disciplina · domínio e progresso</p>
+            <p className="text-[10px] text-slate-500 font-medium mb-3">Valores atuais; a variação ao lado é do domínio {periodoLabel}.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {DISCIPLINAS.map(d => {
                 const dom = ult ? toPercent(ult[d.dCol]) : null;
@@ -1135,12 +1135,12 @@ function RegistrosModal({ registros, onClose }) {
 
           {/* Tabela completa de semanas */}
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Histórico semanal</p>
-            <p className="text-[10px] text-slate-400 font-medium mb-2">Domínio e progresso por disciplina, semana a semana — role pro lado pra ver tudo.</p>
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Histórico semanal</p>
+            <p className="text-[10px] text-slate-500 font-medium mb-2">Domínio e progresso por disciplina, semana a semana — role pro lado pra ver tudo.</p>
             <div className="overflow-x-auto border border-slate-200 rounded-xl">
               <table className="text-sm whitespace-nowrap">
                 <thead className="bg-slate-50">
-                  <tr className="text-[9px] text-slate-400 uppercase tracking-wide border-b border-slate-100">
+                  <tr className="text-[9px] text-slate-500 uppercase tracking-wide border-b border-slate-100">
                     <th className="p-2"></th>
                     <th className="p-2 font-bold border-l border-slate-100" colSpan={3}>Geral</th>
                     {DISCIPLINAS.map(d => <th key={d.key} className="p-2 font-bold border-l border-slate-100" colSpan={2}>{d.label}</th>)}
@@ -1174,7 +1174,7 @@ function RegistrosModal({ registros, onClose }) {
                         <td className="text-center p-2 font-bold text-emerald-600">{pct(r[6])}</td>
                         {DISCIPLINAS.flatMap(d => [
                           <td key={d.key + 'd'} className="text-center p-2 font-semibold text-slate-700 border-l border-slate-100">{pct(r[d.dCol])}</td>,
-                          <td key={d.key + 'p'} className="text-center p-2 text-slate-400">{pct(r[d.pCol])}</td>,
+                          <td key={d.key + 'p'} className="text-center p-2 text-slate-500">{pct(r[d.pCol])}</td>,
                         ])}
                         <td className="text-center p-2 text-slate-500 border-l border-slate-100">{chk(8)}</td>
                         <td className="text-center p-2 text-slate-500">{chk(9)}</td>
@@ -1197,7 +1197,7 @@ function Barra({ label, valor, cor }) {
   return (
     <div className="mb-2 last:mb-0">
       <div className="flex justify-between text-[10px] font-semibold mb-1">
-        <span className="text-slate-400 uppercase tracking-wide">{label}</span>
+        <span className="text-slate-500 uppercase tracking-wide">{label}</span>
         <span className="text-slate-600">{valor != null ? `${valor}%` : '—'}</span>
       </div>
       <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
@@ -1222,7 +1222,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
         <span className={`w-7 h-7 rounded-full text-xs font-black flex items-center justify-center ${step.fechamento ? 'bg-amber-100 text-amber-700 border border-amber-300' : 'bg-intento-blue text-white'}`}>{step.fechamento ? '🏁' : num}</span>
         <h2 className="text-lg font-bold text-intento-blue">{step.titulo}</h2>
       </div>
-      <p className="text-xs text-slate-400 font-medium mt-1 ml-9">{step.sub}</p>
+      <p className="text-xs text-slate-500 font-medium mt-1 ml-9">{step.sub}</p>
     </div>
   );
   if (stepAtivo === 'fech-retro') {
@@ -1248,13 +1248,13 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {tiles.map(t => (
             <div key={t.label} className="bg-slate-50 rounded-lg p-3">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{t.label}</p>
+              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">{t.label}</p>
               <p className="text-base font-bold text-intento-blue mt-0.5">{t.valor}</p>
             </div>
           ))}
         </div>
         <div className="space-y-4 pt-1">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Reflexão do aluno — na voz dele</p>
+          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Reflexão do aluno — na voz dele</p>
           <div>
             <label className={labelClass}>Maior vitória do ciclo</label>
             <textarea className={inputClass + ' mt-2'} rows="2" placeholder="O que o aluno mais se orgulha de ter conquistado no trimestre?"
@@ -1299,7 +1299,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
             <div key={dim} className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-bold text-slate-700">{DIM_LABEL[dim]}</span>
-                <p className="text-[10px] text-slate-400 font-medium">
+                <p className="text-[10px] text-slate-500 font-medium">
                   {proposto
                     ? <>proposta dos dados: {CARIMBO_LABEL[proposto]}{ajustado ? ' · ajustado por você' : ''}</>
                     : dim === 'simulado'
@@ -1327,20 +1327,20 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
         <div className="bg-white border-2 border-intento-blue/15 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
             <span className="text-sm font-bold text-slate-700">Perfil do marco</span>
-            <p className="text-[10px] text-slate-400 font-medium">Elo mais fraco das dimensões carimbadas — diagnóstico de onde aplicar força, nunca nota.</p>
+            <p className="text-[10px] text-slate-500 font-medium">Elo mais fraco das dimensões carimbadas — diagnóstico de onde aplicar força, nunca nota.</p>
           </div>
           <CarimboBadge nivel={perfil} />
         </div>
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
             <span className="text-sm font-bold text-slate-700">Nível-alvo de simulado</span>
-            <p className="text-[10px] text-slate-400 font-medium">Combinado pro próximo ciclo — entre 71 e 100 (fora disso vale o padrão {NIVEL_ALVO_SIMULADO_PADRAO}%). É a régua do Mestre na dimensão Simulado.</p>
+            <p className="text-[10px] text-slate-500 font-medium">Combinado pro próximo ciclo — entre 71 e 100 (fora disso vale o padrão {NIVEL_ALVO_SIMULADO_PADRAO}%). É a régua do Mestre na dimensão Simulado.</p>
           </div>
           <div className="flex items-center gap-2">
             <input type="number" min="71" max="100" step="1" placeholder={String(NIVEL_ALVO_SIMULADO_PADRAO)}
               value={form.fechamento?.nivelAlvo || ''} onChange={e => updFech({ nivelAlvo: e.target.value })}
               className="w-20 p-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-center font-semibold" />
-            <span className="text-xs text-slate-400 font-medium">%</span>
+            <span className="text-xs text-slate-500 font-medium">%</span>
           </div>
         </div>
       </div>
@@ -1353,7 +1353,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
       <div className="flex-1">
         <Cabecalho />
         {metasAnteriores.length === 0 ? (
-          <p className="text-sm text-slate-400 font-medium">O último encontro não deixou metas registradas.</p>
+          <p className="text-sm text-slate-500 font-medium">O último encontro não deixou metas registradas.</p>
         ) : (
           <div className="space-y-3">
             {metasAnteriores.map(({ idx, meta }) => (
@@ -1387,7 +1387,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
       <div className="flex-1">
         <Cabecalho />
         {acoes.length === 0 ? (
-          <p className="text-sm text-slate-400 font-medium">O último encontro não deixou plano de ação registrado.</p>
+          <p className="text-sm text-slate-500 font-medium">O último encontro não deixou plano de ação registrado.</p>
         ) : (
           <div className="space-y-3">
             {acoes.map(({ idx, acao }) => (
@@ -1459,7 +1459,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
     return (
       <div className="flex-1">
         <Cabecalho />
-        <p className="text-xs text-slate-400 font-medium mb-3">Até 3 metas. Aparecem como destaque no painel do aluno e no acompanhamento da semana.</p>
+        <p className="text-xs text-slate-500 font-medium mb-3">Até 3 metas. Aparecem como destaque no painel do aluno e no acompanhamento da semana.</p>
         <div className="space-y-3">
           {[0, 1, 2].map(idx => (
             <div key={idx} className="flex gap-2 items-center">
@@ -1477,7 +1477,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
     return (
       <div className="flex-1">
         <Cabecalho />
-        <p className="text-xs text-slate-400 font-medium mb-3">Passos práticos. O aluno marca cada um como feito no painel dele.</p>
+        <p className="text-xs text-slate-500 font-medium mb-3">Passos práticos. O aluno marca cada um como feito no painel dele.</p>
         <div className="space-y-3">
           {form.planosAcao.map((p, i) => (
             <div key={i} className="flex gap-3 items-center">

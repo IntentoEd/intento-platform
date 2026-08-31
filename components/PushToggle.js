@@ -114,7 +114,7 @@ export default function PushToggle({ email }) {
     return (
       <span
         title="Permissão bloqueada — habilite nas configurações do navegador"
-        className="text-[11px] font-semibold text-slate-300 px-1 py-1.5 cursor-not-allowed select-none"
+        className="text-[11px] font-semibold text-slate-500 px-1 py-1.5 cursor-not-allowed select-none"
       >
         🔕 Notificações bloqueadas
       </span>
@@ -129,7 +129,7 @@ export default function PushToggle({ email }) {
         title={estado === 'active' ? 'Clique pra desativar as notificações' : undefined}
         className={`text-[11px] font-semibold transition disabled:opacity-50 ${
           estado === 'active'
-            ? 'text-slate-400 hover:text-slate-600 px-1 py-1.5'
+            ? 'text-slate-500 hover:text-slate-600 px-1 py-1.5'
             : 'text-intento-blue bg-white border border-intento-blue/30 hover:bg-intento-blue/5 px-3 py-1.5 rounded-lg'
         }`}
       >
@@ -137,7 +137,7 @@ export default function PushToggle({ email }) {
           : estado === 'active' ? '🔔 Notificações ativas'
           : '🔔 Ativar notificações'}
       </button>
-      {mensagem && <p className="text-[10px] text-slate-400 font-medium max-w-[260px] text-right">{mensagem}</p>}
+      {mensagem && <p className="text-[10px] text-slate-500 font-medium max-w-[260px] text-right">{mensagem}</p>}
     </div>
   );
 }

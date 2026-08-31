@@ -65,7 +65,7 @@ export default function ModalNovoLead({ email, vendedoresDisponiveis = [], ehLid
           <h2 className="text-lg font-bold text-intento-blue">Novo lead</h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 text-xl leading-none px-2"
+            className="text-slate-500 hover:text-slate-600 text-xl leading-none px-2"
             aria-label="Fechar"
           >
             ×

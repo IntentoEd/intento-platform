@@ -104,7 +104,7 @@ function SeccaoColapsavel({ titulo, subtitulo, resumo, aberto, onToggle, childre
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2 flex-wrap">
             <h2 className="text-base font-semibold text-intento-blue">{titulo}</h2>
-            {subtitulo && <span className="text-[11px] text-slate-400 font-medium">{subtitulo}</span>}
+            {subtitulo && <span className="text-[11px] text-slate-500 font-medium">{subtitulo}</span>}
           </div>
           {resumo && <div className="text-[11px] text-slate-500 font-medium mt-1 flex flex-wrap gap-x-3 gap-y-0.5">{resumo}</div>}
         </div>
@@ -138,9 +138,9 @@ function Metrica({ label, valor, sub, tom }) {
   const cor = tom === 'ambar' ? '#92400E' : tom === 'vermelho' ? '#B91C1C' : '#1E293B';
   return (
     <div className="rounded-lg p-2 text-center border border-slate-100" style={{ backgroundColor: bg }}>
-      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-tight">{label}</p>
+      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wide leading-tight">{label}</p>
       <p className="text-base font-bold leading-tight mt-0.5" style={{ color: cor }}>{valor}</p>
-      {sub && <p className="text-[8px] text-slate-400 font-medium">{sub}</p>}
+      {sub && <p className="text-[8px] text-slate-500 font-medium">{sub}</p>}
     </div>
   );
 }
@@ -166,7 +166,7 @@ function DistribDim({ label, dist, total }) {
       <span className="flex-1 flex h-3 rounded-full overflow-hidden bg-slate-100">
         {seg(dist.aprendiz, 'aprendiz')}{seg(dist.veterano, 'veterano')}{seg(dist.mestre, 'mestre')}
       </span>
-      <span className="text-[10px] text-slate-400 tabular-nums w-14 text-right">{dist.aprendiz}/{dist.veterano}/{dist.mestre}</span>
+      <span className="text-[10px] text-slate-500 tabular-nums w-14 text-right">{dist.aprendiz}/{dist.veterano}/{dist.mestre}</span>
     </div>
   );
 }
@@ -190,7 +190,7 @@ function CardDimensional({ a, d, ciclo, onClose }) {
         <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-base font-bold text-intento-blue truncate">{a.nome}</h2>
-            <p className="text-[11px] text-slate-400 font-medium">{a.mentorNome || a.mentor} · {a.plano || '—'} · {ciclo.id} {ciclo.nome}</p>
+            <p className="text-[11px] text-slate-500 font-medium">{a.mentorNome || a.mentor} · {a.plano || '—'} · {ciclo.id} {ciclo.nome}</p>
           </div>
           <CarimboBadge nivel={d.perfil} />
         </div>
@@ -201,17 +201,17 @@ function CardDimensional({ a, d, ciclo, onClose }) {
             <div key={l.key} className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-600 w-28 shrink-0">{DIM_LABEL[l.key]}</span>
               <BarraCarimbo nivel={d[l.key]} />
-              <span className="text-[11px] text-slate-400 font-medium flex-1 text-right">{l.val}{l.nota && <span className="block text-[9px] text-slate-300">{l.nota}</span>}</span>
+              <span className="text-[11px] text-slate-500 font-medium flex-1 text-right">{l.val}{l.nota && <span className="block text-[9px] text-slate-500">{l.nota}</span>}</span>
             </div>
           ))}
           <div className="flex items-center gap-3 opacity-60">
             <span className="text-xs font-semibold text-slate-600 w-28 shrink-0">Simulado</span>
-            <span className="text-[10px] text-slate-400 font-semibold">Fase 2 — aba de simulados da planilha</span>
+            <span className="text-[10px] text-slate-500 font-semibold">Fase 2 — aba de simulados da planilha</span>
           </div>
         </div>
         <div className="bg-slate-50 px-6 py-3 flex justify-between items-center border-t border-slate-100">
           <button onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')} className="text-xs font-semibold text-intento-blue hover:underline">Abrir perfil ↗</button>
-          <button onClick={onClose} className="text-xs font-semibold text-slate-400 hover:text-slate-700 px-3 py-1">Fechar</button>
+          <button onClick={onClose} className="text-xs font-semibold text-slate-500 hover:text-slate-700 px-3 py-1">Fechar</button>
         </div>
       </div>
     </div>
@@ -695,10 +695,10 @@ export default function PainelLider() {
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-wrap items-center gap-4 justify-between sticky top-0 z-20">
         <div className="flex items-center gap-4">
-          <button onClick={() => router.push('/selecionar-modo')} className="text-sm font-medium text-slate-400 hover:text-intento-blue transition">← Voltar</button>
+          <button onClick={() => router.push('/selecionar-modo')} className="text-sm font-medium text-slate-500 hover:text-intento-blue transition">← Voltar</button>
           <div>
             <h1 className="text-base font-semibold text-intento-blue">Painel do Líder{ehDemo && <span className="ml-2 text-[10px] font-bold text-intento-yellow uppercase">demo</span>}</h1>
-            <p className="text-[11px] text-slate-400 font-medium">
+            <p className="text-[11px] text-slate-500 font-medium">
               Semana de referência: {dados?.semanaAtual || '—'}
               {cacheTs && (<span className="ml-2">· {atualizando ? <span className="text-amber-600 inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />atualizando…</span> : <span className="text-emerald-600">atualizado {tempoRelativo(cacheTs)}</span>}</span>)}
             </p>
@@ -706,7 +706,7 @@ export default function PainelLider() {
         </div>
         <div className="flex items-center gap-3">
           <PushToggle email={emailLogado} />
-          <button onClick={sair} className="text-sm font-semibold text-slate-400 hover:text-red-500 transition">Sair</button>
+          <button onClick={sair} className="text-sm font-semibold text-slate-500 hover:text-red-500 transition">Sair</button>
         </div>
       </div>
 
@@ -718,15 +718,15 @@ export default function PainelLider() {
         <div className="flex items-center justify-between gap-3 border-b border-slate-200">
           <div className="flex gap-1">
             {[['visao', 'Visão geral'], ['mentores', 'Mentores'], ['mentorados', 'Mentorados']].map(([k, label]) => (
-              <button key={k} onClick={() => setSubAba(k)} className={`px-4 py-2 text-sm font-semibold transition border-b-2 ${subAba === k ? 'text-intento-blue border-intento-azul' : 'text-slate-400 border-transparent hover:text-slate-600'}`}>{label}</button>
+              <button key={k} onClick={() => setSubAba(k)} className={`px-4 py-2 text-sm font-semibold transition border-b-2 ${subAba === k ? 'text-intento-blue border-intento-azul' : 'text-slate-500 border-transparent hover:text-slate-600'}`}>{label}</button>
             ))}
           </div>
-          <span className="text-[11px] font-semibold text-slate-400 pb-2 shrink-0">{ciclo.id} · {ciclo.nome} · <b className="text-slate-500">{ativos.length + foraDoApp.length}</b> ativos</span>
+          <span className="text-[11px] font-semibold text-slate-500 pb-2 shrink-0">{ciclo.id} · {ciclo.nome} · <b className="text-slate-500">{ativos.length + foraDoApp.length}</b> ativos</span>
         </div>
 
         {/* Filtros */}
         <div className={cardClass}>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Filtros</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">Filtros</p>
           <div className="flex flex-wrap gap-3 items-center">
             <details className="relative">
               <summary className="cursor-pointer list-none text-xs font-semibold text-intento-blue bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-2 rounded-lg transition">
@@ -737,7 +737,7 @@ export default function PainelLider() {
                   <label key={m.email} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-slate-50 px-2 rounded">
                     <input type="checkbox" checked={mentoresSelecionados.includes(m.email)} onChange={(e) => { if (e.target.checked) setMentoresSelecionados(prev => [...prev, m.email]); else setMentoresSelecionados(prev => prev.filter(x => x !== m.email)); }} className="w-4 h-4" />
                     <span className="text-xs font-medium text-slate-700 flex-1 truncate">{m.nome}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">{m.count}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">{m.count}</span>
                   </label>
                 ))}
                 {mentoresSelecionados.length > 0 && <button onClick={() => setMentoresSelecionados([])} className="text-[10px] text-intento-blue font-bold hover:underline mt-2">Limpar</button>}
@@ -756,10 +756,10 @@ export default function PainelLider() {
             </select>
 
             <div className="relative flex-1 min-w-[200px]">
-              <input type="text" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar aluno por nome ou email..." className="w-full text-xs font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-400" />
+              <input type="text" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar aluno por nome ou email..." className="w-full text-xs font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue placeholder:text-slate-500" />
             </div>
 
-            {haFiltroAtivo && <button onClick={limparFiltros} className="text-xs font-semibold text-slate-400 hover:text-red-500 px-3 py-2 transition">Limpar tudo</button>}
+            {haFiltroAtivo && <button onClick={limparFiltros} className="text-xs font-semibold text-slate-500 hover:text-red-500 px-3 py-2 transition">Limpar tudo</button>}
           </div>
         </div>
 
@@ -774,14 +774,14 @@ export default function PainelLider() {
             <p className="text-[11px] font-medium mt-2" style={{ color: '#92400E' }}>pendências administrativas</p>
           </div>
           <div className={cardClass}>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Encontros do mês</p>
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Encontros do mês</p>
             <p className="text-3xl font-bold text-intento-blue leading-none">{encontrosMes.pct != null ? `${encontrosMes.pct}%` : '—'}</p>
-            <p className="text-[11px] text-slate-400 font-medium mt-2">{encontrosMes.esperados > 0 ? `${encontrosMes.feitos} de ${encontrosMes.esperados} esperados` : 'sem dado'}</p>
+            <p className="text-[11px] text-slate-500 font-medium mt-2">{encontrosMes.esperados > 0 ? `${encontrosMes.feitos} de ${encontrosMes.esperados} esperados` : 'sem dado'}</p>
           </div>
           <div className={cardClass}>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Acompanhamentos da semana</p>
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Acompanhamentos da semana</p>
             <p className="text-3xl font-bold text-intento-blue leading-none">{acompStats.pct != null ? `${acompStats.pct}%` : '—'}</p>
-            <p className="text-[11px] text-slate-400 font-medium mt-2">{acompStats.total > 0 ? `${acompStats.verde} de ${acompStats.total} enviados` : 'sem dado'}</p>
+            <p className="text-[11px] text-slate-500 font-medium mt-2">{acompStats.total > 0 ? `${acompStats.verde} de ${acompStats.total} enviados` : 'sem dado'}</p>
           </div>
           <button onClick={() => setSubAba('mentores')} className="rounded-xl border p-5 shadow-sm text-left hover:brightness-95 transition cursor-pointer" style={{ backgroundColor: '#FBEAEA', borderColor: '#F1D2D2' }}>
             <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#9B1C1C' }}>🚨 Alertas clínicos</p>
@@ -800,7 +800,7 @@ export default function PainelLider() {
             <button onClick={() => setExplorar(v => !v)} className="text-[11px] font-semibold text-intento-blue hover:underline">{explorar ? 'fechar base' : 'explorar base →'}</button>
           </div>
           {operacao.length === 0 ? (
-            <p className="text-sm text-slate-400 font-medium text-center py-8">Sem pendências administrativas nos filtros atuais.</p>
+            <p className="text-sm text-slate-500 font-medium text-center py-8">Sem pendências administrativas nos filtros atuais.</p>
           ) : (
             <div className="divide-y divide-slate-100">
               {operacao.map(it => (
@@ -808,17 +808,17 @@ export default function PainelLider() {
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: it.tipo === 'encontro60' ? '#D97706' : '#94A3B8' }} />
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-700 truncate">{it.a.nome} <span className="text-slate-400 font-normal">· {it.a.mentorNome || it.a.mentor || 'sem mentor'}</span></p>
+                      <p className="text-sm font-semibold text-slate-700 truncate">{it.a.nome} <span className="text-slate-500 font-normal">· {it.a.mentorNome || it.a.mentor || 'sem mentor'}</span></p>
                       <p className={`text-[11px] font-medium truncate ${it.tipo === 'encontro60' ? 'text-amber-700' : 'text-slate-500'}`}>{it.motivo}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     {it.acao === 'designar'
-                      ? <button onClick={() => abrirDesignacao(it.a)} className="text-[11px] font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition">designar</button>
+                      ? <button onClick={() => abrirDesignacao(it.a)} className="text-[11px] font-semibold bg-intento-yellow text-intento-blue px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition">designar</button>
                       : it.acao === 'encontro60'
                         ? <button onClick={() => marcarEncontro60(it.a)} disabled={marcandoEncontro60 === it.a.idAluno} className="text-[11px] font-semibold bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition disabled:opacity-40 disabled:cursor-not-allowed">{marcandoEncontro60 === it.a.idAluno ? 'Salvando...' : 'encontro feito ✓'}</button>
                         : <button onClick={() => window.open(`/mentor/${it.a.idAluno}?nome=${encodeURIComponent(it.a.nome)}`, '_blank')} className="text-[11px] font-semibold text-intento-blue hover:underline">perfil ↗</button>}
-                    {ehGestor && <button onClick={() => abrirSaida(it.a)} title="Registrar saída da mentoria" className="text-[11px] font-semibold text-slate-300 hover:text-red-600 transition">saída</button>}
+                    {ehGestor && <button onClick={() => abrirSaida(it.a)} title="Registrar saída da mentoria" className="text-[11px] font-semibold text-slate-400 hover:text-red-600 transition">saída</button>}
                   </div>
                 </div>
               ))}
@@ -830,12 +830,12 @@ export default function PainelLider() {
         {/* ── DISTRIBUIÇÃO POR DIMENSÃO (perfil da base, largura cheia) ── */}
         <div className={cardClass}>
             <div className="flex items-center justify-between gap-3 mb-4">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Perfil da base · por dimensão</p>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Perfil da base · por dimensão</p>
               <div className="flex items-center gap-3 shrink-0">
                 {[['aprendiz', diagResumo.perfil.aprendiz], ['veterano', diagResumo.perfil.veterano], ['mestre', diagResumo.perfil.mestre]].map(([n, v]) => (
                   <span key={n} className="flex items-center gap-1.5 text-sm font-bold" style={{ color: corDe(n).texto }}><span className="w-2 h-2 rounded-full" style={{ backgroundColor: corDe(n).solido }} />{v}</span>
                 ))}
-                <span className="text-[10px] text-slate-400 font-medium">· {foraDoApp.length} sem diagnóstico</span>
+                <span className="text-[10px] text-slate-500 font-medium">· {foraDoApp.length} sem diagnóstico</span>
               </div>
             </div>
             <div className="space-y-3">
@@ -845,21 +845,21 @@ export default function PainelLider() {
                   <div key={k} className="flex items-center gap-3">
                     <span className="text-[13px] font-semibold text-slate-600 w-28 shrink-0">{label}</span>
                     <BarraSegmentos dist={dd} total={diagResumo.total} />
-                    <span className="text-[11px] text-slate-400 tabular-nums w-14 text-right shrink-0">{dd.aprendiz}·{dd.veterano}·{dd.mestre}</span>
+                    <span className="text-[11px] text-slate-500 tabular-nums w-14 text-right shrink-0">{dd.aprendiz}·{dd.veterano}·{dd.mestre}</span>
                   </div>
                 );
               })}
               {/* Simulado — Fase 2 (sem score; não inventar distribuição) */}
               <div className="flex items-center gap-3">
-                <span className="text-[13px] font-semibold text-slate-400 w-28 shrink-0">Simulado</span>
+                <span className="text-[13px] font-semibold text-slate-500 w-28 shrink-0">Simulado</span>
                 <span className="flex-1 flex items-center gap-2">
                   <span className="h-2.5 w-20 rounded-full bg-slate-200 opacity-60" />
-                  <span className="text-[11px] text-slate-400 italic">{diagResumo.perfil.aprendiz} ainda Aprendiz</span>
+                  <span className="text-[11px] text-slate-500 italic">{diagResumo.perfil.aprendiz} ainda Aprendiz</span>
                 </span>
-                <span className="text-[11px] text-slate-300 w-14 text-right shrink-0">Fase 2</span>
+                <span className="text-[11px] text-slate-400 w-14 text-right shrink-0">Fase 2</span>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-medium text-slate-400 mt-4 pt-3 border-t border-slate-100">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-medium text-slate-500 mt-4 pt-3 border-t border-slate-100">
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: corDe('aprendiz').solido }} />Aprendiz</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: corDe('veterano').solido }} />Veterano</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: corDe('mestre').solido }} />Mestre</span>
@@ -885,31 +885,31 @@ export default function PainelLider() {
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className={cardClass}>
-                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Distribuição de horas estudadas</h3>
-                <p className="text-[10px] font-medium text-slate-400 mb-4">semana de referência</p>
+                <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Distribuição de horas estudadas</h3>
+                <p className="text-[10px] font-medium text-slate-500 mb-4">semana de referência</p>
                 <div className="h-56"><Bar data={{ labels: distribuicao.map(d => d.faixa), datasets: [{ data: distribuicao.map(d => d.count), backgroundColor: distribuicao.map((_, i) => FAIXAS_HORAS[i]?.color || '#94a3b8'), borderRadius: 4 }] }} options={{ ...chartOptions, indexAxis: 'y', plugins: { legend: { display: false } } }} /></div>
               </div>
               <div className={cardClass}>
-                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Domínio médio por matéria</h3>
-                <p className="text-[10px] font-medium text-slate-400 mb-4">média da base · último valor de cada aluno</p>
+                <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Domínio médio por matéria</h3>
+                <p className="text-[10px] font-medium text-slate-500 mb-4">média da base · último valor de cada aluno</p>
                 <div className="h-56"><Bar data={{ labels: ['Biologia', 'Química', 'Física', 'Matemática'], datasets: [{ data: [dominio.bio || 0, dominio.qui || 0, dominio.fis || 0, dominio.mat || 0], backgroundColor: ['#10b981', '#3b82f6', '#f97316', '#ef4444'], borderRadius: 4 }] }} options={{ ...chartOptions, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, grid: { color: 'rgba(150,150,150,0.1)' } } } }} /></div>
               </div>
               <div className={cardClass}>
-                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Progresso médio por matéria</h3>
-                <p className="text-[10px] font-medium text-slate-400 mb-4">média da base · último valor de cada aluno</p>
+                <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Progresso médio por matéria</h3>
+                <p className="text-[10px] font-medium text-slate-500 mb-4">média da base · último valor de cada aluno</p>
                 <div className="h-56"><Bar data={{ labels: ['Biologia', 'Química', 'Física', 'Matemática'], datasets: [{ data: [progresso.bio || 0, progresso.qui || 0, progresso.fis || 0, progresso.mat || 0], backgroundColor: ['#10b981', '#3b82f6', '#f97316', '#ef4444'], borderRadius: 4 }] }} options={{ ...chartOptions, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, grid: { color: 'rgba(150,150,150,0.1)' } } } }} /></div>
               </div>
               <div className={cardClass}>
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide">Bem-estar — média da base</h3>
+                  <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide">Bem-estar — média da base</h3>
                   {checkinAlertas > 0 && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{checkinAlertas} em alerta</span>}
                 </div>
-                <p className="text-[10px] font-medium text-slate-400 mb-4">maior = melhor (inclusive estresse) · alerta ≤ 40</p>
+                <p className="text-[10px] font-medium text-slate-500 mb-4">maior = melhor (inclusive estresse) · alerta ≤ 40</p>
                 <div className="grid grid-cols-2 gap-3">
                   {[{ label: 'Sono', valor: bemEstar.sono, cor: '#a855f7' }, { label: 'Motivação', valor: bemEstar.motivacao, cor: '#10b981' }, { label: 'Ansiedade', valor: bemEstar.ansiedade, cor: '#f97316' }, { label: 'Estresse', valor: bemEstar.estresse, cor: '#ef4444' }].map(b => (
                     <div key={b.label} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{b.label}</p>
-                      <p className="text-2xl font-bold" style={{ color: (b.valor || 0) <= 40 ? '#ef4444' : b.cor }}>{b.valor || 0}<span className="text-xs text-slate-400 font-medium">%</span></p>
+                      <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">{b.label}</p>
+                      <p className="text-2xl font-bold" style={{ color: (b.valor || 0) <= 40 ? '#ef4444' : b.cor }}>{b.valor || 0}<span className="text-xs text-slate-500 font-medium">%</span></p>
                     </div>
                   ))}
                 </div>
@@ -917,12 +917,12 @@ export default function PainelLider() {
             </div>
             <div className={cardClass}>
               <div className="flex items-center justify-between mb-1">
-                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide">Horas estudadas vs Meta — média da base</h3>
+                <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide">Horas estudadas vs Meta — média da base</h3>
                 <select value={periodoFiltro} onChange={e => setPeriodoFiltro(e.target.value)} className="text-[10px] font-semibold text-intento-blue bg-slate-50 border border-slate-200 px-2 py-1 rounded outline-none cursor-pointer">
                   <option value="4">4 sem</option><option value="8">8 sem</option><option value="tudo">tudo</option>
                 </select>
               </div>
-              <p className="text-[10px] font-medium text-slate-400 mb-4">{periodoFiltro === 'tudo' ? 'todo o período' : `últimas ${periodoFiltro} semanas`}</p>
+              <p className="text-[10px] font-medium text-slate-500 mb-4">{periodoFiltro === 'tudo' ? 'todo o período' : `últimas ${periodoFiltro} semanas`}</p>
               <div className="h-64"><Line data={{ labels: historico.map(h => String(h.semana || '').split(' a ')[0] || ''), datasets: [{ label: 'Horas (média)', data: historico.map(h => h.mediaHoras), borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.3 }, { label: 'Meta (média)', data: historico.map(h => h.mediaMeta), borderColor: '#94a3b8', backgroundColor: 'transparent', borderDash: [6, 4], tension: 0.3 }] }} options={chartOptions} /></div>
             </div>
 
@@ -930,20 +930,20 @@ export default function PainelLider() {
             {foraDoApp.length > 0 && (
               <div className={cardClass}>
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fora do app</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fora do app</p>
                   <span className="bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{foraDoApp.length}</span>
                 </div>
-                <p className="text-[11px] text-slate-400 font-medium mb-3">Não se adaptaram / não vão usar o app — fora do diagnóstico dimensional. Encontros e acompanhamento ainda valem; acompanhe pelo perfil.</p>
+                <p className="text-[11px] text-slate-500 font-medium mb-3">Não se adaptaram / não vão usar o app — fora do diagnóstico dimensional. Encontros e acompanhamento ainda valem; acompanhe pelo perfil.</p>
                 <div className="flex flex-wrap gap-2">
                   {foraDoApp.map(a => (
                     <span key={a.idAluno + a.nome} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full">
                       <button onClick={() => window.open(`/mentor/${a.idAluno}?nome=${encodeURIComponent(a.nome)}`, '_blank')} className="hover:text-intento-blue transition">
-                        {a.nome} <span className="text-slate-400 font-normal">· {a.mentorNome || a.mentor}</span>
+                        {a.nome} <span className="text-slate-500 font-normal">· {a.mentorNome || a.mentor}</span>
                       </button>
                       {/* Ações destrutivas adjacentes: p-1.5 dá hit area ≥24px, gap-2 separa os alvos; -my-1.5 devolve a altura compacta do chip. */}
                       {ehGestor && <span className="inline-flex items-center gap-2">
-                        <button onClick={() => abrirDesignacao(a)} title="Trocar de mentor" className="p-1.5 -my-1.5 text-slate-400 hover:text-intento-blue transition">⇄</button>
-                        <button onClick={() => abrirSaida(a)} title="Registrar saída da mentoria" className="p-1.5 -my-1.5 text-slate-400 hover:text-red-600 transition">×</button>
+                        <button onClick={() => abrirDesignacao(a)} title="Trocar de mentor" className="p-1.5 -my-1.5 text-slate-500 hover:text-intento-blue transition">⇄</button>
+                        <button onClick={() => abrirSaida(a)} title="Registrar saída da mentoria" className="p-1.5 -my-1.5 text-slate-500 hover:text-red-600 transition">×</button>
                       </span>}
                     </span>
                   ))}
@@ -968,7 +968,7 @@ export default function PainelLider() {
                       <p className="text-[11px] font-medium text-red-700 truncate">{d.alertaMotivo || 'alerta clínico'}</p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      <button onClick={() => abrirDesignacao(a)} className="text-[11px] font-semibold bg-intento-yellow text-white px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition">designar</button>
+                      <button onClick={() => abrirDesignacao(a)} className="text-[11px] font-semibold bg-intento-yellow text-intento-blue px-3 py-1.5 rounded-lg hover:bg-yellow-500 transition">designar</button>
                       <button onClick={() => setAlunoDiag({ a, d })} className="text-[11px] font-semibold text-intento-blue hover:underline">abrir →</button>
                     </div>
                   </div>
@@ -978,16 +978,16 @@ export default function PainelLider() {
           )}
 
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{mentoresCardsOrdenados.length} mentores</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{mentoresCardsOrdenados.length} mentores</p>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ordenar</span>
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Ordenar</span>
               {[['carga', 'Carga'], ['alertas', 'Alertas']].map(([k, l]) => (
                 <button key={k} onClick={() => setMentoresOrder(k)} className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition ${mentoresOrder === k ? 'text-white border-transparent bg-intento-blue' : 'text-slate-500 bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>{l}</button>
               ))}
             </div>
           </div>
           {mentoresCardsOrdenados.length === 0 ? (
-            <div className={cardClass}><p className="text-sm text-slate-400 font-medium text-center py-8">Nenhum mentor com alunos no app nos filtros atuais.</p></div>
+            <div className={cardClass}><p className="text-sm text-slate-500 font-medium text-center py-8">Nenhum mentor com alunos no app nos filtros atuais.</p></div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {mentoresCardsOrdenados.map(m => (
@@ -996,7 +996,7 @@ export default function PainelLider() {
                     <span className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 bg-intento-blue">{iniciais(m.nome)}</span>
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-intento-blue truncate">{m.nome}</p>
-                      <p className="text-[11px] text-slate-400 font-medium truncate">{m.planosArr.join(' · ') || 'sem plano'}</p>
+                      <p className="text-[11px] text-slate-500 font-medium truncate">{m.planosArr.join(' · ') || 'sem plano'}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
@@ -1048,16 +1048,16 @@ export default function PainelLider() {
               const on = mentoradosChip === k;
               return (
                 <button key={k} onClick={() => setMentoradosChip(k)} className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition ${on ? 'text-white border-transparent bg-intento-blue' : 'text-slate-500 bg-white border-slate-200 hover:bg-slate-50'}`}>
-                  {l} <span className={on ? 'text-white/60' : 'text-slate-400'}>{mentoradosContagens[k] ?? 0}</span>
+                  {l} <span className={on ? 'text-white/60' : 'text-slate-500'}>{mentoradosContagens[k] ?? 0}</span>
                 </button>
               );
             })}
-            <span className="text-[10px] text-slate-400 font-medium ml-auto">use os Filtros acima p/ buscar por nome/mentor/plano</span>
+            <span className="text-[10px] text-slate-500 font-medium ml-auto">use os Filtros acima p/ buscar por nome/mentor/plano</span>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm whitespace-nowrap">
-                <thead className="text-[10px] text-slate-400 uppercase tracking-wide border-b border-slate-100 bg-slate-50">
+                <thead className="text-[10px] text-slate-500 uppercase tracking-wide border-b border-slate-100 bg-slate-50">
                   <tr>
                     <th className="text-left font-bold p-3">Aluno</th>
                     <th className="text-left font-bold p-3">Mentor</th>
@@ -1069,7 +1069,7 @@ export default function PainelLider() {
                 </thead>
                 <tbody>
                   {mentoradosFiltrados.length === 0 ? (
-                    <tr><td colSpan={mentoradosChip === 'acao' ? 6 : 5} className="text-center text-sm text-slate-400 font-medium py-8">Nenhum aluno nos filtros atuais.</td></tr>
+                    <tr><td colSpan={mentoradosChip === 'acao' ? 6 : 5} className="text-center text-sm text-slate-500 font-medium py-8">Nenhum aluno nos filtros atuais.</td></tr>
                   ) : mentoradosFiltrados.map(({ a, d, motivos }) => {
                     return (
                       <tr key={(a.idAluno || '') + a.nome} className="border-b border-slate-50 hover:bg-slate-50">
@@ -1093,8 +1093,8 @@ export default function PainelLider() {
                           <div className="flex items-center justify-end gap-3">
                             <button onClick={() => setAlunoDiag({ a, d })} className="text-[11px] font-semibold text-intento-azul hover:underline">abrir</button>
                             {ehGestor && <>
-                              <button onClick={() => abrirDesignacao(a)} title="Trocar de mentor" className="text-[11px] font-semibold text-slate-400 hover:text-intento-blue transition">trocar mentor</button>
-                              <button onClick={() => abrirSaida(a)} title="Registrar saída da mentoria" className="text-[11px] font-semibold text-slate-300 hover:text-red-600 transition">saída</button>
+                              <button onClick={() => abrirDesignacao(a)} title="Trocar de mentor" className="text-[11px] font-semibold text-slate-500 hover:text-intento-blue transition">trocar mentor</button>
+                              <button onClick={() => abrirSaida(a)} title="Registrar saída da mentoria" className="text-[11px] font-semibold text-slate-400 hover:text-red-600 transition">saída</button>
                             </>}
                           </div>
                         </td>
@@ -1114,21 +1114,21 @@ export default function PainelLider() {
           <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in" onClick={(e) => { if (e.target === e.currentTarget) setAlunoDesignar(null); }}>
             <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
               <div className="px-6 py-5 border-b border-slate-100">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{alunoDesignar.mentor ? 'Trocar mentor' : 'Designar mentor'}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{alunoDesignar.mentor ? 'Trocar mentor' : 'Designar mentor'}</p>
                 <h2 className="text-base font-semibold text-intento-blue mt-0.5">{alunoDesignar.nome}</h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">{alunoDesignar.email}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{alunoDesignar.email}</p>
                 {alunoDesignar.mentor && <p className="text-[11px] text-slate-500 mt-2">Mentor atual: <span className="font-semibold">{alunoDesignar.mentorNome || alunoDesignar.mentor}</span>{!alunoDesignar.mentorAtivo && <span className="ml-1 text-amber-600">(inativo)</span>}</p>}
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Selecione o mentor</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Selecione o mentor</label>
                   <select value={mentorEscolhido} onChange={(e) => setMentorEscolhido(e.target.value)} className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue">
                     <option value="">— Escolha um mentor ativo —</option>
                     {(dados?.mentoresAtivos || []).map(m => <option key={m.email} value={m.email}>{m.nome}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Plano contratado{alunoDesignar.plano && <span className="ml-2 normal-case text-slate-400 font-medium">(atual: {alunoDesignar.plano})</span>}</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Plano contratado{alunoDesignar.plano && <span className="ml-2 normal-case text-slate-500 font-medium">(atual: {alunoDesignar.plano})</span>}</label>
                   <select value={planoEscolhido} onChange={(e) => setPlanoEscolhido(e.target.value)} className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue">
                     <option value="">— Escolha o plano —</option>
                     {PLANOS_DISPONIVEIS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -1151,19 +1151,19 @@ export default function PainelLider() {
               <div className="px-6 py-5 border-b border-slate-100">
                 <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Registrar saída</p>
                 <h2 className="text-base font-semibold text-intento-blue mt-0.5">{alunoSaida.nome}</h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">{alunoSaida.email}{(alunoSaida.mentorNome || alunoSaida.mentor) ? <> · mentor: <span className="font-semibold text-slate-500">{alunoSaida.mentorNome || alunoSaida.mentor}</span></> : null}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{alunoSaida.email}{(alunoSaida.mentorNome || alunoSaida.mentor) ? <> · mentor: <span className="font-semibold text-slate-500">{alunoSaida.mentorNome || alunoSaida.mentor}</span></> : null}</p>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Motivo da saída</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Motivo da saída</label>
                   <select value={motivoSaida} onChange={(e) => setMotivoSaida(e.target.value)} className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue">
                     <option value="">— Escolha o motivo —</option>
                     {MOTIVOS_SAIDA.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Observação <span className="normal-case font-medium text-slate-400">(opcional)</span></label>
-                  <textarea rows={3} value={obsSaida} onChange={(e) => setObsSaida(e.target.value)} placeholder="Contexto da saída, combinados, follow-up..." className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue placeholder:text-slate-400 resize-none" />
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Observação <span className="normal-case font-medium text-slate-500">(opcional)</span></label>
+                  <textarea rows={3} value={obsSaida} onChange={(e) => setObsSaida(e.target.value)} placeholder="Contexto da saída, combinados, follow-up..." className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue placeholder:text-slate-500 resize-none" />
                 </div>
                 <p className="text-[11px] text-slate-500 leading-relaxed">O aluno sai do painel do líder e da lista do mentor; o histórico fica preservado na planilha. <b>Nenhum email é enviado.</b> Reversível pelo Sheets (limpar as células dt_saida/motivo_saida).</p>
               </div>
@@ -1180,21 +1180,21 @@ export default function PainelLider() {
           <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/40 backdrop-blur-sm p-4 animate-in fade-in" onClick={(e) => { if (e.target === e.currentTarget) setAlunoEditando(null); }}>
             <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
               <div className="px-6 py-5 border-b border-slate-100">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Editar dados do aluno</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Editar dados do aluno</p>
                 <h2 className="text-base font-semibold text-intento-blue mt-0.5">{alunoEditando.nome}</h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">{alunoEditando.email}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{alunoEditando.email}</p>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Tipo de aluno</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tipo de aluno</label>
                   <select value={editTipo} onChange={(e) => setEditTipo(e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue">
                     <option value="ENEM">ENEM</option>
                     <option value="EM">Ensino Médio</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Escola</label>
-                  <input type="text" value={editEscola} onChange={(e) => setEditEscola(e.target.value)} placeholder="Nome da escola" className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue placeholder:text-slate-400" />
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Escola</label>
+                  <input type="text" value={editEscola} onChange={(e) => setEditEscola(e.target.value)} placeholder="Nome da escola" className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue placeholder:text-slate-500" />
                 </div>
               </div>
               <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-100">
