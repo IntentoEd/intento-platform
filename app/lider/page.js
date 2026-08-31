@@ -37,6 +37,9 @@ function piorNivel(sinais) {
 
 const naoUsaApp = (a) => a.statusApp === 'Não se adaptou' || a.statusApp === 'Nunca vai usar';
 
+// Rótulo do plano contratado (BD Mestre grava "Padrao" sem acento).
+const planoLabel = p => p ? String(p).replace('Padrao', 'Padrão') : null;
+
 function parseDataBR(s) {
   if (!s) return null;
   const str = String(s).trim();
@@ -190,7 +193,7 @@ function CardDimensional({ a, d, ciclo, onClose }) {
         <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-base font-bold text-intento-blue truncate">{a.nome}</h2>
-            <p className="text-[11px] text-slate-500 font-medium">{a.mentorNome || a.mentor} · {a.plano || '—'} · {ciclo.id} {ciclo.nome}</p>
+            <p className="text-[11px] text-slate-500 font-medium">{a.mentorNome || a.mentor} · {planoLabel(a.plano) || '—'} · {ciclo.id} {ciclo.nome}</p>
           </div>
           <CarimboBadge nivel={d.perfil} />
         </div>
@@ -521,10 +524,11 @@ export default function PainelLider() {
     diagnostico.forEach(({ a, d }) => {
       if (!(a.mentor && a.mentorAtivo)) return; // casa com dados.mentoresAtivos
       const k = a.mentor;
-      if (!g[k]) g[k] = { email: k, nome: a.mentorNome || k, alunos: [], planos: new Set(), aprendiz: 0, veterano: 0, mestre: 0, alertas: 0, acompTot: 0, acompVerde: 0, encFeitos: 0, encEsp: 0 };
+      if (!g[k]) g[k] = { email: k, nome: a.mentorNome || k, alunos: [], planos: {}, aprendiz: 0, veterano: 0, mestre: 0, alertas: 0, acompTot: 0, acompVerde: 0, encFeitos: 0, encEsp: 0 };
       const grp = g[k];
       grp.alunos.push({ a, d });
-      if (a.plano) grp.planos.add(String(a.plano).replace('Padrao', 'Padrão'));
+      const pl = planoLabel(a.plano);
+      if (pl) grp.planos[pl] = (grp.planos[pl] || 0) + 1;
       if (d.perfil) grp[d.perfil]++;
       if (d.alerta) grp.alertas++;
       const sa = sinalAcomp(a); if (sa) { grp.acompTot++; if (sa.nivel === 'verde') grp.acompVerde++; } // acompanhamento enviado (semana)
@@ -541,7 +545,10 @@ export default function PainelLider() {
       grp.encPct = grp.encEsp ? Math.round(grp.encFeitos / grp.encEsp * 100) : null;
       grp.distrib = { aprendiz: grp.aprendiz, veterano: grp.veterano, mestre: grp.mestre };
       grp.distTotal = grp.aprendiz + grp.veterano + grp.mestre;
-      grp.planosArr = [...grp.planos];
+      // "3 Quinzenal · 2 Mensal" — contagem por plano, decrescente
+      grp.planosArr = Object.entries(grp.planos)
+        .sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))
+        .map(([p, n]) => `${n} ${p}`);
       return grp;
     });
   }, [diagnostico, ciclo]);
@@ -1061,6 +1068,7 @@ export default function PainelLider() {
                   <tr>
                     <th className="text-left font-bold p-3">Aluno</th>
                     <th className="text-left font-bold p-3">Mentor</th>
+                    <th className="text-left font-bold p-3" title="Régua de atraso: Semanal ~7d · Quinzenal ~15d · Mensal ~30d; motivo dispara em 1,5× o intervalo. Custom: régua própria.">Plano</th>
                     <th className="text-left font-bold p-3">Perfil</th>
                     <th className="text-left font-bold p-3">Carimbos</th>
                     {mentoradosChip === 'acao' && <th className="text-left font-bold p-3">Motivo</th>}
@@ -1069,7 +1077,7 @@ export default function PainelLider() {
                 </thead>
                 <tbody>
                   {mentoradosFiltrados.length === 0 ? (
-                    <tr><td colSpan={mentoradosChip === 'acao' ? 6 : 5} className="text-center text-sm text-slate-500 font-medium py-8">Nenhum aluno nos filtros atuais.</td></tr>
+                    <tr><td colSpan={mentoradosChip === 'acao' ? 7 : 6} className="text-center text-sm text-slate-500 font-medium py-8">Nenhum aluno nos filtros atuais.</td></tr>
                   ) : mentoradosFiltrados.map(({ a, d, motivos }) => {
                     return (
                       <tr key={(a.idAluno || '') + a.nome} className="border-b border-slate-50 hover:bg-slate-50">
@@ -1080,6 +1088,11 @@ export default function PainelLider() {
                           </div>
                         </td>
                         <td className="p-3 text-slate-500 truncate max-w-[120px]">{a.mentorNome || a.mentor || '—'}</td>
+                        <td className="p-3">
+                          {planoLabel(a.plano)
+                            ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{planoLabel(a.plano)}</span>
+                            : <span className="text-slate-300">—</span>}
+                        </td>
                         <td className="p-3"><CarimboBadge nivel={d.perfil} /></td>
                         <td className="p-3"><CarimboDimensional d={d} /></td>
                         {mentoradosChip === 'acao' && (
