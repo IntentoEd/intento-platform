@@ -247,10 +247,17 @@ export default function PainelDoAluno() {
     document.documentElement.classList.remove('dark');
 
     const buscarTopicos = async () => {
+      // Dicionário global de tópicos raramente muda: usa o cache imediatamente
+      // e revalida em background (mesmo padrão do login do aluno abaixo).
+      const cachedTopicos = getCache('topicos_globais');
+      if (cachedTopicos?.data) setTopicosDicionario(cachedTopicos.data);
       try {
         const res = await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'buscarTopicosGlobais' }) });
         const data = await res.json();
-        if (data.status === 'sucesso') setTopicosDicionario(data.topicos || {});
+        if (data.status === 'sucesso') {
+          setTopicosDicionario(data.topicos || {});
+          setCache('topicos_globais', data.topicos || {});
+        }
       } catch (e) { console.error("Erro ao buscar tópicos"); }
     };
     buscarTopicos();

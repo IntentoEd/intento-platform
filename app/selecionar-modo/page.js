@@ -21,15 +21,9 @@ export default function SelecionarModo() {
       const email = user?.email?.toLowerCase() || (typeof window !== 'undefined' ? sessionStorage.getItem('emailLogado') : null);
       if (!email) { router.push('/'); return; }
 
-      // Consulta papéis no backend (loginGlobal)
-      try {
-        const r = await apiFetch('/api/mentor', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ acao: 'loginGlobal', email }),
-        });
-        const data = await r.json();
-        const papeisBackend = data.papeis || {};
+      // Decide a rota (ou mostra a tela) a partir dos papéis — mesma lógica
+      // independente de os papéis virem do cache ou do backend.
+      const aplicarPapeis = (papeisBackend) => {
         const ehLider    = !!papeisBackend.lider    || EMAILS_LIDER.includes(email);
         const ehVendedor = !!papeisBackend.vendedor;
         const ehMentor   = !!papeisBackend.mentor;
@@ -51,6 +45,32 @@ export default function SelecionarModo() {
         const primeiro = email.split('@')[0];
         setPrimeiroNome(primeiro.charAt(0).toUpperCase() + primeiro.slice(1));
         setAutorizado(true);
+      };
+
+      // A "/" acabou de fazer loginGlobal e gravou a resposta no sessionStorage —
+      // reaproveita em vez de repetir a MESMA chamada ao GAS (segundos a menos).
+      // Isso é só roteamento de UX client-side; a autorização real continua no
+      // servidor a cada ação.
+      try {
+        const raw = sessionStorage.getItem('intento_login_global');
+        if (raw) {
+          const cache = JSON.parse(raw);
+          if (cache && cache.email === email && cache.dados) {
+            aplicarPapeis(cache.dados.papeis || {});
+            return;
+          }
+        }
+      } catch {}
+
+      // Sem cache válido → consulta papéis no backend (loginGlobal)
+      try {
+        const r = await apiFetch('/api/mentor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ acao: 'loginGlobal', email }),
+        });
+        const data = await r.json();
+        aplicarPapeis(data.papeis || {});
       } catch {
         // Fallback: se falhar, autoriza só se for líder conhecido
         if (EMAILS_LIDER.includes(email)) {
@@ -71,6 +91,7 @@ export default function SelecionarModo() {
   const sair = async () => {
     await auth.signOut();
     sessionStorage.removeItem('emailLogado');
+    sessionStorage.removeItem('intento_login_global');
     router.push('/');
   };
 
