@@ -171,6 +171,15 @@ export default function Home() {
       const dados = await resBase.json();
       if (dados.status === 'sucesso') {
         sessionStorage.setItem('emailLogado', emailUsuario.toLowerCase());
+        // Guarda a resposta pra /selecionar-modo reaproveitar sem repetir o
+        // loginGlobal (GAS leva segundos por chamada). Roteamento de UX apenas —
+        // a autorização real continua no servidor a cada ação.
+        try {
+          sessionStorage.setItem(
+            'intento_login_global',
+            JSON.stringify({ email: emailUsuario.toLowerCase(), dados, ts: Date.now() })
+          );
+        } catch {}
         router.push(dados.rota);
       } else {
         setErro(dados.mensagem);
@@ -242,7 +251,7 @@ export default function Home() {
         </div>
 
         {/* Rodapé */}
-        <p className="relative text-slate-600 text-xs font-medium">metodointento.com.br</p>
+        <p className="relative text-slate-400 text-xs font-medium">metodointento.com.br</p>
       </div>
 
       {/* ── Coluna direita: formulário ─────────────────────────────────── */}
