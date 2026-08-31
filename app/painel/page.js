@@ -214,7 +214,9 @@ export default function PainelDoAluno() {
     const savedChecks = {};
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith('Intento_')) savedChecks[key] = localStorage.getItem(key) === 'true';
+      // planoChecks fica FORA do sweep: os checks do Plano de Ação agora moram
+      // no servidor e não podem ser apagados pelo "Zerar rotina".
+      if (key && key.startsWith('Intento_') && !key.endsWith('planoChecks')) savedChecks[key] = localStorage.getItem(key) === 'true';
     }
     setCheckboxes(savedChecks);
   };
@@ -303,8 +305,37 @@ export default function PainelDoAluno() {
     const base = "Intento_" + nome.replace(/\s+/g, '_') + "_";
     const savedTarefas = localStorage.getItem(base + 'tarefas');
     if (savedTarefas) setTarefas(JSON.parse(savedTarefas));
-    const savedChecks = localStorage.getItem(base + 'planoChecks');
-    if (savedChecks) setPlanoChecks(JSON.parse(savedChecks));
+
+    // Checks do Plano de Ação agora vêm do SERVIDOR (plano.checks, alinhado a
+    // plano.acao). GAS velho (sem o campo) → começa vazio e o toggle degrada
+    // pra memória (ver togglePlanoCheck).
+    const planoSrv = d.plano || {};
+    const checksSrv = Array.isArray(planoSrv.checks) ? planoSrv.checks : [];
+    const checksObj = {};
+    checksSrv.forEach((v, i) => { checksObj[i] = v === true; });
+    setPlanoChecks(checksObj);
+
+    // Migração one-time da chave legada Intento_<Nome>_planoChecks (formato
+    // {"0":true,...}): só quando o GAS novo está no ar (plano.linha presente) e
+    // o servidor ainda não tem nenhum check. Remove a chave SÓ no sucesso.
+    const chaveLegada = base + 'planoChecks';
+    const legadoRaw = localStorage.getItem(chaveLegada);
+    const idPlanilhaSessao = sessao?.idPlanilha || sessao?.idPlanilhaAluno || sessao?.dadosPainel?.idPlanilha;
+    if (legadoRaw && planoSrv.linha !== undefined && idPlanilhaSessao
+        && checksSrv.length > 0 && checksSrv.every(v => v !== true)) {
+      try {
+        const legado = JSON.parse(legadoRaw);
+        const alinhado = checksSrv.map((_, i) => legado[i] === true);
+        if (alinhado.some(Boolean)) {
+          const legadoObj = {};
+          alinhado.forEach((v, i) => { legadoObj[i] = v; });
+          setPlanoChecks(legadoObj);
+        }
+        callMentor('salvarChecksPlano', { idPlanilha: idPlanilhaSessao, linha: planoSrv.linha, checks: alinhado })
+          .then(() => localStorage.removeItem(chaveLegada))
+          .catch(() => { /* GAS velho ou rede — tenta de novo no próximo load */ });
+      } catch { /* chave legada ilegível — ignora */ }
+    }
 
     const idPlanilha = sessao?.idPlanilha || sessao?.idPlanilhaAluno || sessao?.dadosPainel?.idPlanilha;
     if (!idPlanilha) return;
@@ -692,7 +723,9 @@ export default function PainelDoAluno() {
 
   const zerarRotina = () => {
     if (window.confirm("Zerar as atividades e iniciar uma nova semana?")) {
-      Object.keys(checkboxes).forEach(key => localStorage.removeItem(key));
+      // Nunca apaga os checks do Plano de Ação (chave ...planoChecks): eles
+      // moram no servidor e a chave local só existe até a migração one-time.
+      Object.keys(checkboxes).forEach(key => { if (!key.endsWith('planoChecks')) localStorage.removeItem(key); });
       setCheckboxes({});
     }
   };
@@ -942,10 +975,35 @@ export default function PainelDoAluno() {
     }
   };
 
-  const togglePlanoCheck = (i) => {
+  // Toggle otimista com rollback (modelo confirmarExclusaoCard): marca local,
+  // salva no servidor; falha → reverte + toast. PLANO_DESATUALIZADO (mentor
+  // registrou encontro novo no meio) → recarrega os dados. GAS velho (sem
+  // plano.linha) → degrada pra toggle só em memória, sem chamada nem toast.
+  const togglePlanoCheck = async (i) => {
+    const anteriores = planoChecks;
     const atualizados = { ...planoChecks, [i]: !planoChecks[i] };
     setPlanoChecks(atualizados);
-    localStorage.setItem(alunoNameKey + 'planoChecks', JSON.stringify(atualizados));
+    if (plano.linha === undefined) return;
+    const idPlanilha = getSpreadsheetId();
+    if (!idPlanilha) return;
+    const checksAlinhados = (plano.acao || []).map((_, idx) => atualizados[idx] === true);
+    try {
+      const res = await apiFetch('/api/mentor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'salvarChecksPlano', idPlanilha, linha: plano.linha, checks: checksAlinhados }),
+      });
+      const data = await res.json();
+      if (data?.codigo === 'PLANO_DESATUALIZADO') {
+        mostrarToast('O plano de ação foi atualizado pelo seu mentor — recarregando.', 'error');
+        recarregarDados();
+        return;
+      }
+      if (!res.ok || data?.status === 'erro') throw new Error(data?.mensagem || 'http_' + res.status);
+    } catch (e) {
+      setPlanoChecks(anteriores);
+      mostrarToast('Não deu pra salvar o check agora. Tente de novo.', 'error');
+    }
   };
 
   const adicionarTarefa = () => {
@@ -1372,6 +1430,14 @@ export default function PainelDoAluno() {
             <>
               {abaAtiva === 1 && (
                 <div className="space-y-6 animate-in fade-in duration-500">
+
+                  {/* Aluno ainda sem mentor designado (temMentor === false; undefined =
+                      GAS velho, sem banner) — informativo, sem bloquear nada. */}
+                  {sessao?.temMentor === false && (
+                    <div className="bg-blue-50 text-blue-700 p-4 rounded-xl font-medium text-sm border border-blue-100">
+                      Seu mentor está sendo designado. Assim que ele registrar o primeiro encontro, seu plano de ação aparece aqui.
+                    </div>
+                  )}
 
                   {/* Ciclo de Provas — pra todo aluno: EM (provas escolares e, no 3º ano, de
                       vestibular) e ENEM (só vestibular). O card sempre renderiza (empty state
