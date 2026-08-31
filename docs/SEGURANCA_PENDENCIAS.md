@@ -2,8 +2,10 @@
 
 Auditoria feita em 30/08/2026 a partir do vídeo "O erro fatal de quem cria apps
 sem saber programação" (Breno Perrucho), que lista 7 camadas de vulnerabilidade
-comuns em apps feitos sem base técnica. Abaixo o que já foi corrigido e o que
-ainda depende de decisão ou de config em produção.
+comuns em apps feitos sem base técnica.
+
+**Status (31/08/2026): todos os achados resolvidos e verificados em produção.**
+Resta só a opção (a) do #1, adiada por decisão de produto. Abaixo o registro de cada um.
 
 ## Corrigido na branch `filippe/hardening-auth-push`
 
@@ -32,7 +34,7 @@ Tudo abaixo é código; a parte Next deploya no merge (Vercel), a parte GAS exig
 6. **Todas as chamadas Next→GAS passam pelo `chamarGAS`** (carregam o token).
    Isso é pré-requisito pra ligar `VALIDAR_TOKEN` sem quebrar push.
 
-## #1 — escalada de privilégio por email não verificado
+## #1 — escalada de privilégio por email não verificado — ✅ MITIGADO (opção c)
 
 **Risco:** o login aceita email/senha (`createUserWithEmailAndPassword`) e o
 cadastro nunca envia verificação. Conta email/senha nasce com
@@ -72,25 +74,37 @@ gate na UI. Fecha a impersonação aluno↔aluno. Requer migração das contas
 email/senha atuais. Caminho: começar disparando verificação nos cadastros novos
 (sem bloquear) e, quando a taxa de verificados subir, virar a chave.
 
-## PENDENTE #4 — ligar `VALIDAR_TOKEN` no GAS
+## #4 — `VALIDAR_TOKEN` no GAS — ✅ CONCLUÍDO (31/08/2026, PRs #100 + #106)
 
-Hoje `VALIDAR_TOKEN = false` (gas/Code.gs). O `/exec` é uma URL pública: a única
-proteção é a URL ser secreta. O código já está pronto pra ligar (item 6 acima).
+O `/exec` do GAS era uma URL pública protegida só pela URL ser secreta. Agora
+`VALIDAR_TOKEN = true`: o `doPost` rejeita (401) qualquer POST sem o token correto.
 
-**Ordem obrigatória (senão derruba prod):**
-1. Garantir que o Next com o roteamento via `chamarGAS` já está em produção.
-2. No editor do GAS: Project Settings → Script Properties → criar `API_TOKEN`
-   com o **mesmo valor** da env `GAS_API_TOKEN` do Vercel.
-3. Só então mudar `VALIDAR_TOKEN = true` (gas/Code.gs) e fazer `clasp push` +
-   `clasp deploy -i <id>`.
-4. Rodar o smoke (`SmokeTest.gs`) e conferir uma chamada real do app.
+Ligado com segurança em duas etapas:
+1. **Dry-run** (`VALIDAR_TOKEN_DRYRUN`, PR #100): logava o mismatch em Executions
+   sem bloquear, pra confirmar sem risco que o tráfego real carrega o token.
+2. **Enforce** (PR #106): auditoria multi-agente confirmou que o único caller
+   inbound do `/exec` é o Next via `chamarGAS` (injeta o token) — sem `doGet`, sem
+   fetch direto no client/SW, crons internos não passam por `doPost`, app Flutter
+   é pull via BigQuery, integrações externas (Typebot/agenda) entram por rotas Next
+   protegidas. Token rotacionado: `API_TOKEN` (Script Property GAS) == `GAS_API_TOKEN`
+   (Vercel prod + preview), Next redeployado.
 
-Se ligar `VALIDAR_TOKEN` antes do passo 2, o GAS responde 500 "Servidor mal
-configurado" pra tudo → outage total.
+**Verificado em prod:** `/exec` sem token → `{"status":"erro","mensagem":"Não autorizado."}`;
+com token → dados; `/mentor` e `/painel` ok; `origin/main` com `VALIDAR_TOKEN=true`
+(sem drift); smoke verde. **Rollback:** `VALIDAR_TOKEN = false` + `./scripts/deploy-gas.sh`.
 
-## Ordem de deploy desta branch
+## `AGENT_API_TOKEN` (push cron) — ✅ CONCLUÍDO (31/08/2026)
 
-1. Merge do PR → Vercel sobe a parte Next (tudo backward-compatible).
-2. `clasp push` + `clasp deploy` do `gas/Code.gs` (authz do `handleLogin`). Pode
-   ser antes ou depois do passo 1 graças ao fallback.
-3. Só depois, quando quiser, encarar o PENDENTE #4 (procedimento acima).
+A Script Property `AGENT_API_TOKEN` estava ausente → o cron de push (`_enviarPush`
+em push.gs) abortava silenciosamente, e a rota `/api/push/send` (endurecida em #94)
+exige o mesmo token. Rotacionado: novo valor na Script Property do GAS + env do
+Vercel (prod + preview) + redeploy. Smoke `15 OK · 0 FALHAS`. O agente de agenda
+n8n que dividia esse token está desativado (confirmado com o responsável), então a
+rotação foi sem risco.
+
+## Deploy do GAS (referência)
+
+Mudança em `gas/**` exige `clasp push` + `clasp deploy` — o `push` sozinho NÃO
+atualiza a versão fixa de prod. Use `./scripts/deploy-gas.sh "descrição"`, que
+embute o deployment id e bloqueia se `gas/` tiver mudança não-commitada. Rodar
+`SmokeTest.gs` depois pra validar (deve dar 15 OK · 0 FALHAS).
