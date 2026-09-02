@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { auth, googleProvider } from '@/lib/firebase';
+import MentoriaEncerrada from '@/components/MentoriaEncerrada';
 import {
   signInWithPopup,
   signInWithRedirect,
@@ -34,6 +35,9 @@ export default function Home() {
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+  // Ex-aluno (loginGlobal com encerrado:true): troca a página pela tela de
+  // encerramento. Guarda { dtSaida } quando setado.
+  const [mentoriaEncerrada, setMentoriaEncerrada] = useState(null);
 
   const inputClasse =
     'w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue transition-all font-medium text-intento-blue text-sm';
@@ -170,6 +174,13 @@ export default function Home() {
       });
       const dados = await resBase.json();
       if (dados.status === 'sucesso') {
+        // Mentoria encerrada: não roteia nem grava o cache do login global —
+        // renderiza a tela de encerramento no lugar da página.
+        if (dados.encerrado === true) {
+          setMentoriaEncerrada({ dtSaida: dados.dtSaida || '' });
+          setCarregando(false);
+          return;
+        }
         sessionStorage.setItem('emailLogado', emailUsuario.toLowerCase());
         // Guarda a resposta pra /selecionar-modo reaproveitar sem repetir o
         // loginGlobal (GAS leva segundos por chamada). Roteamento de UX apenas —
@@ -197,6 +208,18 @@ export default function Home() {
     setErro('');
     setSucesso('');
   };
+
+  // "Entrar com outra conta" da tela de encerramento: desloga do Firebase,
+  // limpa a sessão e recarrega — a página volta ao estado de login limpo.
+  const sairMentoriaEncerrada = async () => {
+    try { await auth.signOut(); } catch {}
+    try { sessionStorage.clear(); } catch {}
+    window.location.reload();
+  };
+
+  if (mentoriaEncerrada) {
+    return <MentoriaEncerrada dtSaida={mentoriaEncerrada.dtSaida} onSair={sairMentoriaEncerrada} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans">
