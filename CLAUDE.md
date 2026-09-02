@@ -51,29 +51,27 @@ gh pr create --title "..." --body "..."
 
 # Donos por pasta — quem mexe no quê
 
-Convenção (não enforced tecnicamente — é regra de coordenação):
+**Filippe é o único dono ativo do repo.** O Rafael saiu da operação da Plataforma — CRM/comercial opera em plataforma externa. Não existe mais "avisar o outro dono"; o que continua real é o **multi-sessão** (várias janelas Claude do próprio Filippe em paralelo — a seção Multi-sessão acima segue valendo integralmente).
 
-**Rafa (CRM/comercial):**
+**Ativo (mentoria/escolar + infra) — tudo do Filippe:**
+- `app/mentor/`, `app/painel/`, `app/onboarding/`, `app/diagnostico/`, `app/lider/`
+- `app/api/mentor/`, `app/api/submit/`, `app/api/auth/`, `app/api/push/`
+- `components/AbaProvas.js`, `components/Boletim*.js`, `components/Provas*.js`, `components/Push*.js`
+- `lib/`, `scripts/`, `app/layout.js`, `package.json`, `CLAUDE.md`, `AGENTS.md`, `docs/`
+- `gas/` (split por domínio): `Code.gs` (core: constantes ABA/COL_*/FASES_LEAD/TIPOS_*/OUTCOMES_* + handlers de aluno/onboarding/diagnóstico/simulados), `escolar.gs`, `push.gs`, `marcos.gs`, `integracaoApp.gs`, `SmokeTest.gs`
+
+**Legado CRM/comercial (ex-módulo do Rafael, sem dono ativo):**
 - `app/vendas/`, `app/vendedor/`
 - `app/api/leads/`, `app/api/agenda/`
-- `components/PainelLiderPipeline.js`, `components/Modal{Lead,NovoLead}.js`
-- handlers de Lead/Pipeline/Agenda/Vendedor em `gas/Code.gs`
+- `components/ModalLead.js`, `components/ModalNovoLead.js`
+- `gas/crm.gs` (Lead/Pipeline), `gas/agenda.gs`
 
-**Filippe (mentoria/escolar):**
-- `app/mentor/`, `app/painel/`, `app/onboarding/`, `app/diagnostico/`, `app/lider/`
-- `app/api/mentor/`, `app/api/submit/`, `app/api/auth/`
-- `components/AbaProvas.js`, `components/Boletim*.js`, `components/ModalRegistro.js`, `components/Provas*.js`, `components/Push*.js`
-- handlers de Aluno/Mentor/Diagnóstico/Avaliação/Caderno/Onboarding em `gas/Code.gs`
+Esse código permanece no repo como **legado funcional** — sem dono ativo e sem uso operacional garantido. Mudanças ali merecem cautela extra: confirmar com Filippe antes de mexer.
 
-**Compartilhado (avisar o outro dono antes de mexer):**
-- `lib/`, `scripts/`, `app/layout.js`, `package.json`
-- `gas/Code.gs` constantes (ABA, COL_*, FASES_LEAD, TIPOS_*, OUTCOMES_*)
-- `gas/SmokeTest.gs`
-- `app/api/push/` (cron+UX afeta os dois)
-- `CLAUDE.md`, `AGENTS.md`, `docs/`
+(Arquivos deletados que docs antigos ainda podem citar: `components/PainelLiderPipeline.js` (#109) e `components/ModalRegistro.js` (#101).)
 
 **Como você (assistente) usa isso:**
 
-- Quando o usuário pede pra mexer em arquivo de outro dono (ex: Filippe pede mudança em `app/vendas/page.js`), pergunta se Rafa foi avisado antes de pushar.
-- Quando aparece commit ou stash de "outra conversa" mexendo na sua área, sinalize claramente — pode ser engano.
-- Pra mudança em pasta compartilhada (`lib/`, `gas/Code.gs` constantes), sempre PR com review.
+- Quando o usuário pede pra mexer no legado CRM (ex: `app/vendas/page.js`, `gas/crm.gs`), confirme que a mudança é intencional antes de prosseguir — não há dono ativo nem garantia de uso.
+- Quando aparece commit ou stash de "outra conversa" mexendo nos mesmos arquivos que você, sinalize claramente — pode ser outra janela Claude do Filippe.
+- Branch + PR continua sendo o default do fluxo (audit trail + preview da Vercel); review de PR é opcional — self-merge é o normal.

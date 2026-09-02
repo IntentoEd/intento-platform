@@ -1,6 +1,6 @@
 # Gamificação + Marcos de Ciclo — Plano de Implementação
 
-**Data**: 2026-08-18 · **Dono**: Filippe · **Status**: decisões fechadas, implementação em andamento (branch `filippe/gamificacao-marcos`)
+**Data**: 2026-08-18 · **Atualizado**: 2026-09-02 · **Dono**: Filippe · **Status**: **EM PRODUÇÃO** (PRs #85–#98) — resta só o **PR F** (Retrato do Ciclo .png) em aberto
 **Incorpora a Fase 2 de Fases e Ciclos** (dimensão Simulado + freeze do Perfil no Marco de Ciclo). A conversa/sessão anterior da Fase 2 não deve implementar nada — o trabalho mudou pra cá.
 
 ---
@@ -22,7 +22,7 @@ Três peças que se completam:
 | 3 | **C1/C2 de 2026 backfilled** (marcos `origem='retroativo'` por replay do histórico). Primeiro fechamento ao vivo: C3, ~01/10/2026. |
 | 4 | Coluna **`QUESTOES`** no `BD_Registro` (col 24) — soma do raw `app.atividade` da semana; **nunca** delta de snapshots (semântica per-sessão substitui por tópico; delta pode ser negativo). Backfill one-shot com dry-run. |
 | 5 | Escopo: **mentoria/ENEM com app**. EM/AE e non-adopters fora desta rodada. |
-| 6 | `/painel`: tudo codado, **gated por flag + allowlist de e-mail** (Filippe vê em prod antes do Encontro Bússola ~24/08; chave geral no fim de agosto). |
+| 6 | `/painel`: tudo codado. O gate de lançamento (flag `JORNADA_LIBERADA` + allowlist de e-mail) cumpriu o papel e foi **APOSENTADO em 31/08/2026**, pós-Encontro Bússola (chave geral no PR #92, limpeza no #96) — `jornadaVisivel()` (lib/selos.js) hoje só aplica a regra de **escopo** da decisão 5 (aluno ENEM + usa o app). |
 | 7 | Catálogo de 12 selos **aprovado** (§4). Palavra externa = **"Selo"**; metáfora de selo postal estampado. |
 | 8 | **Carimbos Aprendiz/Veterano/Mestre viram EXTERNOS** (visíveis ao aluno) — supersede a marcação "uso interno" em `components/Carimbos.js`. Perfil (elo mais fraco) apresentado como "onde aplicar força", nunca como nota. |
 | 9 | **Nível-alvo padrão de simulado = 85%** (ajustável por aluno no fechamento). |
@@ -42,7 +42,7 @@ DESTAQUES_JSON | ORIGEM ('fechamento'|'retroativo')
 
 ### 3.2 Trigger do fechamento
 
-- Helper puro `marcoCicloPendente({ marcos, diarios, hoje })` em `lib/carimbos.js` (fonte única): ciclo fechado = trimestre anterior; pendente sse (a) `Array.isArray(marcos)` — gate de deploy: front dormante até o GAS novo subir; (b) sem linha (ano, ciclo) em BD_Marcos; (c) ≥1 diário datado dentro do trimestre fechado (guarda de recém-matriculado). Retorna só o pendente **mais recente**.
+- Helper puro `marcoCicloPendente({ marcos, diarios, hoje, tipoAluno, statusApp })` em `lib/carimbos.js` (fonte única — `tipoAluno`/`statusApp` entraram depois pra aplicar o escopo da decisão 5 direto no helper): ciclo fechado = trimestre anterior; pendente sse (a) `Array.isArray(marcos)` — gate de deploy: front dormante até o GAS novo subir; (b) sem linha (ano, ciclo) em BD_Marcos; (c) ≥1 diário datado dentro do trimestre fechado (guarda de recém-matriculado). Retorna só o pendente **mais recente**.
 - Gravação: **estender `salvarNovoEncontro`** com `dados.marco` opcional (atômico no mesmo LockService; já está em `ACOES_AUTENTICADAS`; invalidação de cache existente cobre). Upsert idempotente por (ano, ciclo).
 - O modal legado de Novo Diário no dossiê é código morto — Modo Encontro é o único ponto de entrada de diários novos.
 - **Ordem de deploy: GAS primeiro** (`clasp push && clasp deploy -i <id>`), Vercel depois. O gate (a) mantém o front inerte no intervalo.
@@ -68,7 +68,7 @@ DESTAQUES_JSON | ORIGEM ('fechamento'|'retroativo')
 | Ensaio Geral | simulado | 1º concluído → 2 meses distintos → 3 meses consecutivos → 5 meses/ano | BD_Sim_ENEM |
 | Caderno Vivo | revisão | 10 cards c/ revisão → domingo zerado → 5 cards estágio final → 4 domingos ≤3 | BD_Caderno + REVISOES |
 | Combinado é Combinado | compromisso | metas de encontro batidas: 1 → 2 → 4 consecutivos (absorção de 1 Parcial) | BD_Diario (mentor preenche) |
-| Quilometragem | volume | questões acumuladas ~100 → 500 → 1500 → 3000 (**provisório até backfill**) | QUESTOES (nova) |
+| Quilometragem | volume | questões acumuladas 100 → 500 → 2000 → 6000 (**calibrado 19/08 com a distribuição real do backfill** — lib/selos.js) | QUESTOES (nova) |
 | Marco de Ciclo | ritual | 1º marco → 2 consecutivos → 4 no ano (premia o ritual, nunca o conteúdo) | BD_Marcos (nova) |
 
 **Descartados por princípio**: qualquer selo de check-in emocional (corrompe sinal clínico); critérios baseados em nota ou em "subir de carimbo" (diagnóstico não vira nota); XP/níveis de pessoa (START/CORE/ELITE do protótipo `ProfileTab.jsx`).
@@ -83,21 +83,21 @@ DESTAQUES_JSON | ORIGEM ('fechamento'|'retroativo')
 | **B** | Coluna QUESTOES: CTE `semana_questoes` (fuso America/Sao_Paulo igual no cron e backfill), COL_REG 24, cron, `_garantirColunaOrigem`, `backfillColunaQuestoes(dryRun)` · extrai distribuição p/ calibrar Quilometragem · **avisar Rafa** (constantes compartilhadas) | — |
 | **C** | Backfill retroativo C1/C2 2026 (`origem='retroativo'`, dry-run, replay do histórico) | A |
 | **D** | `lib/selos.js` + `/painel`: Linha do Ano do aluno, carimbos externos ("onde aplicar força"), seção Selos, gate flag+allowlist, estender `obterDadosDoPainel` (slice 21 → incluir QUESTOES) · baseline RESULTADO_1..5 p/ Combinado é Combinado | A, B |
-| **E1** | Carimbo Simulado (REGRA FECHADA 24/08/2026, **espelho do Domínio sobre o RESULTADO FINAL**): média do aproveitamento GERAL dos últimos 3 simulados concluídos · faixas <70 Aprendiz / 70–alvo Veterano / ≥alvo Mestre (alvo = nível-alvo do marco, padrão 85) · validade 10 semanas (sem simulado recente = sem dado, nunca Aprendiz por ausência — ritmo é papel do selo Ensaio Geral) · ativa pra TODOS em 01/10/2026 (`SIMULADO_ATIVO_A_PARTIR`) · entra no elo do Perfil. Front-only (a lista já chega em todos os payloads) — dormente até 01/10. | A |
-| **E2** | **ENTREGUE JUNTO COM E1 (mesmo PR)** — sem isso `/lider` e faixa Alerta do `/mentor` divergiriam do dossiê a partir de 01/10 (achado alta da revisão): `agregarMetricasBase_` expõe `simuladoResumo`+`nivelAlvoSimulado` por aluno (espelho documentado da lib; cobre dashboardLider E dashboardMentor sem mudança de front). Alvo válido = **71–100** nas 3 camadas (≤70 esvaziaria a faixa Veterano). Fila de marcos pendentes por mentor no `/lider` fica pra PR posterior. | E1 |
+| **E1** | Carimbo Simulado (REGRA FECHADA 24/08/2026, **espelho do Domínio sobre o RESULTADO FINAL**): média do aproveitamento GERAL dos últimos 3 simulados concluídos · faixas <70 Aprendiz / 70–alvo Veterano / ≥alvo Mestre (alvo = nível-alvo do marco, padrão 85) · validade 10 semanas (sem simulado recente = sem dado, nunca Aprendiz por ausência — ritmo é papel do selo Ensaio Geral) · entra no elo do Perfil. Front-only (a lista já chega em todos os payloads). **Ativação ANTECIPADA de 01/10 pra 31/08/2026** (PR #97): a constante `SIMULADO_ATIVO_A_PARTIR` foi removida e a dimensão está ativa pra todos (lib/carimbos.js) — setembro vira o mês de correr atrás de simulado antes do retrato do C3 congelar. | A |
+| **E2** | **ENTREGUE JUNTO COM E1 (mesmo PR)** — sem isso `/lider` e faixa Alerta do `/mentor` divergiriam do dossiê a partir de 01/10 (achado alta da revisão): `agregarMetricasBase_` expõe `simuladoResumo`+`nivelAlvoSimulado` por aluno (espelho documentado da lib; cobre dashboardLider E dashboardMentor sem mudança de front). Alvo válido = **71–100** nas 3 camadas (≤70 esvaziaria a faixa Veterano). Fila de marcos pendentes por mentor no `/lider`: **ENTREGUE no PR #98** (banner "🏁 Fechamento de Ciclo pendente · N alunos" no card de cada mentor, app/lider/page.js). | E1 |
 | **F** | Polish: Retrato do Ciclo em PNG (html2canvas) · selo da semana no .png do acompanhamento | A–D |
 
 **Timeline alvo**: A + D gated antes do Encontro Bússola (~24/08); B + C na mesma semana; chave geral do `/painel` no fim de agosto; E antes de 01/10 (1º fechamento ao vivo do C3).
 
 ## 6. Gates de calibração (não congelar antes)
 
-1. Limiar de **Quilometragem** ← distribuição do backfill de QUESTOES (T1 ≈ P40 de 4 semanas; topo ≈ P90 anual).
-2. Critério T1 de **Combinado é Combinado** ← baseline dos `RESULTADO_1..5` do S1 (se <30% dos encontros batem, relaxar).
+1. ~~Limiar de **Quilometragem**~~ ✅ **CALIBRADO 19/08/2026** com a distribuição real do backfill (P50 semanal=116; acumulado P40=787, P90=7998) → 100/500/2000/6000 em lib/selos.js.
+2. Critério T1 de **Combinado é Combinado** ← baseline dos `RESULTADO_1..5` do S1 (se <30% dos encontros batem, relaxar). **PENDENTE — único gate de calibração aberto.**
 3. Regra geral: 1º degrau ≈ o que 40–50% da base consegue em 2 semanas (validar contra o relatório semestral).
 
 ## 6.1 Riscos aceitos e documentados (revisão do PR D, 19-21/08/2026)
 
-- **Gate da Jornada é client-side**: `obterDadosDoPainel` envia `marcos`/`diariosMetas` a todo aluno antes da chave — é dado do próprio aluno (zero exposição de terceiros/privado); o único risco é narrativo (aluno curioso com devtools vê a estrutura antes da Bússola). Aceito para evitar dupla chave GAS+Vercel. Se incomodar, gate server-side por Script Property em `obterDadosDoPainel` (nunca no `buscarDadosAluno` do mentor).
+- **Gate da Jornada é client-side** *(risco encerrado em 31/08/2026 — o gate foi aposentado com a chave geral, ver decisão 6)*: `obterDadosDoPainel` envia `marcos`/`diariosMetas` a todo aluno antes da chave — é dado do próprio aluno (zero exposição de terceiros/privado); o único risco é narrativo (aluno curioso com devtools vê a estrutura antes da Bússola). Aceito para evitar dupla chave GAS+Vercel. Se incomodar, gate server-side por Script Property em `obterDadosDoPainel` (nunca no `buscarDadosAluno` do mentor).
 - **Hard-delete regride selo**: `handleExcluirSimulado`/`handleDeletarCardCaderno` fazem `deleteRow` físico — excluir um simulado/card pode regredir "Ensaio Geral"/"Caderno Vivo" no replay (viola "nunca regride" nesse caso raro). Correção estrutural = soft-delete nos dois handlers (PR futuro); por ora o catálogo aceita o risco.
 - **Base Sólida "Sem elo fraco"** exige também cobertura ≥30% (anti-trivialidade no início do ciclo) — critério exibido atualizado.
 
