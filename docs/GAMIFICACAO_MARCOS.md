@@ -73,7 +73,9 @@ DESTAQUES_JSON | ORIGEM ('fechamento'|'retroativo')
 
 **Descartados por princípio**: qualquer selo de check-in emocional (corrompe sinal clínico); critérios baseados em nota ou em "subir de carimbo" (diagnóstico não vira nota); XP/níveis de pessoa (START/CORE/ELITE do protótipo `ProfileTab.jsx`).
 
-**Visual**: selo circular SVG inline navy, anel serrilhado, numeral do tier e data; nova-da-semana = anel `intento-yellow` temporário + pill; próxima = contorno tracejado slate com frase-critério. Sem dourado, sem XP, sem cadeado.
+**Visual**: selo circular SVG inline navy, anel serrilhado, numeral do tier e data; nova-da-semana = anel `intento-yellow` temporário + pill; próxima = contorno tracejado slate com frase-critério. Sem XP, sem cadeado.
+
+**Atualização 02/09/2026 — anel de metal por tier**: o anel serrilhado ganha cor de metal por posição absoluta do degrau (I bronze → II prata → III ouro → IV platina; gradiente pra não confundir prata com o slate da próxima), com legenda no card. Supersede o "sem dourado" original SÓ no anel — critérios, rótulos poéticos e escadas intocados (reestruturar critério regride estampa via replay); metáfora continua selo postal, não medalha. Decisões descartadas na mesma conversa: substituir tiers por 3 metais (regride estampas) e esticar escadas com degraus novos.
 
 ## 5. Roadmap de PRs
 
