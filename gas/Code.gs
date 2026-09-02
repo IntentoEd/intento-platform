@@ -473,8 +473,18 @@ function handleLogin(dados) {
   let tipoAlunoLogin = 'ENEM';
   let statusAppLogin = '';
   let mentorAluno = '';
+  let achouLinhaAtiva = false;
+  // Linha com DT_SAIDA (mentoria encerrada) não conta como cadastro válido.
+  // Se só existirem linhas encerradas pro email, guardamos a mais recente
+  // (primeira de baixo pra cima) pra responder MENTORIA_ENCERRADA com a data.
+  let linhaEncerrada = null;
   for (let i = dataMatriz.length - 1; i >= 1; i--) {
     if (dataMatriz[i][colEmail] && emailNorm(dataMatriz[i][colEmail]) === emailAluno) {
+      if (dataMatriz[i][COL_MESTRE.DT_SAIDA]) {
+        if (!linhaEncerrada) linhaEncerrada = dataMatriz[i];
+        continue;
+      }
+      achouLinhaAtiva = true;
       idPlanilhaAluno = dataMatriz[i][colIdPlanilha] || null;
       tipoAlunoLogin = txt(dataMatriz[i][COL_MESTRE.TIPO_ALUNO]) || 'ENEM';
       // statusApp entra no payload pro escopo da Jornada ('' = usa, convenção
@@ -483,6 +493,16 @@ function handleLogin(dados) {
       mentorAluno = emailNorm(dataMatriz[i][COL_MESTRE.MENTOR_RESPONSAVEL]);
       break;
     }
+  }
+
+  // Ex-aluno (nenhuma linha ativa, mas com saída registrada): responde ANTES
+  // do authz/planilha — o /painel troca o boot pela tela de encerramento.
+  if (!achouLinhaAtiva && linhaEncerrada) {
+    const rawSaida = linhaEncerrada[COL_MESTRE.DT_SAIDA];
+    const dtSaidaFmt = (rawSaida instanceof Date)
+      ? Utilities.formatDate(rawSaida, "GMT-3", "dd/MM/yyyy")
+      : txt(rawSaida);
+    return responderJSON({ status: "erro", codigo: "MENTORIA_ENCERRADA", dtSaida: dtSaidaFmt, mensagem: "Mentoria encerrada." });
   }
 
   // Authz (IDOR): quando o gateway injeta emailCaller (Firebase token verificado),
@@ -1871,14 +1891,18 @@ function handleLoginGlobal(dados) {
 
     // Pode haver duplicatas (bug histórico em handleOnboarding que permitia
     // recriar). Em vez de pegar a primeira de baixo pra cima, escolhe a "melhor"
-    // linha por prioridade de status, pra que o aluno caia no estado mais
-    // avançado disponível mesmo na presença de duplicata residual.
-    const matriz = abaAlunos.getRange(1, 1, ultimaLinha, 23).getValues();
+    // linha ATIVA (sem DT_SAIDA) por prioridade de status, pra que o aluno caia
+    // no estado mais avançado disponível mesmo na presença de duplicata residual.
+    const matriz = abaAlunos.getRange(1, 1, ultimaLinha, COL_MESTRE.DT_SAIDA + 1).getValues();
     const PRIORIDADE_STATUS = { 'Onboarding Completo': 3, 'Aguardando Diagnóstico': 2 };
     let melhorLinha = null;
     let melhorPrio = -1;
+    // Linhas com DT_SAIDA ficam fora da disputa; guardamos a mais recente à
+    // parte pra sinalizar mentoria encerrada quando não sobrar linha ativa.
+    let linhaEncerrada = null;
     for (let i = 1; i < matriz.length; i++) {
       if (emailNorm(matriz[i][COL_MESTRE.EMAIL]) !== emailStr) continue;
+      if (matriz[i][COL_MESTRE.DT_SAIDA]) { linhaEncerrada = matriz[i]; continue; }
       const status = txt(matriz[i][COL_MESTRE.STATUS_ONBOARDING]);
       const prio = PRIORIDADE_STATUS[status] || 1;
       if (prio > melhorPrio) {
@@ -1896,6 +1920,16 @@ function handleLoginGlobal(dados) {
       // statusOnboarding cru pro /hub derivar o progresso real do funil
       // (onboarding/diagnóstico) sem depender só do localStorage.
       return responderJSON({ status: "sucesso", perfil: "aluno", rota: rotaDestino, nome: melhorLinha[COL_MESTRE.NOME] || "Estudante", idPlanilha: idPlanilha, statusOnboarding: statusBH });
+    }
+    // Só linhas com saída → mentoria encerrada. rota "/" mantém o Next velho
+    // inofensivo na janela de deploy (fica no login); o Next novo detecta
+    // `encerrado` e mostra a tela de encerramento no lugar de rotear.
+    if (linhaEncerrada) {
+      const rawSaida = linhaEncerrada[COL_MESTRE.DT_SAIDA];
+      const dtSaidaFmt = (rawSaida instanceof Date)
+        ? Utilities.formatDate(rawSaida, "GMT-3", "dd/MM/yyyy")
+        : txt(rawSaida);
+      return responderJSON({ status: "sucesso", perfil: "aluno", rota: "/", encerrado: true, dtSaida: dtSaidaFmt, nome: linhaEncerrada[COL_MESTRE.NOME] || "Estudante", statusOnboarding: null });
     }
     return responderJSON({ status: "sucesso", perfil: "aluno", rota: "/hub", nome: "Novo Aluno", statusOnboarding: null });
   } catch (erro) { return responderJSON({ status: "erro", mensagem: "Erro no Porteiro: " + erro.message }); }
@@ -3295,7 +3329,22 @@ function _exigirAcessoAluno(emailRequester, idPlanilhaAluno) {
     throw new Error('Aluno não encontrado ou acesso negado.');
   }
   if (email === aluno.mentor) return { papel: 'mentor', aluno: aluno };
-  if (email === aluno.email)  return { papel: 'aluno',  aluno: aluno };
+  // Papel 'aluno' (caller = email da linha) só vale com vínculo ATIVO (sem
+  // DT_SAIDA). Com duplicatas, basta UMA linha ativa ligando o email à
+  // planilha; se só linhas com saída ligam, o ex-aluno perde leitura e
+  // escrita via API. Líder e mentor responsável (acima) seguem acessando o
+  // histórico do ex-aluno normalmente.
+  var abaMestreAuthz = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ABA.MESTRE);
+  if (!abaMestreAuthz) throw new Error('BD_Alunos não encontrada');
+  var matrizAuthz = abaMestreAuthz.getDataRange().getValues();
+  var soVinculoEncerrado = false;
+  for (var j = 1; j < matrizAuthz.length; j++) {
+    if (emailNorm(matrizAuthz[j][COL_MESTRE.EMAIL]) !== email) continue;
+    if (txt(matrizAuthz[j][COL_MESTRE.ID_PLANILHA]) !== txt(idPlanilhaAluno)) continue;
+    if (!matrizAuthz[j][COL_MESTRE.DT_SAIDA]) return { papel: 'aluno', aluno: aluno };
+    soVinculoEncerrado = true;
+  }
+  if (soVinculoEncerrado) throw new Error('Acesso negado — mentoria encerrada.');
   throw new Error('Acesso negado a este aluno.');
 }
 

@@ -10,7 +10,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import { Bar, Line } from '@/components/Charts';
-import { getCache, setCache, tempoRelativo } from '@/lib/cacheClient';
+import { getCache, setCache, clearCache, tempoRelativo } from '@/lib/cacheClient';
 import { SIMULADO_ANO_MIN, SIMULADO_TITULO_MIN, ENEM_AREA_MAX, isSimuladoDateValid, formatSimuladoDate, histSimulado, metricasSimulado, tituloSimuladoValido, simuladoDataMinISO, simuladoDataMaxISO, ENEM_ESCOPO_DEFAULT, areasDoEscopo, escopoDoSimulado, escopoTemRedacao } from '@/lib/simuladoData';
 import { agregarMensalPorMes } from '@/lib/semanaLabel';
 import PushToggle from '@/components/PushToggle';
@@ -18,6 +18,7 @@ import ProvasAluno from '@/components/ProvasAluno';
 import BoletimAluno from '@/components/BoletimAluno';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import Jornada from '@/components/painel/Jornada';
+import MentoriaEncerrada from '@/components/MentoriaEncerrada';
 import { jornadaVisivel } from '@/lib/selos';
 
 const cardClass = "bg-white rounded-xl border border-slate-200 p-6 shadow-sm transition-colors";
@@ -197,6 +198,10 @@ export default function PainelDoAluno() {
   const [dadosTs, setDadosTs] = useState(null);
   const [atualizandoDados, setAtualizandoDados] = useState(false);
 
+  // Ex-aluno (login respondeu MENTORIA_ENCERRADA): { dtSaida } quando setado.
+  // Vence o cache stale-while-revalidate — early return antes de qualquer tela.
+  const [mentoriaEncerrada, setMentoriaEncerrada] = useState(null);
+
   const mostrarToast = (message, tipo = 'success') => {
     setToast({ show: true, message, tipo });
     setTimeout(() => setToast({ show: false, message: '', tipo: 'success' }), 3500);
@@ -291,6 +296,12 @@ export default function PainelDoAluno() {
             setCache(cacheKey, resposta);
             setDadosTs(Date.now());
           }
+        } else if (resposta.codigo === 'MENTORIA_ENCERRADA') {
+          // Ex-aluno: limpa o login cacheado (senão o cache de até 7 dias
+          // manteria o painel velho no ar) e troca tudo pela tela de
+          // encerramento — mesmo que o cache já tenha pintado a página.
+          clearCache(cacheKey);
+          setMentoriaEncerrada({ dtSaida: resposta.dtSaida || '' });
         } else if (!cached) { router.push('/'); }
       } catch (e) { if (!cached) router.push('/'); }
       finally { setCarregando(false); }
@@ -729,6 +740,21 @@ export default function PainelDoAluno() {
       setCheckboxes({});
     }
   };
+
+  // Ex-aluno: tela de encerramento full-page vence qualquer estado (inclusive
+  // cache já pintado). "Entrar com outra conta" desloga e volta ao login.
+  if (mentoriaEncerrada) {
+    return (
+      <MentoriaEncerrada
+        dtSaida={mentoriaEncerrada.dtSaida}
+        onSair={async () => {
+          try { await auth.signOut(); } catch {}
+          try { sessionStorage.clear(); } catch {}
+          window.location.href = '/';
+        }}
+      />
+    );
+  }
 
   if (carregando || !sessao) {
     return (
