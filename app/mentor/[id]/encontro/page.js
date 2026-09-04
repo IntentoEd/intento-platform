@@ -537,9 +537,17 @@ export default function ModoEncontro() {
             <h1 className="text-lg font-bold text-intento-blue">Diário de Bordo registrado</h1>
             <p className="text-sm text-slate-500 font-medium mt-1">O diário de {nomeAluno || 'do aluno'} já aparece no painel dele e alimenta o acompanhamento da semana.</p>
             {marcoSalvo && (
-              <p className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 mt-3">
+              <div className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 mt-3">
                 🏁 Marco do {marcoSalvo.ciclo} estampado — o retrato do trimestre está congelado na Linha do Ano.
-              </p>
+                {!ehDemo && (
+                  <button
+                    onClick={() => router.push(`/mentor/ig/retrato?id=${params.id}&ano=${marcoSalvo.ano}&ciclo=${marcoSalvo.ciclo}&nome=${encodeURIComponent(nomeAluno || '')}`)}
+                    className="block w-full mt-2 bg-white border border-emerald-200 text-emerald-700 font-bold py-1.5 rounded-md hover:bg-emerald-100 transition-all"
+                  >
+                    Exportar Retrato do Ciclo →
+                  </button>
+                )}
+              </div>
             )}
             {marcoNaoGravado && (
               <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">

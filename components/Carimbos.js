@@ -5,6 +5,7 @@
 // em lib/carimbos.js (fonte única). Nada de faixa ou cor hardcoded aqui.
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { corDe, CARIMBO_LABEL } from '@/lib/carimboCores';
 import { diagnosticoDimensional, registrosParaMetricas, cicloIdx, cicloDeData, periodoDoCiclo, marcoCicloPendente, resumoSimulados, nivelAlvoDosMarcos, CICLOS_INFO, DIM_LABEL, STATUS_FORA_DO_APP } from '@/lib/carimbos';
 
@@ -42,7 +43,7 @@ export function BarraCarimbo({ nivel }) {
 // clique expande o detalhe por dimensão.
 const NOTA_OVERSTUDYING = '2+ semanas acima de 105% da meta — atenção à sustentabilidade (trava Mestre)';
 
-export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoAluno, simulados }) {
+export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoAluno, simulados, exportRetrato }) {
   const foraDoApp = STATUS_FORA_DO_APP.includes(statusApp);
   const [aberto, setAberto] = useState(false);
   const d = useMemo(
@@ -134,7 +135,7 @@ export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoA
       )}
       {linhaDoAnoVisivel && (
         <div className="px-5 pb-3">
-          <LinhaDoAno marcos={marcos} marcoPendente={marcoPend} />
+          <LinhaDoAno marcos={marcos} marcoPendente={marcoPend} exportRetrato={exportRetrato} />
         </div>
       )}
       {aberto && !foraDoApp && (
@@ -217,7 +218,10 @@ export function CarimboDimensional({ d, tamanho = 'md', detalhes, alertas }) {
 // pendente (âmbar — fecha no próximo Diário de Bordo) ou futuro (contorno).
 // `marcos` = linhas do BD_Marcos (payload buscarDadosAluno); só o ano corrente
 // entra na barra nesta versão.
-export function LinhaDoAno({ marcos, marcoPendente, hoje }) {
+// `exportRetrato` = { id, nome } do aluno (opcional): habilita o link
+// "Exportar retrato" no painel do marco. Só o dossiê do MENTOR passa a prop —
+// a Jornada do aluno renderiza o mesmo RetratoMarco e a rota ig/ é do mentor.
+export function LinhaDoAno({ marcos, marcoPendente, hoje, exportRetrato }) {
   const [retratoAberto, setRetratoAberto] = useState(null); // marco (objeto) | null
   const agora = hoje || new Date();
   const ano = agora.getFullYear();
@@ -276,7 +280,7 @@ export function LinhaDoAno({ marcos, marcoPendente, hoje }) {
         })}
         <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider shrink-0" title="O C4 termina na prova">ENEM</span>
       </div>
-      {retratoAberto && <RetratoMarco marco={retratoAberto} onFechar={() => setRetratoAberto(null)} />}
+      {retratoAberto && <RetratoMarco marco={retratoAberto} onFechar={() => setRetratoAberto(null)} exportRetrato={exportRetrato} />}
     </div>
   );
 }
@@ -306,7 +310,7 @@ function NoMarco({ ciclo, marco, pendente, aberto, onToggle }) {
 
 // Retrato congelado de um marco: carimbos + destaques + reflexões do aluno.
 // Mostra VALORES gravados no BD_Marcos — nunca recomputa (a história não muda).
-function RetratoMarco({ marco, onFechar }) {
+function RetratoMarco({ marco, onFechar, exportRetrato }) {
   const info = CICLOS_INFO.find(c => c.id === marco.ciclo);
   const d = marco.destaques || {};
   const stats = [
@@ -331,7 +335,18 @@ function RetratoMarco({ marco, onFechar }) {
         {marco.origem === 'retroativo' && (
           <span className="text-[9px] font-bold bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Retrato computado do histórico — o ciclo fechou antes da feature existir">retroativo</span>
         )}
-        <button type="button" onClick={onFechar} className="ml-auto text-[10px] font-bold text-slate-500 hover:text-intento-blue transition-colors">fechar ✕</button>
+        <span className="ml-auto flex items-center gap-3">
+          {exportRetrato && marco.ano != null && marco.ciclo && (
+            <Link
+              href={`/mentor/ig/retrato?id=${exportRetrato.id}&ano=${marco.ano}&ciclo=${marco.ciclo}&nome=${encodeURIComponent(exportRetrato.nome || '')}`}
+              className="text-[10px] font-bold text-intento-blue hover:underline whitespace-nowrap"
+              title="Gera o .png do Retrato do Ciclo pra enviar ao aluno"
+            >
+              Exportar retrato →
+            </Link>
+          )}
+          <button type="button" onClick={onFechar} className="text-[10px] font-bold text-slate-500 hover:text-intento-blue transition-colors">fechar ✕</button>
+        </span>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         {[['comportamento', 'Com'], ['cobertura', 'Cob'], ['dominio', 'Dom'], ['simulado', 'Sim']].map(([key, curto]) => (
