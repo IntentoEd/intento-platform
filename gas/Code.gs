@@ -339,11 +339,10 @@ const COL_BD_ONB = {
 const VALIDAR_TOKEN = true;
 
 // Dry-run: NÃO bloqueia nada — só loga (visível em Executions) quando um request
-// NÃO carregaria o token certo. Serve pra validar, SEM risco de outage, que 100%
-// do tráfego real bate com a Script Property API_TOKEN antes de ligar o
-// VALIDAR_TOKEN de verdade. Zero linhas "[VALIDAR_TOKEN]" no log por um período
-// representativo = seguro pra ligar o enforcement.
-const VALIDAR_TOKEN_DRYRUN = true;
+// NÃO carregaria o token certo. O mecanismo fica de propósito (útil em rotação
+// futura do API_TOKEN: liga o dry-run, roda a rotação observando o log, desliga).
+// O rollout do enforcement terminou em 31/08/2026 — flag de volta pra false.
+const VALIDAR_TOKEN_DRYRUN = false;
 
 
 // =====================================================================
@@ -569,19 +568,20 @@ function handleLogin(dados) {
     return responderJSON({ status: "erro", codigo: "MENTORIA_ENCERRADA", dtSaida: dtSaidaFmt, mensagem: "Mentoria encerrada." });
   }
 
-  // Authz (IDOR): quando o gateway injeta emailCaller (Firebase token verificado),
-  // exige que o caller seja o próprio aluno, o mentor responsável, ou o líder.
-  // Sem isso, `login` devolvia o painel de QUALQUER aluno só com o email no body.
-  // Fallback: emailCaller ausente = gateway legado (janela do deploy casado) →
-  // mantém o comportamento antigo pra não quebrar entre os dois deploys.
+  // Authz (IDOR): o gateway sempre injeta emailCaller (Firebase token verificado
+  // — ação `login` está em ACOES_AUTENTICADAS_ALVO no proxy) e o caller precisa
+  // ser o próprio aluno, o mentor responsável, ou o líder. Sem isso, `login`
+  // devolvia o painel de QUALQUER aluno só com o email no body. emailCaller
+  // ausente = caller fora do gateway → nega (fallback legado removido 04/09,
+  // encerrada a janela do deploy casado do PR #94).
   var emailCaller = emailNorm(dados.emailCaller);
-  if (emailCaller) {
-    var autorizadoLogin = _ehLider(emailCaller)
+  var autorizadoLogin = emailCaller && (
+    _ehLider(emailCaller)
       || emailCaller === emailAluno
-      || (mentorAluno && emailCaller === mentorAluno);
-    if (!autorizadoLogin)
-      return responderJSON({ status: 'erro', codigo: 403, mensagem: 'Acesso negado a este aluno.' });
-  }
+      || (mentorAluno && emailCaller === mentorAluno)
+  );
+  if (!autorizadoLogin)
+    return responderJSON({ status: 'erro', codigo: 403, mensagem: 'Acesso negado a este aluno.' });
 
   if (!idPlanilhaAluno)
     return responderJSON({ status: 200, email: emailAluno, perfil: "PENDENTE" });
