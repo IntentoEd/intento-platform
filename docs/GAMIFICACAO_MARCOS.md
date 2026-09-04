@@ -1,6 +1,6 @@
 # Gamificação + Marcos de Ciclo — Plano de Implementação
 
-**Data**: 2026-08-18 · **Atualizado**: 2026-09-02 · **Dono**: Filippe · **Status**: **EM PRODUÇÃO** (PRs #85–#98) — resta só o **PR F** (Retrato do Ciclo .png) em aberto
+**Data**: 2026-08-18 · **Atualizado**: 2026-09-04 · **Dono**: Filippe · **Status**: **ROADMAP COMPLETO** — PRs #85–#98 em produção; PR F entregue no #124 (Retrato do Ciclo + selo da semana); T1 do Combinado calibrado no #122. Resta só o smoke operacional de 01/10 (1º fechamento ao vivo do C3).
 **Incorpora a Fase 2 de Fases e Ciclos** (dimensão Simulado + freeze do Perfil no Marco de Ciclo). A conversa/sessão anterior da Fase 2 não deve implementar nada — o trabalho mudou pra cá.
 
 ---
@@ -87,14 +87,14 @@ DESTAQUES_JSON | ORIGEM ('fechamento'|'retroativo')
 | **D** | `lib/selos.js` + `/painel`: Linha do Ano do aluno, carimbos externos ("onde aplicar força"), seção Selos, gate flag+allowlist, estender `obterDadosDoPainel` (slice 21 → incluir QUESTOES) · baseline RESULTADO_1..5 p/ Combinado é Combinado | A, B |
 | **E1** | Carimbo Simulado (REGRA FECHADA 24/08/2026, **espelho do Domínio sobre o RESULTADO FINAL**): média do aproveitamento GERAL dos últimos 3 simulados concluídos · faixas <70 Aprendiz / 70–alvo Veterano / ≥alvo Mestre (alvo = nível-alvo do marco, padrão 85) · validade 10 semanas (sem simulado recente = sem dado, nunca Aprendiz por ausência — ritmo é papel do selo Ensaio Geral) · entra no elo do Perfil. Front-only (a lista já chega em todos os payloads). **Ativação ANTECIPADA de 01/10 pra 31/08/2026** (PR #97): a constante `SIMULADO_ATIVO_A_PARTIR` foi removida e a dimensão está ativa pra todos (lib/carimbos.js) — setembro vira o mês de correr atrás de simulado antes do retrato do C3 congelar. | A |
 | **E2** | **ENTREGUE JUNTO COM E1 (mesmo PR)** — sem isso `/lider` e faixa Alerta do `/mentor` divergiriam do dossiê a partir de 01/10 (achado alta da revisão): `agregarMetricasBase_` expõe `simuladoResumo`+`nivelAlvoSimulado` por aluno (espelho documentado da lib; cobre dashboardLider E dashboardMentor sem mudança de front). Alvo válido = **71–100** nas 3 camadas (≤70 esvaziaria a faixa Veterano). Fila de marcos pendentes por mentor no `/lider`: **ENTREGUE no PR #98** (banner "🏁 Fechamento de Ciclo pendente · N alunos" no card de cada mentor, app/lider/page.js). | E1 |
-| **F** | Polish: Retrato do Ciclo em PNG (html2canvas) · selo da semana no .png do acompanhamento | A–D |
+| **F** | ✅ **ENTREGUE (#124, 04/09)** — Retrato do Ciclo em PNG (rota `ig/retrato`, marco congelado do BD_Marcos, selo conta retroativos SÓ no retrato) · faixa "Selo da semana" no .png do acompanhamento (janela do "nova!", maior prioridade + "+N") · helper `components/SeloMetal.js` | A–D |
 
 **Timeline alvo**: A + D gated antes do Encontro Bússola (~24/08); B + C na mesma semana; chave geral do `/painel` no fim de agosto; E antes de 01/10 (1º fechamento ao vivo do C3).
 
 ## 6. Gates de calibração (não congelar antes)
 
 1. ~~Limiar de **Quilometragem**~~ ✅ **CALIBRADO 19/08/2026** com a distribuição real do backfill (P50 semanal=116; acumulado P40=787, P90=7998) → 100/500/2000/6000 em lib/selos.js.
-2. Critério T1 de **Combinado é Combinado** ← baseline dos `RESULTADO_1..5` do S1 (se <30% dos encontros batem, relaxar). **PENDENTE — único gate de calibração aberto.**
+2. ~~Critério T1 de **Combinado é Combinado**~~ ✅ **GATE FECHADO 04/09/2026** — `baselineCombinadoEncontros()` rodado em prod: S1 = 48/175 eventos cumpridos (**27% < 30%** → disparou). Decisão: **T1 aceita cumprimento parcial sem meta perdida** (PR #122); T2/T4 seguem exigindo sequência cheia — sustentado pelos streaks (41 alunos com evento: maxSeq ≥1 = 76%, ≥2 = 59%, ≥4 = 27%; total do ano: 269 eventos, 39% cumpridos).
 3. Regra geral: 1º degrau ≈ o que 40–50% da base consegue em 2 semanas (validar contra o relatório semestral).
 
 ## 6.1 Riscos aceitos e documentados (revisão do PR D, 19-21/08/2026)
