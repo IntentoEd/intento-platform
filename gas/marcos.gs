@@ -248,7 +248,7 @@ function backfillMarcosRetroativos(dryRun) {
       var abaSim = ss.getSheetByName(ABA.SIMULADOS);
       var registros = abaReg ? abaReg.getDataRange().getValues() : [[]];
       var diarios = abaDia ? abaDia.getDataRange().getValues() : [[]];
-      var sims = abaSim ? abaSim.getDataRange().getValues() : [[]];
+      var sims = abaSim ? _semExcluidos_(abaSim.getDataRange().getValues()) : [[]]; // soft-delete: excluídos fora do retrato
 
       _CICLOS_RETRO.forEach(function (c) {
         var existe = existentes.some(function (m) { return Number(m.ano) === c.ano && m.ciclo === c.ciclo; });

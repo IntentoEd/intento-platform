@@ -223,6 +223,10 @@ function _garantirColunasEnc(abaDiario) {
   }
 }
 
+// ATENÇÃO ao expandir: planilhas que já tiveram exclusão têm EXCLUIDO_EM
+// logo após a última coluna fixa (col 19 hoje). Coluna fixa nova exige
+// _garantirColunasSim reposicionar EXCLUIDO_EM pro novo fim antes de criar
+// a fixa — senão o gate "header vazio?" encontra EXCLUIDO_EM e pula a criação.
 const COL_SIM = {
   ID: 0, STATUS: 1, DATA: 2, ESPECIFICACAO: 3,
   LG: 4, CH: 5, CN: 6, MAT: 7, REDACAO: 8, ERROS_JSON: 9,
@@ -244,6 +248,8 @@ const SIM_ANO_MIN = 2000;
 // Mínimo de caracteres significativos no título. Espelha SIMULADO_TITULO_MIN.
 const SIM_TITULO_MIN = 3;
 
+// ATENÇÃO ao expandir: mesmo aviso do COL_SIM — EXCLUIDO_EM pode ocupar a
+// col 12 em planilhas que já tiveram exclusão; reposicionar antes de criar fixa.
 const COL_CAD = {
   ID: 0, DISCIPLINA: 1, TOPICO: 2, DATA_ERRO: 3, PERGUNTA: 4,
   RESPOSTA: 5, ESTAGIO: 6, PROXIMA_REVISAO: 7, HISTORICO: 8,
@@ -254,6 +260,64 @@ const CLASSIFICACOES_CADERNO = [
   'Erro de recordação', 'Erro de lacuna',
   'Erro de atenção', 'Erro de interpretação'
 ];
+
+// ---------------------------------------------------------------------
+// Soft-delete (BD_Sim_ENEM / BD_Caderno)
+// ---------------------------------------------------------------------
+// Excluir NUNCA remove a linha: a exclusão carimba timestamp em EXCLUIDO_EM
+// e toda leitura filtra. O dado fica preservado/auditável na planilha
+// (recuperável limpando a célula). NOTA: como o replay de lib/selos.js roda
+// sobre a lista filtrada, um selo ancorado no item excluído ainda pode
+// regredir — aceito em 04/09/2026 (exclusão = correção de dado errado);
+// piso persistido de tier ficou pra migração Supabase (dez/2026).
+// A coluna é criada on-demand na primeira exclusão daquela planilha; coluna
+// ausente = todas as linhas ativas. Localizar SEMPRE pelo header, nunca por
+// posição fixa — planilhas antigas não têm a coluna e a posição varia.
+const HEADER_EXCLUIDO_EM = "EXCLUIDO_EM";
+
+// Índice 0-based da coluna EXCLUIDO_EM no header, ou -1 se não existe.
+function _idxColExcluidoEm_(headerRow) {
+  if (!headerRow) return -1;
+  for (var c = 0; c < headerRow.length; c++) {
+    if (txt(headerRow[c]) === HEADER_EXCLUIDO_EM) return c;
+  }
+  return -1;
+}
+
+// true se a linha está soft-excluída. idxExcl = -1 ⇒ nunca excluída.
+function _linhaExcluida_(row, idxExcl) {
+  return idxExcl !== -1 && row.length > idxExcl && txt(row[idxExcl]) !== "";
+}
+
+// Remove linhas soft-excluídas de uma matriz crua (header em matriz[0]).
+// Devolve matriz nova com o mesmo header; sem coluna EXCLUIDO_EM devolve
+// a matriz original intacta.
+function _semExcluidos_(matriz) {
+  if (!matriz || matriz.length === 0) return matriz;
+  var idx = _idxColExcluidoEm_(matriz[0]);
+  if (idx === -1) return matriz;
+  var out = [matriz[0]];
+  for (var i = 1; i < matriz.length; i++) {
+    if (!_linhaExcluida_(matriz[i], idx)) out.push(matriz[i]);
+  }
+  return out;
+}
+
+// Garante EXCLUIDO_EM no FIM do header; idempotente; devolve o índice 0-based.
+// Chamar SEMPRE depois do _garantirColunas* da aba — senão, numa planilha
+// legada com menos colunas, EXCLUIDO_EM cairia numa posição fixa do layout
+// (COL_SIM/COL_CAD) e corromperia as gravações seguintes.
+function _garantirColunaExcluidoEm_(aba) {
+  var lastCol = Math.max(aba.getLastColumn(), 1);
+  var header  = aba.getRange(1, 1, 1, lastCol).getValues()[0];
+  var idx     = _idxColExcluidoEm_(header);
+  if (idx !== -1) return idx;
+  if (aba.getMaxColumns() < lastCol + 1) {
+    aba.insertColumnsAfter(aba.getMaxColumns(), lastCol + 1 - aba.getMaxColumns());
+  }
+  aba.getRange(1, lastCol + 1).setValue(HEADER_EXCLUIDO_EM);
+  return lastCol;
+}
 
 const COL_MENTOR = {
   EMAIL: 0, NOME: 1, STATUS: 2, DT_ENTRADA: 3
@@ -1638,7 +1702,7 @@ function lerSimulados(ss) {
   const shSimulados = ss.getSheetByName(ABA.SIMULADOS);
   if (!shSimulados) return { kpi: kpi, hist: hist, lista: lista };
 
-  const dadosSim  = shSimulados.getDataRange().getValues();
+  const dadosSim  = _semExcluidos_(shSimulados.getDataRange().getValues());
   const concluidos = [];
   for (let i = 1; i < dadosSim.length; i++) {
     const row = dadosSim[i];
@@ -2044,8 +2108,10 @@ function handleSalvarAutopsia(dados) {
     const idProcurado = txt(dados.idSimulado);
     if (!idProcurado) throw new Error("idSimulado ausente.");
     const matriz      = aba.getDataRange().getValues();
+    const idxExclAut  = _idxColExcluidoEm_(matriz[0]);
     let linhaAlvo     = -1;
     for (let i = 1; i < matriz.length; i++) {
+      if (_linhaExcluida_(matriz[i], idxExclAut)) continue; // excluída = não encontrada
       if (String(matriz[i][COL_SIM.ID]) === idProcurado) { linhaAlvo = i + 1; break; }
     }
     if (linhaAlvo === -1) throw new Error("Simulado não encontrado.");
@@ -2099,8 +2165,10 @@ function handleEditarSimulado(dados) {
       return responderJSON({ status: "erro", mensagem: "Data do simulado inválida (informe uma data entre " + SIM_ANO_MIN + " e hoje)." });
     }
     const matriz  = aba.getDataRange().getValues();
+    const idxExclEd = _idxColExcluidoEm_(matriz[0]);
     let linhaAlvo = -1;
     for (let i = 1; i < matriz.length; i++) {
+      if (_linhaExcluida_(matriz[i], idxExclEd)) continue; // excluída = não encontrada
       if (String(matriz[i][COL_SIM.ID]) === idProcurado) { linhaAlvo = i + 1; break; }
     }
     if (linhaAlvo === -1) throw new Error("Simulado não encontrado.");
@@ -2156,7 +2224,8 @@ function handleEditarSimulado(dados) {
   finally     { lock.releaseLock(); }
 }
 
-// Exclui um simulado (a linha inteira da aba BD_Sim_ENEM).
+// Exclui um simulado — SOFT-delete: carimba EXCLUIDO_EM (nunca deleteRow;
+// ver contrato dos helpers _semExcluidos_/_garantirColunaExcluidoEm_).
 function handleExcluirSimulado(dados) {
   const lock = LockService.getScriptLock();
   try {
@@ -2168,13 +2237,16 @@ function handleExcluirSimulado(dados) {
     if (!aba) throw new Error("Aba '" + ABA.SIMULADOS + "' não encontrada.");
     const idProcurado = txt(dados.idSimulado);
     if (!idProcurado) throw new Error("idSimulado ausente.");
+    _garantirColunasSim(aba); // fixa o layout ANTES de criar EXCLUIDO_EM no fim
+    const idxExcl = _garantirColunaExcluidoEm_(aba);
     const matriz  = aba.getDataRange().getValues();
     let linhaAlvo = -1;
     for (let i = 1; i < matriz.length; i++) {
+      if (_linhaExcluida_(matriz[i], idxExcl)) continue; // já excluída = não encontrada
       if (String(matriz[i][COL_SIM.ID]) === idProcurado) { linhaAlvo = i + 1; break; }
     }
     if (linhaAlvo === -1) throw new Error("Simulado não encontrado.");
-    aba.deleteRow(linhaAlvo);
+    aba.getRange(linhaAlvo, idxExcl + 1).setValue(new Date());
     return responderJSON({ status: "sucesso" });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
   finally     { lock.releaseLock(); }
@@ -2232,7 +2304,7 @@ function handleListarCaderno(dados) {
     if (!aba) return responderJSON({ status: "sucesso", cards: [] });
     _garantirColunasCaderno_(aba);
     const hoje  = Utilities.formatDate(new Date(), "GMT-3", "yyyy-MM-dd");
-    const linhas = aba.getDataRange().getValues();
+    const linhas = _semExcluidos_(aba.getDataRange().getValues());
     const cards  = linhas.slice(1).map(function(r) {
       return {
         id: r[COL_CAD.ID], disciplina: r[COL_CAD.DISCIPLINA], topico: r[COL_CAD.TOPICO],
@@ -2286,8 +2358,10 @@ function handleIncrementarRepeticao(dados) {
     const aba         = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.CADERNO);
     if (!aba) return responderJSON({ status: "erro", mensagem: "'" + ABA.CADERNO + "' não encontrada." });
     const linhas      = aba.getDataRange().getValues();
+    const idxExclInc  = _idxColExcluidoEm_(linhas[0]);
     const idProcurado = txt(dados.id);
     for (let i = 1; i < linhas.length; i++) {
+      if (_linhaExcluida_(linhas[i], idxExclInc)) continue; // excluída = não encontrada
       if (String(linhas[i][COL_CAD.ID]) === idProcurado) {
         aba.getRange(i + 1, COL_CAD.ESTAGIO + 1).setValue((parseInt(linhas[i][COL_CAD.ESTAGIO]) || 0) + 1);
         break;
@@ -2298,6 +2372,8 @@ function handleIncrementarRepeticao(dados) {
   finally     { lock.releaseLock(); }
 }
 
+// Exclui um card — SOFT-delete: carimba EXCLUIDO_EM (nunca deleteRow;
+// ver contrato dos helpers _semExcluidos_/_garantirColunaExcluidoEm_).
 function handleDeletarCardCaderno(dados) {
   const lock = LockService.getScriptLock();
   try {
@@ -2306,10 +2382,16 @@ function handleDeletarCardCaderno(dados) {
     _exigirAcessoAluno(dados.email, idPlanilha);
     const aba         = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.CADERNO);
     if (!aba) return responderJSON({ status: "erro", mensagem: "'" + ABA.CADERNO + "' não encontrada." });
+    _garantirColunasCaderno_(aba); // fixa o layout ANTES de criar EXCLUIDO_EM no fim
+    const idxExcl     = _garantirColunaExcluidoEm_(aba);
     const linhas      = aba.getDataRange().getValues();
     const idProcurado = txt(dados.id);
     for (let i = 1; i < linhas.length; i++) {
-      if (String(linhas[i][COL_CAD.ID]) === idProcurado) { aba.deleteRow(i + 1); break; }
+      if (_linhaExcluida_(linhas[i], idxExcl)) continue; // já excluída = pula
+      if (String(linhas[i][COL_CAD.ID]) === idProcurado) {
+        aba.getRange(i + 1, idxExcl + 1).setValue(new Date());
+        break;
+      }
     }
     return responderJSON({ status: "sucesso" });
   } catch (e) { return responderJSON({ status: "erro", mensagem: e.message }); }
@@ -2325,8 +2407,10 @@ function handleRegistrarRevisaoCaderno(dados) {
     const aba         = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.CADERNO);
     if (!aba) return responderJSON({ status: "erro", mensagem: "'" + ABA.CADERNO + "' não encontrada." });
     const linhas      = aba.getDataRange().getValues();
+    const idxExclRev  = _idxColExcluidoEm_(linhas[0]);
     const idProcurado = txt(dados.id);
     for (let i = 1; i < linhas.length; i++) {
+      if (_linhaExcluida_(linhas[i], idxExclRev)) continue; // excluída = não encontrada
       if (String(linhas[i][COL_CAD.ID]) === idProcurado) {
         const estagioAtual = parseInt(linhas[i][COL_CAD.ESTAGIO]) || 0;
         let historico = [];
@@ -2683,7 +2767,7 @@ function agregarMetricasBase_(alunos) {
       var abaSim = ss.getSheetByName(ABA.SIMULADOS);
       var alunoSimsConc = []; // {ts, aprov} dos concluídos — insumo do carimbo Simulado (E2)
       if (abaSim) {
-        var ms = abaSim.getDataRange().getValues();
+        var ms = _semExcluidos_(abaSim.getDataRange().getValues());
         for (var si = 1; si < ms.length; si++) {
           var rs = ms[si];
           if (!rs[COL_SIM.ID] || txt(rs[COL_SIM.STATUS]) !== 'Concluída') continue;
