@@ -307,3 +307,106 @@ function _upsertMarco(ssAluno, marco) {
   else aba.appendRow(linha);
   return true;
 }
+
+// =====================================================================
+// BASELINE — Combinado é Combinado (gate de calibração §6.2 do
+// docs/GAMIFICACAO_MARCOS.md). SÓ LEITURA: nenhuma escrita em planilha.
+// Rodar baselineCombinadoEncontros() no editor e ler o log (Executions).
+// Espelha EXATAMENTE o calc de combinado_e_combinado em lib/selos.js:
+// o veredito do encontro i junta statusMetasAnteriores da linha i+1 com os
+// RESULTADO_1..5 da própria linha i (um evento por encontro; ambos vazios =
+// neutro). cumpriu = (>=1 Batida e 0 Não batida) ou >=3 Realizado; streak
+// absorve no máx. 1 Parcial por corrida. Se mudar lá, mudar aqui.
+// =====================================================================
+function baselineCombinadoEncontros() {
+  Logger.log('===== baselineCombinadoEncontros (read-only) =====');
+  var matriz = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ABA.MESTRE).getDataRange().getValues();
+  var CORTE_S1 = new Date(2026, 6, 1); // eventos julgados antes de 01/07 = S1
+
+  var eventos = 0, neutros = 0, cumpriuTot = 0, parcialTot = 0, quebrouTot = 0;
+  var eventosS1 = 0, cumpriuS1 = 0;
+  var alunosComEvento = 0, streak1 = 0, streak2 = 0, streak4 = 0, foraEscopo = 0, erros = 0;
+
+  for (var i = 1; i < matriz.length; i++) {
+    var idPlanilha = txt(matriz[i][COL_MESTRE.ID_PLANILHA]);
+    if (!idPlanilha) continue;
+    var email = emailNorm(matriz[i][COL_MESTRE.EMAIL]) || ('linha ' + (i + 1));
+    var tipo = txt(matriz[i][COL_MESTRE.TIPO_ALUNO]) || 'ENEM';
+    var statusApp = txt(matriz[i][COL_MESTRE.STATUS_APP]);
+    // Mesmo escopo do selo (decisão 5): ENEM + usa o app.
+    if (tipo !== 'ENEM' || statusApp === STATUS_APP.NAO_ADAPTOU || statusApp === STATUS_APP.NUNCA_USARA) {
+      foraEscopo++;
+      continue;
+    }
+    try {
+      var abaDia = SpreadsheetApp.openById(idPlanilha).getSheetByName(ABA.ENCONTROS);
+      if (!abaDia) continue;
+      var linhas = abaDia.getDataRange().getValues();
+      // Lista de encontros = linhas com DATA válida (pula header e scaffold
+      // legado sem data), em ordem de append — igual ao payload do front.
+      var lista = [];
+      for (var r = 1; r < linhas.length; r++) {
+        var d = linhas[r][COL_ENC.DATA];
+        var dt = (d instanceof Date) ? d : new Date(txt(d));
+        if (isNaN(dt.getTime())) continue;
+        lista.push({
+          data: dt,
+          status: txt(linhas[r][COL_ENC.STATUS_METAS_ANTERIORES]),
+          resultados: [
+            txt(linhas[r][COL_ENC.RESULTADO_1]), txt(linhas[r][COL_ENC.RESULTADO_2]),
+            txt(linhas[r][COL_ENC.RESULTADO_3]), txt(linhas[r][COL_ENC.RESULTADO_4]),
+            txt(linhas[r][COL_ENC.RESULTADO_5])
+          ]
+        });
+      }
+
+      var seq = 0, parcialAbsorvido = false, maxSeq = 0, evAluno = 0, cumpAluno = 0;
+      for (var k = 0; k + 1 < lista.length; k++) {
+        var status = lista[k + 1].status.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+        var resultados = lista[k].resultados.filter(Boolean);
+        if (!status.length && !resultados.length) { neutros++; continue; }
+        eventos++; evAluno++;
+        var batidas = status.filter(function (s) { return s === 'Batida'; }).length;
+        var naoBatidas = status.filter(function (s) { return s === 'Não batida'; }).length;
+        var realizados = resultados.filter(function (s) { return s === 'Realizado'; }).length;
+        var cumpriu = (batidas >= 1 && naoBatidas === 0) || realizados >= 3;
+        var parcial = !cumpriu && (
+          status.some(function (s) { return s === 'Parcial'; }) ||
+          resultados.some(function (s) { return s === 'Realizado Parcialmente'; })
+        );
+        if (lista[k + 1].data < CORTE_S1) { eventosS1++; if (cumpriu) cumpriuS1++; }
+        if (cumpriu) {
+          cumpriuTot++; cumpAluno++; seq++;
+          if (seq > maxSeq) maxSeq = seq;
+        } else if (parcial && !parcialAbsorvido && seq > 0) {
+          parcialAbsorvido = true; parcialTot++;
+        } else {
+          if (parcial) parcialTot++; else quebrouTot++;
+          seq = 0; parcialAbsorvido = false;
+        }
+      }
+      if (evAluno > 0) {
+        alunosComEvento++;
+        if (maxSeq >= 1) streak1++;
+        if (maxSeq >= 2) streak2++;
+        if (maxSeq >= 4) streak4++;
+        Logger.log('  ' + email + ' · eventos=' + evAluno + ' cumpriu=' + cumpAluno + ' maxSeq=' + maxSeq);
+      }
+    } catch (e) {
+      erros++;
+      Logger.log('  erro ' + email + ': ' + e.message);
+    }
+  }
+
+  var pctTudo = eventos ? Math.round((cumpriuTot / eventos) * 100) : 0;
+  var pctS1 = eventosS1 ? Math.round((cumpriuS1 / eventosS1) * 100) : 0;
+  Logger.log('— RESUMO —');
+  Logger.log('eventos avaliáveis=' + eventos + ' (neutros=' + neutros + ') · cumpriu=' + cumpriuTot +
+             ' (' + pctTudo + '%) · parcial=' + parcialTot + ' · quebrou=' + quebrouTot);
+  Logger.log('S1 (julgados antes de 01/07): eventos=' + eventosS1 + ' · cumpriu=' + cumpriuS1 + ' (' + pctS1 + '%)');
+  Logger.log('alunos com evento=' + alunosComEvento + ' · maxSeq>=1: ' + streak1 +
+             ' · >=2: ' + streak2 + ' · >=4: ' + streak4 + ' · fora do escopo=' + foraEscopo + ' · erros=' + erros);
+  Logger.log('GATE §6.2: ' + (pctS1 < 30
+    ? 'S1 <30% cumprem → RELAXAR o T1 do selo (lib/selos.js)'
+    : 'S1 >=30% cumprem → manter T1 e marcar o gate como fechado no doc'));
+}
