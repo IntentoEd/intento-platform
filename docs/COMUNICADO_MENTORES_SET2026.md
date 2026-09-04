@@ -23,12 +23,14 @@ Regra de ouro na conversa: **carimbo não é nota — é diagnóstico de onde ap
 
 ## 3. Em outubro: a Reunião de Fechamento de Ciclo (automática)
 
-No **primeiro Diário de Bordo de cada aluno a partir de 01/10**, uma faixa âmbar vai aparecer no Modo Encontro: "🏁 Fechamento de Ciclo". Dois passos entram sozinhos no roteiro — não é opção, e leva ~10 minutos da reunião:
+No **primeiro Diário de Bordo de cada aluno a partir de 01/10**\*, uma faixa âmbar vai aparecer no Modo Encontro: "🏁 Fechamento de Ciclo". Dois passos entram sozinhos no roteiro — não é opção, e leva ~10 minutos da reunião:
 
 1. **Retrospectiva do ciclo** — a Plataforma calcula tudo (horas, cobertura e domínio início→fim, simulados, metas batidas): você só **apresenta** ao aluno, e registra 3 reflexões na voz dele (*maior vitória · maior aprendizado · o que muda no próximo ciclo*).
 2. **Carimbo do marco** — a proposta vem calculada dos dados; ajuste só se a sua leitura clínica divergir. Defina também o **nível-alvo de simulado** do próximo ciclo (padrão 85%, entre 71 e 100). Ao salvar, o retrato **congela pra sempre** na Linha do Ano — do seu painel e do aluno.
 
 Dá pra adiar ("salvar sem registrar") — mas a faixa **volta no encontro seguinte**, e o líder acompanha os pendentes. **Meta da operação: todos os fechamentos do C3 até 15/10.**
+
+> \* *Nota técnica: não há uma "chave de 01/10" no código — o gate de data one-off (`MARCO_ATIVO_A_PARTIR`) foi aposentado no PR #96. A faixa aparece sempre que o **ciclo anterior** do aluno está sem marco registrado e ele viveu aquele ciclo (calendário de ciclos + backfill, [lib/carimbos.js:105-123](../lib/carimbos.js#L105-L123)). Como C1/C2 já foram cobertos pelo backfill, na prática o primeiro fechamento a aparecer é o do C3 — a partir da virada de ciclo em 01/10.*
 
 ### Perguntas rápidas
 

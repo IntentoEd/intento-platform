@@ -2,11 +2,13 @@
 
 > Mapa do que acontece desde "lead chega" até "aluno em mentoria ativa". Documento vivo — revisar a cada release maior ou quando aparecer bug que afete onboarding/diagnóstico.
 >
-> Última revisão: 2026-05-06.
+> Última revisão: 2026-09-02.
 
 ## Por que esse documento existe
 
 A porta de entrada (Typebot → lead → onboarding → diagnóstico → painel) é onde o cliente decide se confia na plataforma. Bug aqui = aluno premium pagando ticket alto que não consegue nem começar. **Cada estado precisa ter um único gatilho de transição e um único responsável por escrevê-lo.** Quando isso quebra, dá no que deu na Joice/Otavio (duplicata, status fake, etc.).
+
+> **Nota sobre estrutura do backend GAS:** o antigo `gas/Code.gs` monolítico foi dividido por domínio. Constantes globais e o porteiro seguem em `gas/Code.gs`; handlers de Lead/Pipeline estão em `gas/crm.gs`; agenda em `gas/agenda.gs`; push em `gas/push.gs`; escolar em `gas/escolar.gs`; marcos em `gas/marcos.gs`. Referências abaixo citam função + arquivo (números de linha mudam rápido demais pra valer a pena).
 
 ---
 
@@ -14,13 +16,13 @@ A porta de entrada (Typebot → lead → onboarding → diagnóstico → painel)
 
 ### Estados de **Lead** (BD_Leads, fase em `COL_LEAD.FASE`)
 
-Vocabulário fechado em `gas/Code.gs:52` (`FASES_LEAD`):
+Vocabulário fechado em `FASES_LEAD` (`gas/Code.gs`) — 12 fases:
 
 ```
 Lead → Numero invalido → Contactado WPP → Ativo WPP →
 Reuniao agendada → Reuniao realizada → Convertido →
 Taxa matricula paga → Contrato assinado → 1a mensalidade paga →
-Em mentoria → Churn
+Em mentoria → Não convertido
 ```
 
 Outcome de reunião (campo separado, `COL_LEAD.OUTCOME_REUNIAO`): `'' | realizada | no-show | reagendada | cancelada`. Padrão HubSpot/Pipedrive — fase é o trilho, outcome é o resultado da última reunião.
@@ -41,6 +43,7 @@ Outras flags relevantes na BD_Alunos:
 - `COL_MESTRE.PLANO` — preenchida na conversão de lead OU pelo líder ao designar mentor
 - `COL_MESTRE.TIPO_ALUNO` — `ENEM` (default) ou `EM`
 - `COL_MESTRE.ID_PLANILHA` — ID da planilha individual no Drive
+- `COL_MESTRE.STATUS_APP` — enum `STATUS_APP` em `gas/Code.gs`: `Usa` | `Não se adaptou` | `Nunca vai usar` (vazio = tratado como `Usa`). Definido pelo mentor; controla se o cron de integração puxa registro do Aplicativo e **gates o que o aluno vê no /painel** (aba Jornada / Marcos)
 
 ---
 
@@ -48,11 +51,13 @@ Outras flags relevantes na BD_Alunos:
 
 ### Trilho A — Lead comercial (CRM)
 
+> **Nota (2026):** o CRM operacional migrou pra uma plataforma externa e o Rafael saiu da operação da Plataforma. O código deste trilho permanece funcional como legado — o fluxo abaixo continua correto tecnicamente, mas não é mais o caminho comercial ativo.
+
 ```
 Typebot/Make
    │  webhook + LEADS_WEBHOOK_SECRET
    ▼
-POST /api/leads/webhook  →  GAS handleCriarLead  →  BD_Leads (fase=Lead)
+POST /api/leads/webhook  →  GAS handleCriarLead (gas/crm.gs)  →  BD_Leads (fase=Lead)
    │
    │  vendedor pega no /vendas (Kanban) ou auto-atribui
    ▼
@@ -71,7 +76,7 @@ fase=Convertido → Taxa matricula paga → Contrato assinado → 1a mensalidade
    │
    │  no /vendas, vendedor clica "Converter em aluno"
    ▼
-handleConverterLeadEmAluno
+handleConverterLeadEmAluno (gas/crm.gs)
    ├─ cria nova planilha individual no Drive
    ├─ insere linha em BD_Alunos com STATUS_ONBOARDING="Aguardando Diagnóstico"
    ├─ marca lead com ID_ALUNO_GERADO + fase="Em mentoria"
@@ -143,7 +148,8 @@ GAS handleDesignarMentor
 Mentor + aluno agendam encontro (fora da plataforma — WhatsApp/Calendar)
    │
    ▼
-Mentor abre /mentor/[idAluno], aba "Diário de Bordo"
+Mentor abre /mentor/[id] (diretório app/mentor/[id]/), aba "Diário de Bordo"
+   │  (encontro ao vivo roda no Modo Encontro: app/mentor/[id]/encontro/)
    ├─ registra encontro (vitórias, desafios, meta, planos de ação 1-5)
    └─ semanalmente: aba "Acompanhamento Semanal" (registro de horas, indicadores 1-6)
    │
@@ -154,7 +160,7 @@ Mentor recebe push Segunda 9h (cron) → entra em /mentor pra fazer registros
 
 ---
 
-## Porteiro — `handleLoginGlobal` (gas/Code.gs:1429)
+## Porteiro — `handleLoginGlobal` (gas/Code.gs)
 
 Toda vez que um usuário loga, esta função decide pra onde mandar:
 
@@ -229,9 +235,9 @@ Roda essa lista (smoke manual ~10min) **toda Segunda de manhã** ou após qualqu
    - ✅ Email chegou pro aluno com nome do mentor.
 
 ### F. Painel do aluno + Mentor
-1. Login com aluno (D). Esperado: `/painel` carrega sem erro, sidebar mostra abas (Visão Geral, Acompanhamento Semanal, Mentoria, Semana Padrão, Simulados, Caderno de Erros).
+1. Login com aluno (D). Esperado: `/painel` carrega sem erro, sidebar mostra abas (Visão Geral, Acompanhamento Semanal, Mentoria, Semana Padrão, Simulados, Caderno de Erros — e, condicionalmente, **Jornada**, gated por `jornadaVisivel()` em `lib/selos.js` a partir de email/tipo_aluno/status_app).
 2. Login com mentor designado. Esperado: `/mentor` lista o aluno novo.
-3. Mentor abre `/mentor/[idAluno]`. Verificar abas: Diário de Bordo, Semana Padrão, Histórico Analítico, Simulados, Onboarding (visualização do questionário).
+3. Mentor abre `/mentor/[id]`. Verificar abas: Diário de Bordo, Semana Padrão, Histórico Analítico, Simulados, Onboarding (visualização do questionário).
 
 ### G. Push notifications semanais
 **Toda Terça de manhã**: confirmar com 1 aluno e 1 mentor se receberam push de Segunda. Se ninguém recebeu:

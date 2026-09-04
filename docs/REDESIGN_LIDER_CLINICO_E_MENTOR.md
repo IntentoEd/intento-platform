@@ -109,9 +109,11 @@ Faixa **"Alerta"** no topo da home do mentor (nome decidido pelo Filippe em 07/0
 3. Aba Mentorados: coluna Motivo no chip.
 4. `motivosAcao()` em lib/carimbos.js.
 
-**Fase B — /mentor (GAS + Vercel):**
-5. `dashboardMentor` no GAS + allowlist no proxy.
-6. Faixa "Alerta" no /mentor — degrada silenciosamente (some) se o GAS ainda não tiver a ação, então o deploy não precisa ser rigorosamente casado; ordem segura: GAS primeiro, Vercel depois.
+**Fase B — /mentor (GAS + Vercel):** ✅ em prod (PR #79, commit e4f7681).
+5. ✅ `dashboardMentor` no GAS (`handleDashboardMentor` em gas/Code.gs) + allowlist no proxy (`ACOES_AUTENTICADAS` em app/api/mentor/route.js).
+6. ✅ Faixa "🚨 Alerta" na home do /mentor (`useAlertaMentor` + `FaixaAlerta` em app/mentor/page.js) — degrada silenciosamente (some) se o GAS ainda não tiver a ação, então o deploy não precisa ser rigorosamente casado; ordem segura: GAS primeiro, Vercel depois.
+
+**Bônus entregue (não previsto aqui):** chip "🏁 Fechamento de ciclo no próximo encontro" por aluno na lista do /mentor (app/mentor/page.js), alimentado pelo mesmo payload do `dashboardMentor` (`metricas.marcoPendente`) — entrou depois, via PR #104, no contexto de Gamificação + Marcos (docs/GAMIFICACAO_MARCOS.md).
 
 ## 8. Decisões fechadas (Filippe, 07/08/2026)
 

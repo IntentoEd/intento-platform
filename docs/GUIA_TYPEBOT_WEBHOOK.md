@@ -1,6 +1,6 @@
 # Guia de configuração do webhook no Typebot
 
-**Para:** Rafael
+**Para:** quem configurar o Typebot (qualquer conta de vendedor / Filippe)
 **De:** Filippe / Intento
 **Sobre:** Integração entre o fluxo do Typebot e o CRM da Intento
 
@@ -85,19 +85,27 @@ Cole o JSON abaixo no campo "Body" / "Request body". O Typebot vai substituir as
   "historico_conversa": "{{historico_conversa}}",
   "mentor_indicacao": "{{mentor_indicacao}}",
   "aluno_indicacao": "{{aluno_indicacao}}",
-  "origem": "{{origem}}"
+  "origem": "{{origem}}",
+  "compromisso": "{{compromisso}}",
+  "utm_campaign": "{{utm_campaign}}",
+  "utm_adset": "{{utm_adset}}",
+  "utm_ad": "{{utm_ad}}"
 }
 ```
 
 ### Pontos importantes
 
 - Os nomes das variáveis dentro de `{{...}}` precisam ser **exatamente iguais** aos que você usa no seu Typebot. Se alguma variável tem nome diferente (por exemplo, `phoneFormatted` em vez de `phone_formatted`), ajuste só a `{{variável}}` correspondente — a chave do JSON pode ficar como está.
+- Os campos `utm_campaign`, `utm_adset` e `utm_ad` alimentam a atribuição de campanha (viram linhas nas anotações do lead) — **sem eles perde-se de qual anúncio o lead veio**. `compromisso` também é registrado nas anotações.
 - Variáveis vazias não são problema. Se um fluxo do tipo "self" não preencher `nome_pais` ou `nome_filho`, eles chegam vazios e o sistema lida com isso.
-- **Você não precisa decidir o `tipoPerfil` no Typebot.** O sistema deduz automaticamente:
-  - Se `nome_pais` está preenchido → é um responsável (pai/mãe) cadastrando o filho.
-  - Se `nome_acr` está preenchido → é um aluno **com** responsável financeiro.
-  - Se `nome_asr` está preenchido → é um aluno **sem** responsável financeiro.
+- **Você não precisa decidir o `tipoPerfil` no Typebot.** O sistema deduz automaticamente, nesta ordem:
+  - Se `nome_pais` **ou** `nome_filho` está preenchido → é um responsável (pai/mãe) cadastrando o filho. Basta um dos dois: só `nome_filho` preenchido já dispara este ramo (o nome do lead cai em `name` nesse caso).
+  - Senão, se `nome_acr` está preenchido → é um aluno **com** responsável financeiro.
+  - Senão, se `nome_asr` está preenchido → é um aluno **sem** responsável financeiro.
   - Caso contrário → o sistema usa `name` como nome do lead.
+- O webhook é **tolerante a variações de formato** (`app/api/leads/webhook/route.js`):
+  - Chaves com acento, maiúscula, espaço ou hífen são normalizadas automaticamente (`"Nome Filho"`, `"e-mail - pais"` etc. funcionam), e há aliases pros nomes mais comuns (`phone` → `telefone`, `e_mail` → `email`, ...).
+  - O parser de body conserta padrões malformados típicos do Typebot/Make, como valores embrulhados em array-string (`"campo": "["valor"]"`).
 
 ---
 
@@ -121,7 +129,7 @@ Se aparecer `"status": "sucesso"`, **funcionou**. ✅
 ## 7. Valide no CRM
 
 1. Abra `https://mentoria.metodointento.com.br/vendas` no navegador.
-2. Faça login com seu email (`rafael@metodointento.com.br`).
+2. Faça login com qualquer conta de vendedor ativa (ou com o Filippe).
 3. O lead que você criou no teste deve aparecer na primeira coluna (**"Lead"**), com:
    - Nome correto
    - Telefone correto

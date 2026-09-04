@@ -9,8 +9,9 @@
 
 A API expõe 4 endpoints que o agente do WhatsApp pode chamar para gerenciar reuniões dos leads com os vendedores. O backend cuida de:
 
-- Verificar se o horário pedido cai dentro de uma **janela declarada** pelo vendedor (no Google Calendar dele)
-- Confirmar que o vendedor não tem outra reunião marcada pelo nosso sistema no mesmo horário
+- Verificar se o horário pedido cai dentro dos **horários padrão** declarados pelo vendedor (armazenados no sistema, não no Calendar)
+- Descartar horários com **exceção de bloqueio** cadastrada pelo vendedor
+- Fazer duplo-check de conflito no **Google Calendar** do vendedor (freebusy)
 - Escolher o vendedor de menor carga (round-robin)
 - Criar evento com Google Meet automático
 - Convidar lead, vendedor e suporte por email
@@ -20,17 +21,18 @@ A API expõe 4 endpoints que o agente do WhatsApp pode chamar para gerenciar reu
 
 ## Como o vendedor declara disponibilidade
 
-Cada vendedor cria eventos no **próprio Google Calendar** com o **título começando com `[Intento]`**. Esses eventos são lidos como **janelas de plantão**.
+> ⚠️ **Modelo antigo desativado:** já existiu um esquema de eventos no Google Calendar com título `[Intento]` funcionando como janela de plantão. **Isso não existe mais** — eventos assim são ignorados.
 
-Exemplo:
-- Título: `[Intento] Disponível`
-- Início: terça 19:00
-- Fim: terça 21:30
-- Recorrência: semanal (toda terça)
+Hoje a disponibilidade vive no próprio sistema, em duas camadas (ver cabeçalho de `gas/agenda.gs`):
 
-> O vendedor é responsável por ajustar a recorrência/eventos quando estiver de férias, doente, etc. Não declarar uma janela = não receber reuniões nesse período.
+1. **Horários padrão semanais** — JSON na coluna `HORARIOS` de `BD_Vendedores`, salvo por `handleSalvarHorariosPadrao` (`gas/agenda.gs`). Ex.: "terça 19:00–21:30, toda semana".
+2. **Exceções de bloqueio** — períodos pontuais de indisponibilidade (férias, médico, etc.) gravados em `BD_Disponibilidade_Excecoes`, via `handleCriarExcecaoDisponibilidade` / `handleRemoverExcecaoDisponibilidade` (`gas/agenda.gs`).
 
-> Vendedor também é responsável por não declarar disponibilidade quando tem outros compromissos. O sistema **não** faz duplo-check contra outros eventos do calendar — confia na declaração.
+O vendedor configura tudo por UI própria: **`/vendedor/disponibilidade`** (`app/vendedor/disponibilidade/page.js`), que fala com `app/api/vendedor/disponibilidade/route.js`.
+
+Não declarar horários padrão = não receber reuniões.
+
+Além disso, o sistema **faz duplo-check contra o Google Calendar do vendedor**: antes de agendar, `/api/agenda/agendar` consulta freebusy (`vendedorLivreNoCalendar`) e descarta vendedores com evento conflitando no horário. Se o freebusy falhar, o vendedor é considerado livre (não bloqueia o agendamento).
 
 ---
 
@@ -97,7 +99,7 @@ x-agent-token: <SECRET>
 ```json
 {
   "status": "sem_vaga",
-  "motivo": "Nenhum vendedor com janela declarada disponível nesse horário",
+  "motivo": "Nenhum vendedor tem janela padrão cobrindo esse horário",
   "sugestoes": [
     { "horarioISO": "2026-05-06T19:30:00-03:00", "horarioBR": "Terça-feira, 06/05 às 19h30" },
     { "horarioISO": "2026-05-06T20:00:00-03:00", "horarioBR": "Terça-feira, 06/05 às 20h00" },
@@ -106,11 +108,20 @@ x-agent-token: <SECRET>
 }
 ```
 
+Os 4 valores possíveis de `motivo` (de `app/api/agenda/agendar/route.js`):
+
+1. `Nenhum vendedor com horarios_padrao definido`
+2. `Nenhum vendedor tem janela padrão cobrindo esse horário`
+3. `Vendedores com janela padrão estão bloqueados nesse horário`
+4. `Vendedores estão ocupados nesse horário (conflito no Calendar)`
+
+> ⚠️ **Não faça match por string literal do `motivo`** no fluxo do agente — são textos de UI e podem mudar sem aviso. Decida pelo `status` (`agendado` vs `sem_vaga`) e use `motivo` só pra exibir/logar.
+
 ---
 
-### 2. Listar sugestões — `GET /api/agenda/sugestoes?dias=3&durMin=30`
+### 2. Listar sugestões — `GET /api/agenda/sugestoes?dias=7&durMin=30`
 
-Retorna até 20 horários livres dos próximos `dias` (padrão 3, máximo 14). Útil quando o lead pergunta "quais horários vocês têm?".
+Retorna até 30 horários livres dos próximos `dias` (padrão 7, máximo 14). Útil quando o lead pergunta "quais horários vocês têm?".
 
 **Resposta:**
 ```json
@@ -121,7 +132,7 @@ Retorna até 20 horários livres dos próximos `dias` (padrão 3, máximo 14). �
     ...
   ],
   "total": 18,
-  "dias": 3,
+  "dias": 7,
   "durMin": 30
 }
 ```
@@ -180,12 +191,12 @@ Gera **um UUID novo por tentativa de marcar**, não por lead. Em retry de timeou
 
 - **Antecedência mínima:** 4 horas. Slots dentro de 4h são rejeitados.
 - **Granularidade:** 30 em 30 minutos.
-- **Janela de busca de sugestões:** padrão 3 dias, máximo 14.
+- **Janela de busca de sugestões:** padrão 7 dias, máximo 14. Até 30 sugestões por resposta.
 - **Round-robin:** quando vários vendedores têm janela cobrindo o slot, o sistema escolhe o de menor número de reuniões marcadas no mês corrente.
 - **Convidados sempre incluem:** lead, vendedor escolhido, `suporte@metodointento.com.br`.
 - **Convite por email:** o Google Calendar envia automaticamente.
 - **Idempotency cache:** 1h em memória do servidor.
-- **Sem horário comercial fixo** — quem define é cada vendedor pelos eventos `[Intento] *` no calendar próprio. Se ninguém declarar disponibilidade, retorna sem vagas.
+- **Sem horário comercial fixo** — quem define é cada vendedor pelos horários padrão configurados em `/vendedor/disponibilidade`. Se ninguém declarar disponibilidade, retorna sem vagas.
 
 ---
 
@@ -196,7 +207,7 @@ Gera **um UUID novo por tentativa de marcar**, não por lead. Em retry de timeou
 | `401 Não autorizado` | header `x-agent-token` ausente ou errado |
 | `400 horarioISO inválido` | string ISO mal formatada |
 | `404 lead não encontrado` | `idLead` não existe em `BD_Leads` |
-| `sem_vaga` | nenhum vendedor com janela `[Intento]` cobrindo o slot |
+| `sem_vaga` | nenhum vendedor disponível no slot — sem horário padrão cobrindo, com exceção de bloqueio, ou ocupado no Calendar (ver os 4 `motivo`s acima) |
 
 ---
 

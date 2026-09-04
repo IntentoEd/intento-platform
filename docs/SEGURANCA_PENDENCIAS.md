@@ -102,6 +102,20 @@ Vercel (prod + preview) + redeploy. Smoke `15 OK · 0 FALHAS`. O agente de agend
 n8n que dividia esse token está desativado (confirmado com o responsável), então a
 rotação foi sem risco.
 
+## Resíduos conhecidos (não bloqueantes)
+
+Limpezas técnicas pendentes — nenhuma reabre risco, ambas mitigadas pelo estado atual:
+
+- **`VALIDAR_TOKEN_DRYRUN` ainda `= true`** (gas/Code.gs:275). Com o enforcement
+  ligado (`VALIDAR_TOKEN = true`) o dry-run é redundante — só gera log morto no
+  `doPost`. Limpeza: voltar pra `false` e simplificar a condição
+  `if (VALIDAR_TOKEN || VALIDAR_TOKEN_DRYRUN)` (gas/Code.gs:353).
+- **Fallback legado do `handleLogin`** (gas/Code.gs:487-491): se `emailCaller`
+  não vier no payload, cai no comportamento antigo (sem authz por caller). Era a
+  janela temporária do deploy casado do #2; hoje o gateway sempre injeta o
+  `emailCaller`, e o `VALIDAR_TOKEN` mitiga (só o Next chega no `/exec`).
+  Remover o fallback quando conveniente (exigir `emailCaller` sempre).
+
 ## Deploy do GAS (referência)
 
 Mudança em `gas/**` exige `clasp push` + `clasp deploy` — o `push` sozinho NÃO
