@@ -196,6 +196,21 @@ function smokeTest() {
     return true;
   });
 
+  // 16) Soft-delete (BD_Sim_ENEM/BD_Caderno): filtro por header, em memória —
+  // não toca planilha nenhuma. Coluna EXCLUIDO_EM ausente = todas ativas.
+  check('_semExcluidos_ filtra por EXCLUIDO_EM (ausente = todas ativas)', function() {
+    if (typeof _semExcluidos_ !== 'function') return 'helper ausente';
+    var semCol = [['id', 'x'], ['a', 1], ['b', 2]];
+    if (_semExcluidos_(semCol).length !== 3) return 'sem coluna deveria manter todas as linhas';
+    var comCol = [['id', 'x', 'EXCLUIDO_EM'], ['a', 1, ''], ['b', 2, new Date()]];
+    var r = _semExcluidos_(comCol);
+    if (r.length !== 2 || r[1][0] !== 'a') return 'não filtrou a linha excluída: ' + JSON.stringify(r);
+    // Linha curta (planilha antiga sem célula na coluna nova) conta como ativa
+    var curta = _semExcluidos_([['id', 'x', 'EXCLUIDO_EM'], ['c', 3]]);
+    if (curta.length !== 2) return 'linha sem célula EXCLUIDO_EM deveria ser ativa';
+    return true;
+  });
+
   Logger.log('===== ' + ok + ' OK · ' + sk + ' SKIP · ' + ko + ' FALHAS =====');
 }
 
