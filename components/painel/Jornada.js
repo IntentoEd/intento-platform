@@ -12,53 +12,19 @@ import { LinhaDoAno, CarimboBadge, BarraCarimbo } from '@/components/Carimbos';
 import { CARIMBO_LABEL } from '@/lib/carimboCores';
 import { diagnosticoDimensional, registrosParaMetricas, cicloIdx, CICLOS_INFO, DIM_LABEL, marcoCicloPendente, resumoSimulados, nivelAlvoDosMarcos } from '@/lib/carimbos';
 import { computarSelos } from '@/lib/selos';
-
-// Anel de metal por tier (decisão 02/09/2026): bronze → prata → ouro →
-// platina, por posição absoluta do degrau. Gradiente pra ler "metálico" —
-// prata em tom chapado se confundiria com o slate da próxima estampa.
-// Supersede o "sem dourado" de 18/08 SÓ no anel: a metáfora continua selo
-// postal (navy, serrilha, rótulo poético), sem XP e sem cadeado.
-const METAL_ANEL = {
-  bronze: ['#C9873E', '#8A5119'],
-  prata: ['#C9D2DB', '#8593A3'],
-  ouro: ['#E7C93F', '#A8821A'],
-  platina: ['#9BD8E4', '#5E8CA0'],
-  diamante: ['#C4B5FD', '#7C6AC8'],
-};
-const METAL_DOT = { bronze: '#A5682A', prata: '#9AA7B4', ouro: '#C6A32B', platina: '#7FB5C6' };
-
-// Gradientes compartilhados pelos SVGs dos selos (ids globais no documento —
-// definir UMA vez evita id duplicado por selo).
-function MetalDefs() {
-  return (
-    <svg width="0" height="0" className="absolute" aria-hidden="true">
-      <defs>
-        {Object.entries(METAL_ANEL).map(([m, [claro, escuro]]) => (
-          <linearGradient key={m} id={`anel-metal-${m}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor={claro} />
-            <stop offset="100%" stopColor={escuro} />
-          </linearGradient>
-        ))}
-      </defs>
-    </svg>
-  );
-}
+// SVG do selo + gradientes de metal moram em components/SeloMetal.js (fonte
+// única, compartilhada com os exports do mentor em ig/painel e ig/retrato).
+import { MetalDefs, SeloSvg, METAL_DOT } from '@/components/SeloMetal';
 
 // Selo postal: círculo navy com anel serrilhado; tier em romano no centro.
 // Anel na cor do metal do tier; novo (não visto): anel em amarelo da marca
 // + pill "nova desta semana" (o destaque temporal vence o metal na visita).
 function SeloVisual({ selo, naoVisto }) {
-  const anel = naoVisto ? '#D4B726' : (selo.tierMetal ? `url(#anel-metal-${selo.tierMetal})` : '#060242');
   return (
     <div className="flex flex-col items-center text-center w-28">
       <div className="relative">
-        <svg viewBox="0 0 80 80" className="w-20 h-20" role="img"
-          aria-label={`Selo ${selo.nome} — nível ${selo.tierRomano} · ${selo.tierMetal} (${selo.tierLabel})${naoVisto ? ' — nova desta semana' : ''}`}>
-          <circle cx="40" cy="40" r="37" fill="none" stroke={anel} strokeWidth="2.5" strokeDasharray="4 3" />
-          <circle cx="40" cy="40" r="30" fill="#060242" />
-          <text x="40" y="38" textAnchor="middle" fill="#fff" fontSize="17" fontWeight="700" fontFamily="Ubuntu, sans-serif">{selo.tierRomano}</text>
-          <text x="40" y="52" textAnchor="middle" fill="#D4B726" fontSize="8" fontWeight="700" fontFamily="Ubuntu, sans-serif" letterSpacing="0.5">SELO</text>
-        </svg>
+        <SeloSvg tierRomano={selo.tierRomano} tierMetal={selo.tierMetal} naoVisto={naoVisto} className="w-20 h-20"
+          ariaLabel={`Selo ${selo.nome} — nível ${selo.tierRomano} · ${selo.tierMetal} (${selo.tierLabel})${naoVisto ? ' — nova desta semana' : ''}`} />
         {naoVisto && (
           <span className="absolute -top-1 -right-2 text-[8px] font-bold bg-intento-yellow text-intento-blue px-1.5 py-0.5 rounded-full whitespace-nowrap">nova!</span>
         )}

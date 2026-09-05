@@ -2,12 +2,15 @@
 
 import { apiFetch } from '@/lib/api';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMentor } from '@/lib/MentorContext';
 import { LoadingInline } from '@/components/Loading';
 import { salvarPngDoCanvas } from '../exportarPng';
+import { computarSelos, jornadaVisivel } from '@/lib/selos';
+import { tsLabelSemana } from '@/lib/carimbos';
+import { SeloSvg } from '@/components/SeloMetal';
 
 // Cor por disciplina (Bio verde, Qui roxo, Fis azul, Mat vermelho):
 // main = título + barra; bg/border = fundo suave do mini card.
@@ -184,6 +187,13 @@ function ExportarAcompanhamento() {
   const [nomeAluno, setNomeAluno] = useState(decodeURIComponent(searchParams.get('nome') || ''));
   const [emailAluno, setEmailAluno] = useState('');
   const [dadosPainel, setDadosPainel] = useState(null);
+  // Insumos da faixa "Selo da semana": escopo da Jornada (ENEM + usa o app)
+  // vem no top-level do login; caderno vem por listarCaderno (não está no
+  // dadosPainel — sem ele só o selo Caderno Vivo ficaria mudo).
+  const [tipoAluno, setTipoAluno] = useState('ENEM');
+  const [statusAppAluno, setStatusAppAluno] = useState('');
+  const [caderno, setCaderno] = useState([]);
+  const [cadernoPendente, setCadernoPendente] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [erro, setErro] = useState('');
@@ -198,11 +208,17 @@ function ExportarAcompanhamento() {
     }
   }, [alunos, searchParams, emailAluno]);
 
-  // Carrega dados do aluno quando o email estiver disponível
+  // Carrega dados do aluno quando o email estiver disponível.
+  // Guard `cancelado`: trocar de aluno no meio do fetch descartaria as
+  // respostas atrasadas — sem isso, o caderno do aluno A pode chegar depois
+  // do login do B e contaminar a faixa "Selo da semana" do PNG errado.
   useEffect(() => {
     if (!emailAluno) return;
+    let cancelado = false;
     setCarregando(true);
     setErro('');
+    setCaderno([]);
+    setCadernoPendente(false);
     apiFetch('/api/mentor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -210,11 +226,33 @@ function ExportarAcompanhamento() {
     })
       .then(r => r.json())
       .then(d => {
-        if (d.dadosPainel) setDadosPainel(d.dadosPainel);
-        else setErro('Não foi possível carregar os dados deste aluno.');
+        if (cancelado) return;
+        if (d.dadosPainel) {
+          setDadosPainel(d.dadosPainel);
+          setTipoAluno(d.tipoAluno || 'ENEM');
+          setStatusAppAluno(d.statusApp || '');
+          // Caderno pra faixa "Selo da semana" — só quando o aluno tem Jornada
+          // (EM/fora do app nunca ganha faixa; poupa a chamada). O export fica
+          // segurado por `cadernoPendente` até resolver/falhar: sem isso o PNG
+          // dependeria do timing do clique (faixa do Caderno Vivo sumiria).
+          const idP = d.idPlanilha || d.dadosPainel.idPlanilha;
+          if (idP && jornadaVisivel(null, d.tipoAluno || 'ENEM', d.statusApp || '')) {
+            setCadernoPendente(true);
+            apiFetch('/api/mentor', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ acao: 'listarCaderno', idPlanilha: idP }),
+            })
+              .then(r => r.json())
+              .then(c => { if (!cancelado && c.status === 'sucesso') setCaderno(c.cards || []); })
+              .catch(() => {})
+              .finally(() => { if (!cancelado) setCadernoPendente(false); });
+          }
+        } else setErro('Não foi possível carregar os dados deste aluno.');
       })
-      .catch(() => setErro('Erro de conexão.'))
-      .finally(() => setCarregando(false));
+      .catch(() => { if (!cancelado) setErro('Erro de conexão.'); })
+      .finally(() => { if (!cancelado) setCarregando(false); });
+    return () => { cancelado = true; };
   }, [emailAluno]);
 
   const selecionarAluno = (id) => {
@@ -269,6 +307,36 @@ function ExportarAcompanhamento() {
     return 'miss';
   });
   const semanaRef = getSemanaRef();
+
+  // ── Selo da semana ─────────────────────────────────────────────────────────
+  // Só entra se houve estampa dentro da janela [domingo, domingo+7) da SEMANA
+  // DE REFERÊNCIA do export (a anterior completa, a mesma do header) — mesma
+  // mecânica do "nova!" da Jornada (lib/selos.js). 2+ selos novos: mostra o de
+  // maior prioridade do catálogo (menor número) e conta os demais no caption.
+  // Sem estampa na semana → export idêntico ao atual (faixa nem renderiza).
+  const seloSemana = useMemo(() => {
+    if (!dadosPainel) return null;
+    if (!jornadaVisivel(null, tipoAluno, statusAppAluno)) return null; // aluno EM/fora do app não tem Jornada
+    const hoje = new Date();
+    const ts0 = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - hoje.getDay() - 7).getTime();
+    const dentroDaSemanaRef = (label) => {
+      if (!label) return false;
+      const ts = tsLabelSemana(label);
+      return ts >= ts0 && ts < ts0 + 7 * 86400000;
+    };
+    const { todos } = computarSelos({
+      registros: dadosPainel.registros || [],
+      diarios: dadosPainel.diariosMetas || [],
+      simulados: dadosPainel.sim?.lista || [],
+      caderno,
+      marcos: dadosPainel.marcos,
+    });
+    const novos = todos
+      .filter(s => s.tierIdx >= 0 && dentroDaSemanaRef(s.semanaEstampa))
+      .sort((a, b) => a.prioridade - b.prioridade); // sort estável: empate mantém a ordem do catálogo
+    if (!novos.length) return null;
+    return { selo: novos[0], extras: novos.length - 1 };
+  }, [dadosPainel, caderno, tipoAluno, statusAppAluno]);
 
   // Meta de horas da semana (última registrada) + meta/plano do último diário
   const ultimoEncontro = dadosPainel?.ultimoEncontro || null;
@@ -337,10 +405,10 @@ function ExportarAcompanhamento() {
           </select>
           <button
             onClick={exportar}
-            disabled={!dadosPainel || exportando}
+            disabled={!dadosPainel || exportando || cadernoPendente}
             className="bg-[#060242] text-white text-sm font-semibold px-5 py-2 rounded-lg hover:bg-blue-900 transition disabled:opacity-40"
           >
-            {exportando ? 'Gerando...' : 'Baixar PNG'}
+            {exportando ? 'Gerando...' : cadernoPendente ? 'Carregando...' : 'Baixar PNG'}
           </button>
         </div>
       </div>
@@ -524,6 +592,29 @@ function ExportarAcompanhamento() {
               )}
 
             </div>
+
+            {/* Selo da semana — faixa de celebração antes do rodapé (só quando
+                houve estampa na semana de referência). Margens no lugar de gap
+                e defs do gradiente DENTRO do card (restrições do html2canvas). */}
+            {seloSemana && (
+              <div style={{ background: '#fbfaf5', borderTop: '1px solid #f0e9d2', padding: '16px 28px', display: 'flex', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flexShrink: 0, marginRight: 16 }}>
+                  <SeloSvg tierRomano={seloSemana.selo.tierRomano} tierMetal={seloSemana.selo.tierMetal} comDefs width={64} height={64}
+                    ariaLabel={`Selo ${seloSemana.selo.nome}, nível ${seloSemana.selo.tierRomano} — estampado nesta semana`} />
+                  <span style={{ position: 'absolute', top: -4, right: -10, fontSize: 8, fontWeight: 700, background: '#D4B726', color: '#060242', padding: '2px 6px', borderRadius: 9999, whiteSpace: 'nowrap' }}>nova!</span>
+                </div>
+                <div>
+                  <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9a7b1f', margin: '0 0 2px' }}>🏅 Selo da semana</p>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: '#060242', margin: 0 }}>
+                    {seloSemana.selo.nome} · {seloSemana.selo.tierRomano}{seloSemana.selo.tierLabel ? ` — ${seloSemana.selo.tierLabel}` : ''}
+                  </p>
+                  <p style={{ fontSize: 11, fontWeight: 500, color: '#64748b', margin: '2px 0 0' }}>
+                    Estampado nesta semana · veja sua Jornada no painel
+                    {seloSemana.extras > 0 ? ` · +${seloSemana.extras} selo${seloSemana.extras > 1 ? 's' : ''} novo${seloSemana.extras > 1 ? 's' : ''}` : ''}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Rodapé */}
             <div style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', padding: '14px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
