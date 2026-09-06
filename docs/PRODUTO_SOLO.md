@@ -1,5 +1,6 @@
-# Produto Solo — Plano e Design do Loop (F1)
+# Intento Base (Produto Solo) — Plano e Design do Loop (F1)
 
+**Nome do produto**: **Intento Base** (definido 06/09/2026). Repo: `IntentoEd/intento-base`.
 **Criado**: 2026-09-04 (kickoff do F1).
 **Status**: F1 iniciado; F0 (validação de campo) roda em paralelo.
 **Referências**: `docs/REDESIGN_PLATAFORMA_DUAL_PRODUTO.md` (§7.1-7.2 — logs do App, schema-semente), `docs/MIGRACAO_SUPABASE.md` (PR #113, não mergeado — **superseded por este plano**, backlog absorvido no §4.7), `docs/CONTEXTO_INTENTO.md`.
@@ -138,7 +139,7 @@ push_subscription  (id, aluno_id, endpoint, p256dh, auth, criado_em)
 
 | Semana | Entrega |
 |---|---|
-| S1 | Setup: repo, Supabase, Vercel, Firebase, esqueleto PWA — **bloqueado pelo nome do produto** |
+| S1 | Setup: repo, Supabase, Vercel, Firebase, esqueleto PWA — repo `IntentoEd/intento-base` + esqueleto criados em 06/09; restam Supabase/Vercel/Firebase/Kiwify (checklist no README de lá) |
 | S2-3 | Auth + onboarding + diagnóstico + devolução do plano |
 | S4-5 | Log de sessão + fechamento semanal + semana padrão |
 | S6 | Caderno de erros + push de revisão |
@@ -148,7 +149,7 @@ push_subscription  (id, aluno_id, endpoint, p256dh, auth, criado_em)
 
 ## 5. Decisões em aberto
 
-1. **Nome do produto** — bloqueia S1 (repo, checkout Kiwify, domínio/subdomínio).
+1. ~~Nome do produto~~ — **decidido (06/09): Intento Base**. Repo `IntentoEd/intento-base` criado; falta batizar o produto na Kiwify e o subdomínio (sugestão: `base.metodointento.com.br`).
 2. **Firebase project**: compartilhar o existente (recomendado — conta única quando o solo converter pra mentoria) vs projeto novo.
 3. **Diagnóstico**: só autoavaliação guiada (v1) vs incluir teste teórico auto-corrigido (v1.1?).
 4. **Bússola em escala**: turma única com mentorados (F0 e início do F1) vs turma solo separada quando crescer.
