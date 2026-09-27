@@ -3152,6 +3152,8 @@ function handleInativarAluno(dados) {
         aba.getRange(i + 1, COL_MESTRE.MOTIVO_SAIDA + 1).setValue(motivo);
         if (observacao) aba.getRange(i + 1, COL_MESTRE.OBS_SAIDA + 1).setValue(observacao);
         Logger.log('handleInativarAluno: ' + idAluno + ' inativado por ' + emailRequester + ' · motivo=' + motivo);
+        // Intento Base: aluno volta ao modo solo por lá (nunca lança).
+        _avisarBaseVinculo(emailNorm(matriz[i][COL_MESTRE.EMAIL]), 'solo', null, null, null, idAluno);
         return responderJSON({ status: 'sucesso', idAluno: idAluno, motivo: motivo });
       }
     }
@@ -3221,6 +3223,10 @@ function handleDesignarMentor(dados) {
     // Atualiza colunas mentor_responsavel e plano na mestre
     abaMestre.getRange(linhaAluno, COL_MESTRE.MENTOR_RESPONSAVEL + 1).setValue(emailMentor);
     abaMestre.getRange(linhaAluno, COL_MESTRE.PLANO + 1).setValue(plano);
+
+    // Intento Base (gas/integracaoBase.gs): avisa o vínculo e liga o espelho
+    // lá. Nunca lança — aluno que não existe no Base é ignorado.
+    _avisarBaseVinculo(dadosAluno.email, 'mentoria', emailMentor, mentorObj.nome, plano, idAluno);
 
     var emailsEnviados = { aluno: false, mentor: false };
 
