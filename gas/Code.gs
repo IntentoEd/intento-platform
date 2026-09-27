@@ -106,7 +106,10 @@ const MOTIVOS_SAIDA = [
 const STATUS_APP = {
   USA: 'Usa',
   NAO_ADAPTOU: 'Não se adaptou',
-  NUNCA_USARA: 'Nunca vai usar'
+  NUNCA_USARA: 'Nunca vai usar',
+  // Aluno do Intento Base (gas/integracaoBase.gs): o registro semanal chega
+  // do Base, não do BigQuery — cronGerarRegistrosApp pula; Jornada segue visível.
+  BASE: 'Base'
 };
 
 const TIPOS_ALUNO = ['ENEM', 'EM'];
@@ -499,6 +502,12 @@ function doPost(e) {
     if (acao === "listarExcecoesDisponibilidade") return handleListarExcecoesDisponibilidade(dados);
     if (acao === "cargaPorVendedorNoMes")   return handleCargaPorVendedorNoMes(dados);
     if (acao === "registrarErroFrontend")   return handleRegistrarErroFrontend(dados);
+
+    // Integração Intento Base (gas/integracaoBase.gs) — só via app/api/integracao/base
+    if (acao === "upsertRegistroSemanal")  return handleUpsertRegistroSemanal(dados);
+    if (acao === "provisionarAlunoBase")   return handleProvisionarAlunoBase(dados);
+    if (acao === "buscarMentoriaAluno")    return handleBuscarMentoriaAluno(dados);
+    if (acao === "salvarChecksPlanoBase")  return handleSalvarChecksPlanoBase(dados);
 
     throw new Error("Ação não reconhecida: " + acao);
 
