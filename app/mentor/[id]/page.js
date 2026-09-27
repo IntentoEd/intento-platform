@@ -334,11 +334,14 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
     setSalvando(true);
     const novaRow = registros[editIdx].map((_, ci) => formEdit[ci] !== undefined ? formEdit[ci] : registros[editIdx][ci]);
     try {
-      await apiFetch('/api/mentor', {
+      const resp = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'editarRegistro', idPlanilha, semana: registros[editIdx][0], dataRegistro: registros[editIdx][2], valores: novaRow }),
       });
+      // O GAS promove 'auto' → 'revisado' ao editar; sem isso o selo só
+      // mudava depois de recarregar a página.
+      if (resp?.origem) novaRow[COL_ORIGEM] = resp.origem;
       onUpdate?.(editIdx, novaRow);
       setEditIdx(null);
     } catch { /* silencia */ }
