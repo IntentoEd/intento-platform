@@ -266,7 +266,7 @@ function handleSalvarChecksPlanoBase(dados) {
 
 // Avisa o Base que o vínculo mudou (chamar ao fim de handleDesignarMentor com
 // modo 'mentoria' e de handleInativarAluno / remoção de mentor com 'solo').
-// Script Properties: BASE_URL (ex.: https://intento-base-drab.vercel.app) e
+// Script Properties: BASE_URL (ex.: https://base.metodointento.com.br) e
 // INTEGRACAO_TOKEN (o mesmo que está nas envs do Base). Nunca lança: falha
 // vira log; o Base reconcilia depois.
 function _avisarBaseVinculo(email, modo, mentorEmail, mentorNome, plano, idPlanilha) {
