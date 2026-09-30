@@ -250,6 +250,9 @@ function _areasDoEscopoSim(escopo) {
 const SIM_ANO_MIN = 2000;
 // Mínimo de caracteres significativos no título. Espelha SIMULADO_TITULO_MIN.
 const SIM_TITULO_MIN = 3;
+// Id de simulado gerado no cliente (gerarIdSimulado em lib/simuladoData.js).
+// Espelha o formato de lá — se mudar um, mude o outro.
+const SIM_ID_CLIENTE_RE = /^sim_\d{13}_[a-z0-9]{4,12}$/;
 
 // ATENÇÃO ao expandir: mesmo aviso do COL_SIM — EXCLUIDO_EM pode ocupar a
 // col 12 em planilhas que já tiveram exclusão; reposicionar antes de criar fixa.
@@ -2070,7 +2073,29 @@ function handleSalvarSimulado(dados) {
     if (!_validarDataSimulado(dados.data)) {
       return responderJSON({ status: "erro", mensagem: "Data do simulado inválida (informe uma data entre " + SIM_ANO_MIN + " e hoje)." });
     }
-    const idSimulado = "sim_" + new Date().getTime();
+    // Idempotência: o front manda o id gerado lá (sim_<ms>_<rand>). Se a linha
+    // já existe — retentativa depois de resposta perdida (rede caiu, GAS lento,
+    // página de erro do Apps Script) — devolve sucesso sem gravar de novo.
+    // Antes disso cada clique repetido virava linha nova (7 duplicatas de um
+    // mesmo simulado em 11/09/2026). Sem id no payload (front antigo, janela
+    // do deploy casado) mantém o id gerado aqui.
+    const idCliente = txt(dados.idSimulado);
+    let idSimulado;
+    if (idCliente) {
+      if (!SIM_ID_CLIENTE_RE.test(idCliente)) throw new Error("idSimulado inválido.");
+      const ultima = aba.getLastRow();
+      if (ultima >= 2) {
+        const ids = aba.getRange(2, COL_SIM.ID + 1, ultima - 1, 1).getValues();
+        for (let i = 0; i < ids.length; i++) {
+          if (String(ids[i][0]) === idCliente) {
+            return responderJSON({ status: "sucesso", id: idCliente, jaExistia: true });
+          }
+        }
+      }
+      idSimulado = idCliente;
+    } else {
+      idSimulado = "sim_" + new Date().getTime();
+    }
     let dataFormatada = txt(dados.data);
     if (dataFormatada && dataFormatada.indexOf("-") !== -1) {
       const partes = dataFormatada.split("-");

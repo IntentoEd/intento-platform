@@ -2,7 +2,7 @@
 
 import { apiFetch, callMentor } from '@/lib/api';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 // 1. IMPORTAÇÕES DO FIREBASE E GRÁFICOS
@@ -11,7 +11,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 import { Bar, Line } from '@/components/Charts';
 import { getCache, setCache, clearCache, tempoRelativo } from '@/lib/cacheClient';
-import { SIMULADO_ANO_MIN, SIMULADO_TITULO_MIN, ENEM_AREA_MAX, isSimuladoDateValid, formatSimuladoDate, histSimulado, metricasSimulado, tituloSimuladoValido, simuladoDataMinISO, simuladoDataMaxISO, ENEM_ESCOPO_DEFAULT, areasDoEscopo, escopoDoSimulado, escopoTemRedacao } from '@/lib/simuladoData';
+import { SIMULADO_ANO_MIN, SIMULADO_TITULO_MIN, ENEM_AREA_MAX, gerarIdSimulado, isSimuladoDateValid, formatSimuladoDate, histSimulado, metricasSimulado, tituloSimuladoValido, simuladoDataMinISO, simuladoDataMaxISO, ENEM_ESCOPO_DEFAULT, areasDoEscopo, escopoDoSimulado, escopoTemRedacao } from '@/lib/simuladoData';
 import { agregarMensalPorMes } from '@/lib/semanaLabel';
 import PushToggle from '@/components/PushToggle';
 import ProvasAluno from '@/components/ProvasAluno';
@@ -182,6 +182,12 @@ export default function PainelDoAluno() {
   const [formAutopsia, setFormAutopsia] = useState({ erros: [], aar: EMPTY_AAR });
   const [salvandoAutopsia, setSalvandoAutopsia] = useState(false);
   const [salvandoSimulado, setSalvandoSimulado] = useState(false);
+  const [segundosSalvando, setSegundosSalvando] = useState(0); // contador no botão — GAS leva 8-40s, sem isso parece travado
+  const [erroSalvarSimulado, setErroSalvarSimulado] = useState(''); // erro persistente dentro do modal (toast some em 3,5s)
+  // Id gerado no cliente pro registro em voo + assinatura do payload. Reenviar
+  // o MESMO payload reaproveita o id (GAS não duplica); mudar os dados gera outro.
+  const idSimuladoEmVooRef = useRef({ id: null, assinatura: null });
+  const toastTimerRef = useRef(null);
   const [salvandoCaderno, setSalvandoCaderno] = useState(false);
 
   const [simuladosLista, setSimuladosLista] = useState([]);
@@ -203,9 +209,20 @@ export default function PainelDoAluno() {
   const [mentoriaEncerrada, setMentoriaEncerrada] = useState(null);
 
   const mostrarToast = (message, tipo = 'success') => {
+    // Um toast novo cancela o timer do anterior — senão "Registrando..." (t0)
+    // escondia o erro que chegava em t0+2s já em t0+3,5s.
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ show: true, message, tipo });
-    setTimeout(() => setToast({ show: false, message: '', tipo: 'success' }), 3500);
+    toastTimerRef.current = setTimeout(() => setToast({ show: false, message: '', tipo: 'success' }), 3500);
   };
+
+  // Contador de segundos enquanto salva simulado.
+  useEffect(() => {
+    if (!salvandoSimulado) { setSegundosSalvando(0); return; }
+    const t0 = Date.now();
+    const iv = setInterval(() => setSegundosSalvando(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, [salvandoSimulado]);
 
   // Aplica a resposta do login na UI (vinda do servidor ou do cache).
   // Extraída do boot pra ser reutilizada pelo recarregarDados().
@@ -240,7 +257,7 @@ export default function PainelDoAluno() {
         aplicarSessao(resposta);
         setCache('login_' + email, resposta);
         setDadosTs(Date.now());
-        return true;
+        return resposta; // truthy; salvarSimulado usa a lista fresca pra confirmar gravação
       }
       return false;
     } catch (e) {
@@ -474,7 +491,8 @@ export default function PainelDoAluno() {
     setFormRegistro(form);
     setMateriasCustom([]);
     setSnapshotSimulado(JSON.stringify({ form, materias: [] }));
-    setErroDataSimulado(''); setErroTituloSimulado('');
+    setErroDataSimulado(''); setErroTituloSimulado(''); setErroSalvarSimulado('');
+    idSimuladoEmVooRef.current = { id: null, assinatura: null };
     setModalRegistroAberto(true);
   };
 
@@ -497,7 +515,7 @@ export default function PainelDoAluno() {
     setFormRegistro(form);
     setMateriasCustom(materias);
     setSnapshotSimulado(JSON.stringify({ form, materias }));
-    setErroDataSimulado(''); setErroTituloSimulado('');
+    setErroDataSimulado(''); setErroTituloSimulado(''); setErroSalvarSimulado('');
     setModalRegistroAberto(true);
   };
 
@@ -514,7 +532,8 @@ export default function PainelDoAluno() {
     setModalRegistroAberto(false);
     setEditandoSimuladoId(null);
     setMateriasCustom([]);
-    setErroDataSimulado(''); setErroTituloSimulado('');
+    setErroDataSimulado(''); setErroTituloSimulado(''); setErroSalvarSimulado('');
+    idSimuladoEmVooRef.current = { id: null, assinatura: null };
   };
 
   // Exclui o simulado confirmado no diálogo.
@@ -603,39 +622,68 @@ export default function PainelDoAluno() {
     }
 
     const editando = !!editandoSimuladoId;
+    const corpo = {
+      modelo: isCustom ? 'Custom' : 'ENEM',
+      escopo: isCustom ? undefined : escopoSimulado,
+      materias: isCustom ? materiasCustom : undefined,
+      ...formRegistro,
+      ...payloadEnem // sobrescreve lg/ch/cn/mat/redacao conforme o escopo
+    };
+    // Registro novo: id gerado aqui. Mesmo payload reenviado (clique repetido
+    // após falha) reaproveita o id e o GAS devolve sucesso sem gravar de novo;
+    // payload diferente (aluna corrigiu um número) ganha id novo.
+    let idSimulado = editandoSimuladoId;
+    if (!editando) {
+      const assinatura = JSON.stringify(corpo);
+      if (!idSimuladoEmVooRef.current.id || idSimuladoEmVooRef.current.assinatura !== assinatura) {
+        idSimuladoEmVooRef.current = { id: gerarIdSimulado(), assinatura };
+      }
+      idSimulado = idSimuladoEmVooRef.current.id;
+    }
+
+    setErroSalvarSimulado('');
     setSalvandoSimulado(true);
     mostrarToast(editando ? "Salvando alterações..." : "Registrando Simulado...", "success");
+    // { ok, msg, confirmar, analiseResetada, confirmadoDepois }
+    // confirmar = a resposta se perdeu ou veio do gateway (5xx): a linha PODE
+    // ter sido gravada no GAS mesmo assim — conferir antes de acusar erro.
+    let resultado;
     try {
       const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          acao: editando ? 'editarSimulado' : 'salvarSimulado',
-          idPlanilha: idPlanilha, // Agora garantido!
-          idSimulado: editando ? editandoSimuladoId : undefined,
-          modelo: isCustom ? 'Custom' : 'ENEM',
-          escopo: isCustom ? undefined : escopoSimulado,
-          materias: isCustom ? materiasCustom : undefined,
-          ...formRegistro,
-          ...payloadEnem // sobrescreve lg/ch/cn/mat/redacao conforme o escopo
-        })
+        body: JSON.stringify({ acao: editando ? 'editarSimulado' : 'salvarSimulado', idPlanilha, idSimulado, ...corpo })
       });
       const data = await res.json();
-
-      if (data.status === 'sucesso') {
+      if (data.status === 'sucesso') resultado = { ok: true, analiseResetada: data.analiseResetada };
+      else resultado = { ok: false, msg: 'Erro no servidor: ' + data.mensagem, confirmar: res.status >= 500 };
+    } catch (e) {
+      resultado = { ok: false, msg: 'Erro de conexão ao salvar.', confirmar: true };
+    }
+    try {
+      if (!resultado.ok && !editando && resultado.confirmar) {
+        const fresco = await recarregarDados();
+        const lista = fresco?.dadosPainel?.sim?.lista || [];
+        if (lista.some(s => s.id === idSimulado)) resultado = { ok: true, confirmadoDepois: true };
+      }
+      if (resultado.ok) {
         const msg = editando
-          ? (data.analiseResetada ? "Alterações salvas. A análise de erros foi reiniciada (os números mudaram)." : "Alterações salvas.")
+          ? (resultado.analiseResetada ? "Alterações salvas. A análise de erros foi reiniciada (os números mudaram)." : "Alterações salvas.")
           : "Registro salvo!";
         setModalRegistroAberto(false);
         setEditandoSimuladoId(null);
         setMateriasCustom([]);
-        await recarregarDados();
+        idSimuladoEmVooRef.current = { id: null, assinatura: null };
+        if (!resultado.confirmadoDepois) await recarregarDados();
         mostrarToast(msg, "success");
       } else {
-        mostrarToast("Erro no servidor: " + data.mensagem, "error");
+        // Fica no modal, visível até a próxima tentativa — o toast some em 3,5s
+        // e no celular passava batido ("cliquei e nada aconteceu").
+        setErroSalvarSimulado(resultado.confirmar
+          ? 'Não conseguimos confirmar o salvamento. Toque em Salvar de novo: não vai duplicar.'
+          : resultado.msg);
+        mostrarToast(resultado.msg, "error");
       }
-    } catch (e) {
-      mostrarToast("Erro de conexão ao salvar.", "error");
     } finally {
       setSalvandoSimulado(false);
     }
@@ -2572,9 +2620,19 @@ export default function PainelDoAluno() {
               )}
             </div>
 
-            <div className="px-7 py-5 border-t border-slate-100 flex justify-end gap-3 shrink-0">
-              <button onClick={fecharModalSimulado} className={btnGhost}>Cancelar</button>
-              <button onClick={salvarSimulado} disabled={salvandoSimulado} className={btnPrimary + ' disabled:opacity-60'}>{salvandoSimulado ? 'Salvando...' : (editandoSimuladoId ? 'Salvar Alterações' : 'Salvar Registro')}</button>            </div>
+            <div className="px-7 py-5 border-t border-slate-100 shrink-0 space-y-3">
+              {erroSalvarSimulado && (
+                <div role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{erroSalvarSimulado}</div>
+              )}
+              <div className="flex justify-end gap-3">
+                <button onClick={fecharModalSimulado} className={btnGhost}>Cancelar</button>
+                <button onClick={salvarSimulado} disabled={salvandoSimulado} className={btnPrimary + ' disabled:opacity-60'}>
+                  {salvandoSimulado
+                    ? `Salvando...${segundosSalvando >= 3 ? ` (${segundosSalvando} s)` : ''}`
+                    : (editandoSimuladoId ? 'Salvar Alterações' : 'Salvar Registro')}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
