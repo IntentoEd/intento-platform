@@ -40,6 +40,27 @@ const DISCIPLINAS_ENEM = {
   'Matemática': ['Matemática']
 };
 
+// Colunas AGREGADAS da BD_Topicos (uma por área) e as disciplinas que as
+// compõem. Se a coluna existir vazia na planilha — caso de "Ciências Humanas"
+// em out/2026: cabeçalho criado, tópicos nunca colados — a lista é montada
+// aqui a partir das componentes, senão a análise do simulado "Outros" fica
+// sem opção de tópico.
+const AGREGADOS_TOPICOS = {
+  'Ciências Humanas': DISCIPLINAS_ENEM.Humanas,
+  'Ciências da Natureza': DISCIPLINAS_ENEM.Natureza,
+  'Linguagens': [...DISCIPLINAS_ENEM.Linguagens, 'Gramática'],
+};
+
+// Tópicos de uma matéria do simulado "Outros": a coluna dela na BD_Topicos
+// ou, se vazia, a união das disciplinas componentes (AGREGADOS_TOPICOS).
+function topicosDaMateria(dicionario, materia) {
+  const direto = dicionario[materia];
+  if (direto && direto.length) return direto;
+  const componentes = AGREGADOS_TOPICOS[materia];
+  if (!componentes) return [];
+  return [...new Set(componentes.flatMap(d => dicionario[d] || []))];
+}
+
 // After Action Review (substitui o Ciclo de Kolb na análise subjetiva)
 const EMPTY_AAR = { esperava: '', aconteceu: '', porque: '', acoes: [{ texto: '', data: '' }] };
 const AAR_ESPERAVA_OPCOES = ['Fui melhor que esperava', 'Saiu como esperado', 'Fui pior que esperava'];
@@ -1371,7 +1392,7 @@ export default function PainelDoAluno() {
                                   <label className={labelClass}>Tópico do Currículo</label>
                                   <select className="w-full p-3 border border-slate-200 rounded-lg font-bold text-slate-700 outline-none focus:border-intento-yellow bg-white appearance-none" value={erro.topico} onChange={e => atualizarErro(erro.id, { topico: e.target.value })} disabled={!isCustom && !erro.disciplina}>
                                     <option value="">{(isCustom || erro.disciplina) ? "Selecione o Tópico..." : "Escolha a disciplina primeiro"}</option>
-                                    {(topicosDicionario[isCustom ? area : erro.disciplina] || []).map(t => <option key={t} value={t}>{t}</option>)}
+                                    {(isCustom ? topicosDaMateria(topicosDicionario, area) : (topicosDicionario[erro.disciplina] || [])).map(t => <option key={t} value={t}>{t}</option>)}
                                   </select>
                                 </div>
 
@@ -2612,7 +2633,7 @@ export default function PainelDoAluno() {
 
                   <select value="" onChange={e => { addMateriaCustom(e.target.value); e.target.value=''; }} className={inputClass}>
                     <option value="">+ Adicionar matéria...</option>
-                    {Object.keys(topicosDicionario).filter(d => !materiasCustom.some(m => m.materia === d)).map(d => <option key={d} value={d}>{d}</option>)}
+                    {Object.keys(topicosDicionario).filter(d => !materiasCustom.some(m => m.materia === d) && topicosDaMateria(topicosDicionario, d).length > 0).map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
 
                   <div className="pt-1"><label className="block text-[10px] font-medium text-purple-400 uppercase mb-1.5 tracking-wide">Nota Redação <span className="text-slate-400 normal-case">(opcional)</span></label><input type="number" placeholder="Ex: 920" className="w-full p-2 border border-purple-200 rounded-lg font-semibold outline-none focus:border-purple-400 bg-white text-slate-700" value={formRegistro.redacao} onChange={e => setFormRegistro({...formRegistro, redacao: e.target.value})} /></div>
