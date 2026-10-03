@@ -30,10 +30,10 @@ const T = {
 };
 
 const TRIMESTRE_LABEL = [
-  '1º trimestre — janeiro a março',
-  '2º trimestre — abril a junho',
-  '3º trimestre — julho a setembro',
-  '4º trimestre — outubro a dezembro',
+  '1º trimestre: janeiro a março',
+  '2º trimestre: abril a junho',
+  '3º trimestre: julho a setembro',
+  '4º trimestre: outubro a dezembro',
 ];
 
 // Nó da Linha do Ano no card: ✓ verde (marco existente) ou contorno (futuro).
@@ -142,7 +142,7 @@ function ExportarRetrato() {
     d.metasTotal ? { label: 'Metas batidas', valor: `${d.metasBatidas ?? 0}/${d.metasTotal}` } : null,
     d.questoes != null ? { label: 'Questões', valor: Number(d.questoes).toLocaleString('pt-BR') } : null,
   ].filter(Boolean) : [];
-  const proxCicloLabel = idxCiclo >= 0 && idxCiclo < 3 ? `O que muda no ${CICLOS_INFO[idxCiclo + 1].id}` : 'O que muda daqui pra frente';
+  const proxCicloLabel = idxCiclo >= 0 && idxCiclo < 3 ? `O que muda no ${CICLOS_INFO[idxCiclo + 1].id}` : 'O que muda a partir de agora';
   const reflexoes = marco ? [
     ['Maior vitória do ciclo', marco.reflexaoVitoria],
     ['Maior aprendizado', marco.reflexaoAprendizado],
@@ -225,7 +225,7 @@ function ExportarRetrato() {
                     {marco.ciclo}{info ? ` · ${info.nome}` : ''}{' '}
                     <span style={{ display: 'inline-flex', width: 15, height: 15, borderRadius: 9999, background: '#10b981', border: '2px solid #fff', boxShadow: '0 1px 2px rgba(6,2,66,0.2)', color: '#fff', fontSize: 9, fontWeight: 900, alignItems: 'center', justifyContent: 'center', verticalAlign: '1px' }}>✓</span>
                     {retroativo && (
-                      <span style={{ fontSize: 9, fontWeight: 700, background: '#e2e8f0', color: '#64748b', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.08em', marginLeft: 8, verticalAlign: '4px' }} title="Retrato computado do histórico — o ciclo fechou antes da feature existir">retroativo</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, background: '#e2e8f0', color: '#64748b', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.08em', marginLeft: 8, verticalAlign: '4px' }} title="Retrato computado do histórico. O ciclo fechou antes de este recurso existir">retroativo</span>
                     )}
                   </h3>
                   {idxCiclo >= 0 && (
@@ -268,7 +268,7 @@ function ExportarRetrato() {
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 9999, background: corDe(marco.perfil).bg, color: corDe(marco.perfil).texto }}>{CARIMBO_LABEL[marco.perfil] || '—'}</span>
                 </span>
                 {marco.nivelAlvo != null && (
-                  <span style={{ fontSize: 10, fontWeight: 600, color: '#64748b', marginLeft: 'auto' }} title="Nível-alvo de simulado combinado pro ciclo seguinte">alvo simulado · {marco.nivelAlvo}%</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: '#64748b', marginLeft: 'auto' }} title="Nível-alvo de simulado combinado para o ciclo seguinte">alvo simulado · {marco.nivelAlvo}%</span>
                 )}
               </div>
 

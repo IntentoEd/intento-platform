@@ -42,7 +42,7 @@ function toPercentCheckin(val, origem) {
 function seloOrigem(origem) {
   if (origem === 'auto') {
     return (
-      <span title="Gerado automaticamente do app — revise os números"
+      <span title="Gerado automaticamente do app. Revise os números"
         className="text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0">
         Auto · revisar
       </span>
@@ -496,7 +496,7 @@ function HistoricoAnalitico({ registros, cardClass, idPlanilha, onUpdate }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/60 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg flex flex-col overflow-hidden max-h-[90vh]">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
-              <h2 className="text-sm font-semibold text-intento-blue">Editar Registro — {registros[editIdx][0]}</h2>
+              <h2 className="text-sm font-semibold text-intento-blue">Editar registro: {registros[editIdx][0]}</h2>
               <button onClick={() => setEditIdx(null)} className="text-slate-400 hover:text-slate-500 transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
@@ -1264,7 +1264,7 @@ export default function GestaoIndividualAluno() {
         })
       });
       if (res.ok) {
-        setStatusMsg("Encontro Salvo!");
+        setStatusMsg("Encontro salvo.");
         setModalAberto(false);
         window.location.reload();
       } else { setStatusMsg("Erro ao salvar."); }
@@ -1457,7 +1457,7 @@ export default function GestaoIndividualAluno() {
     });
     try {
       await apiFetch('/api/mentor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'salvarSemanaLote', idPlanilhaAluno: params.id, rotina, metaHoras: metaHorasSemanal.trim() }) });
-      setStatusMsg("Rotina salva com sucesso!");
+      setStatusMsg("Rotina salva.");
       setGradeModificada(false);
       setTimeout(() => setStatusMsg(""), 3000);
     } catch (e) { setStatusMsg("Erro ao salvar."); }
@@ -1608,7 +1608,7 @@ export default function GestaoIndividualAluno() {
             <div className="bg-slate-50 w-full max-w-6xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
 
               <div className="bg-white px-8 py-5 border-b border-slate-200 flex justify-between items-center">
-                <h2 className="text-base font-semibold text-intento-blue">Editar Encontro — {encontroEdit.data}</h2>
+                <h2 className="text-base font-semibold text-intento-blue">Editar encontro: {encontroEdit.data}</h2>
                 <button onClick={fecharEdicaoEncontro} className="text-slate-500 hover:text-red-500 transition-colors">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -1627,7 +1627,7 @@ export default function GestaoIndividualAluno() {
                   if (metasAnteriores.length === 0) return null;
                   return (
                     <div className="bg-intento-blue/5 border-2 border-intento-blue/20 rounded-xl p-6 mb-8">
-                      <h3 className="text-sm font-bold text-intento-blue uppercase tracking-wider mb-1">Retrospectiva — Metas do encontro anterior</h3>
+                      <h3 className="text-sm font-bold text-intento-blue uppercase tracking-wider mb-1">Retrospectiva: metas do encontro anterior</h3>
                       <p className="text-xs text-slate-500 mb-4">
                         {anteriorCronologico.data ? new Date(anteriorCronologico.data).toLocaleDateString('pt-BR') : ''} · status gravado neste encontro
                       </p>
@@ -1699,7 +1699,7 @@ export default function GestaoIndividualAluno() {
                       <textarea
                         className={inputClass + " bg-white border-amber-200 focus:ring-amber-400"}
                         rows="5"
-                        placeholder="Observações pessoais sobre o aluno — não aparecem no painel dele."
+                        placeholder="Observações pessoais sobre o aluno. Não aparecem no painel dele."
                         value={encontroEdit.notasPrivadas}
                         onChange={e => setEncontroEdit({...encontroEdit, notasPrivadas: e.target.value})}
                       />
@@ -1763,7 +1763,7 @@ export default function GestaoIndividualAluno() {
                                 setEncontroEdit({...encontroEdit, resultados: novos});
                               }}
                             >
-                              <option value="">— Sem avaliação —</option>
+                              <option value="">Sem avaliação</option>
                               <option>Realizado</option>
                               <option>Realizado Parcialmente</option>
                               <option>Não realizado</option>
@@ -1827,7 +1827,7 @@ export default function GestaoIndividualAluno() {
                 <p className="text-[11px] text-slate-500 mt-2 leading-snug">
                   {metaHorasSemanal.trim() === ''
                     ? 'Vazio = calculada automaticamente a partir da grade. Defina um valor para fixar a meta manualmente.'
-                    : 'Meta manual — substitui a contagem da grade no registro do aluno.'}
+                    : 'Meta manual: substitui a contagem da grade no registro do aluno.'}
                 </p>
               </div>
 

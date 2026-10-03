@@ -61,7 +61,7 @@ export default function RegisterSW() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold">Nova versão disponível</p>
-          <p className="text-xs text-white/70 mt-0.5">Recarregue a página pra usar a versão mais recente.</p>
+          <p className="text-xs text-white/70 mt-0.5">Recarregue a página para usar a versão mais recente.</p>
         </div>
       </div>
       <div className="flex justify-end gap-2 mt-3">

@@ -13,7 +13,7 @@ const ubuntu = Ubuntu({
 
 export const metadata = {
   title: 'Intento | Mentoria',
-  description: 'Plataforma de mentoria Intento — vestibulares e ENEM',
+  description: 'Plataforma de mentoria Intento para vestibulares e ENEM',
   applicationName: 'Intento',
   appleWebApp: {
     capable: true,

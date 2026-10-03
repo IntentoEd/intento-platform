@@ -32,7 +32,7 @@ export default function Privacidade() {
           controladora dos dados pessoais tratados na plataforma de mentoria educacional acessada por meio
           do site e aplicativo da Intento (&quot;Plataforma&quot;). Esta Política descreve como coletamos,
           usamos, compartilhamos, armazenamos e protegemos seus dados pessoais, em conformidade com a
-          Lei Geral de Proteção de Dados (Lei nº 13.709/2018 — &quot;LGPD&quot;).
+          Lei Geral de Proteção de Dados (Lei nº 13.709/2018, &quot;LGPD&quot;).
         </p>
 
         <h2 className={sectionTitle}>1. Quem é o controlador</h2>
@@ -41,7 +41,7 @@ export default function Privacidade() {
           <br />
           CNPJ: 49.929.921/0001-22
           <br />
-          Endereço: SIA Trecho 3, Lote 1310/1320, Sala 325, Parte A41 — Brasília/DF
+          Endereço: SIA Trecho 3, Lote 1310/1320, Sala 325, Parte A41, Brasília/DF
         </p>
 
         <h2 className={sectionTitle}>2. Quais dados coletamos</h2>
@@ -151,7 +151,7 @@ export default function Privacidade() {
         <h2 className={sectionTitle}>11. Cookies</h2>
         <p className={paragraph}>
           Utilizamos cookies e tecnologias similares estritamente necessários para o funcionamento da
-          Plataforma — autenticação, manutenção de sessão e preferências básicas. Não utilizamos cookies
+          Plataforma: autenticação, manutenção de sessão e preferências básicas. Não utilizamos cookies
           de marketing ou rastreamento de terceiros sem o seu consentimento explícito.
         </p>
 

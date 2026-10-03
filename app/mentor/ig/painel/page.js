@@ -600,13 +600,13 @@ function ExportarAcompanhamento() {
               <div style={{ background: '#fbfaf5', borderTop: '1px solid #f0e9d2', padding: '16px 28px', display: 'flex', alignItems: 'center' }}>
                 <div style={{ position: 'relative', flexShrink: 0, marginRight: 16 }}>
                   <SeloSvg tierRomano={seloSemana.selo.tierRomano} tierMetal={seloSemana.selo.tierMetal} comDefs width={64} height={64}
-                    ariaLabel={`Selo ${seloSemana.selo.nome}, nível ${seloSemana.selo.tierRomano} — estampado nesta semana`} />
-                  <span style={{ position: 'absolute', top: -4, right: -10, fontSize: 8, fontWeight: 700, background: '#D4B726', color: '#060242', padding: '2px 6px', borderRadius: 9999, whiteSpace: 'nowrap' }}>nova!</span>
+                    ariaLabel={`Selo ${seloSemana.selo.nome}, nível ${seloSemana.selo.tierRomano}, estampado nesta semana`} />
+                  <span style={{ position: 'absolute', top: -4, right: -10, fontSize: 8, fontWeight: 700, background: '#D4B726', color: '#060242', padding: '2px 6px', borderRadius: 9999, whiteSpace: 'nowrap' }}>nova</span>
                 </div>
                 <div>
                   <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9a7b1f', margin: '0 0 2px' }}>🏅 Selo da semana</p>
                   <p style={{ fontSize: 15, fontWeight: 700, color: '#060242', margin: 0 }}>
-                    {seloSemana.selo.nome} · {seloSemana.selo.tierRomano}{seloSemana.selo.tierLabel ? ` — ${seloSemana.selo.tierLabel}` : ''}
+                    {seloSemana.selo.nome} · {seloSemana.selo.tierRomano}{seloSemana.selo.tierLabel ? `: ${seloSemana.selo.tierLabel}` : ''}
                   </p>
                   <p style={{ fontSize: 11, fontWeight: 500, color: '#64748b', margin: '2px 0 0' }}>
                     Estampado nesta semana · veja sua Jornada no painel

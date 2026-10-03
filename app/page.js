@@ -251,7 +251,7 @@ export default function Home() {
               <span className="text-intento-yellow">à aprovação.</span>
             </h2>
             <p className="text-slate-400 text-base leading-relaxed max-w-sm">
-              Acompanhamento individual com método, dados e consistência — para quem quer resultado de verdade no ENEM.
+              Mentoria individual para o ENEM, com método e acompanhamento por dados.
             </p>
           </div>
 

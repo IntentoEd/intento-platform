@@ -266,7 +266,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
     setFechandoId(p.id);
     try {
       const body = { acao: 'atualizarAvaliacao', email: emailRequester(), idAvaliacao: p.id, resultadoRegistrado: true };
-      if (ehProvaVestibular(p)) body.observacao = p.observacao ? `${p.observacao} — não compareceu` : 'Não compareceu';
+      if (ehProvaVestibular(p)) body.observacao = p.observacao ? `${p.observacao} (não compareceu)` : 'Não compareceu';
       const res = await apiFetch('/api/mentor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -529,7 +529,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
             className="mt-2 w-full sm:w-64 text-xs font-medium text-intento-blue px-2 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-white"
           />
         )}
-        <p className="text-[10px] text-slate-500 mt-1.5">salva e mantém a data — cadastre a semana de provas em sequência</p>
+        <p className="text-[10px] text-slate-500 mt-1.5">Salva e mantém a data, para cadastrar a semana de provas em sequência.</p>
         {erroQa && <p className="text-xs text-red-600 font-medium mt-1">{erroQa}</p>}
       </div>
 
@@ -538,7 +538,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
         <section>
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
             A registrar ({aRegistrar.length})
-            <span className="ml-2 normal-case tracking-normal font-medium text-amber-700">— da prova pra cá, ninguém contou como foi</span>
+            <span className="ml-2 normal-case tracking-normal font-medium text-amber-700">provas já realizadas, ainda sem resultado</span>
           </h3>
           <div className="space-y-2">
             {aRegistrar.map(p => (
@@ -579,7 +579,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Próximas</h3>
         {proximas.length === 0 ? (
           <p className="text-sm text-slate-500 italic py-4 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
-            Nenhuma prova futura. Use o &quot;Adicionar rápido&quot; acima — ou peça as datas no próximo encontro.
+            Nenhuma prova futura. Use o &quot;Adicionar rápido&quot; acima ou peça as datas no próximo encontro.
           </p>
         ) : (
           <div className="space-y-2">
@@ -670,7 +670,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
             <div className="px-6 py-5 border-b border-slate-100 shrink-0">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cadastrar em lote</p>
               <h2 className="text-base font-semibold text-intento-blue mt-0.5">{alunoNome}</h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">Adicione uma ou mais provas. Salvar é atômico — se uma falhar, nenhuma entra.</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Adicione uma ou mais provas. Se uma delas falhar ao salvar, nenhuma é registrada.</p>
             </div>
 
             <div className="p-6 space-y-3 overflow-y-auto flex-1">
@@ -728,7 +728,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                             disabled={!materiaAtual || opcoes.length === 0}
                             className="w-full text-xs font-medium text-intento-blue px-2 py-2 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-amber-50 disabled:opacity-60"
                           >
-                            <option value="">— Substitui qual prova? (opcional) —</option>
+                            <option value="">Substitui qual prova? (opcional)</option>
                             {opcoes.map(p => (
                               <option key={p.id} value={p.id}>
                                 {formatarData(p.data)} · {tipoLabel(p.tipo)}
@@ -737,10 +737,10 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                             ))}
                           </select>
                           {!materiaAtual && (
-                            <p className="text-[10px] text-amber-700 font-medium mt-1">Selecione a matéria primeiro pra escolher qual prova substituir.</p>
+                            <p className="text-[10px] text-amber-700 font-medium mt-1">Selecione a matéria primeiro para escolher qual prova substituir.</p>
                           )}
                           {materiaAtual && opcoes.length === 0 && (
-                            <p className="text-[10px] text-slate-500 font-medium mt-1">Nenhuma prova de {materiaAtual} cadastrada — pode salvar mesmo assim (vira prova normal).</p>
+                            <p className="text-[10px] text-slate-500 font-medium mt-1">Nenhuma prova de {materiaAtual} cadastrada. É possível salvar mesmo assim (entra como prova normal).</p>
                           )}
                         </div>
                       );
@@ -811,7 +811,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                           setEditTipo(tipoAoTrocarMateria(editTipo, sel));
                         }}
                         className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue">
-                  <option value="">— escolha —</option>
+                  <option value="">Selecione</option>
                   {opcoesMateria()}
                 </select>
                 {ehSelecaoOutra(editMateriaSel) && (
@@ -824,7 +824,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{selecaoVest(editMateriaSel) ? 'Fase' : 'Tipo'}</label>
                 <select value={editTipo} onChange={e => setEditTipo(e.target.value)}
                         className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue">
-                  <option value="">— escolha —</option>
+                  <option value="">Selecione</option>
                   {tiposPara(editMateriaSel).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
@@ -837,7 +837,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                     <select value={editSubstituiId} onChange={e => setEditSubstituiId(e.target.value)}
                             disabled={!materiaAtual || opcoes.length === 0}
                             className="w-full text-sm font-medium text-intento-blue px-3 py-2 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue bg-amber-50 disabled:opacity-60">
-                      <option value="">— Não substitui (vira prova normal na média) —</option>
+                      <option value="">Não substitui (entra como prova normal na média)</option>
                       {opcoes.map(p => (
                         <option key={p.id} value={p.id}>
                           {formatarData(p.data)} · {tipoLabel(p.tipo)}
@@ -846,10 +846,10 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
                       ))}
                     </select>
                     {!materiaAtual && (
-                      <p className="text-[10px] text-amber-700 font-medium mt-1">Selecione a matéria primeiro pra escolher qual prova substituir.</p>
+                      <p className="text-[10px] text-amber-700 font-medium mt-1">Selecione a matéria primeiro para escolher qual prova substituir.</p>
                     )}
                     {materiaAtual && opcoes.length === 0 && (
-                      <p className="text-[10px] text-slate-500 font-medium mt-1">Nenhuma prova de {materiaAtual} cadastrada — pode salvar mesmo assim.</p>
+                      <p className="text-[10px] text-slate-500 font-medium mt-1">Nenhuma prova de {materiaAtual} cadastrada. É possível salvar mesmo assim.</p>
                     )}
                   </div>
                 );
@@ -871,7 +871,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
               )}
               {editModoResultado && selecaoVest(editMateriaSel) && (
                 <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                  Salvar registra o resultado — a prova sai da fila &quot;A registrar&quot;.
+                  Salvar registra o resultado e a prova sai da fila &quot;A registrar&quot;.
                 </p>
               )}
             </div>
@@ -892,7 +892,7 @@ export default function AbaProvas({ idAluno, alunoNome, escola, tipoAluno = 'EM'
         aberto={!!provaParaDeletar}
         titulo="Deletar prova?"
         descricao={provaParaDeletar
-          ? `Prova de ${provaParaDeletar.materia} de ${formatarData(provaParaDeletar.data)} será removida${ehEM && !ehProvaVestibular(provaParaDeletar) ? ' do boletim' : ''}. Não dá pra desfazer.`
+          ? `Prova de ${provaParaDeletar.materia} de ${formatarData(provaParaDeletar.data)} será removida${ehEM && !ehProvaVestibular(provaParaDeletar) ? ' do boletim' : ''}. Esta ação não pode ser desfeita.`
           : ''}
         textoConfirmar="Deletar"
         tom="danger"
