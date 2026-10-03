@@ -156,7 +156,7 @@ function FaixaAlerta({ itens, perfilHref, cientes, marcarCiente, desfazerCientes
             <button
               type="button"
               onClick={() => marcarCiente(chaveAlunoAlerta(a), motivos.map(m => m.tipo))}
-              title="Ciente — ocultar este alerta até segunda-feira"
+              title="Ciente. Ocultar este alerta até segunda-feira"
               aria-label={`Marcar alerta de ${a.nome} como ciente até segunda-feira`}
               className="shrink-0 w-7 h-7 rounded-full border border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center justify-center"
             >
@@ -294,7 +294,7 @@ export default function PainelGlobalMentor() {
         {erroCarga ? (
           <div className="bg-white border border-red-200 rounded-xl p-10 text-center shadow-sm space-y-3">
             <p className="text-red-500 font-semibold text-sm">Não foi possível carregar seus mentorados.</p>
-            <p className="text-slate-500 text-xs font-medium">Falha de comunicação com o servidor ({erroCarga}). Seus alunos continuam lá — é só a carga que falhou.</p>
+            <p className="text-slate-500 text-xs font-medium">Falha de comunicação com o servidor ({erroCarga}). Os dados dos alunos não foram afetados.</p>
             <button
               onClick={recarregarAlunos}
               className="bg-intento-blue text-white font-bold py-2 px-5 rounded-lg hover:bg-blue-900 transition-all text-xs"
@@ -345,7 +345,7 @@ export default function PainelGlobalMentor() {
                       type="button"
                       disabled={!!marcandoEnvio[aluno.id]}
                       onClick={(e) => { e.stopPropagation(); handleToggleEnvio(idx, aluno.id, !jaEnviou); }}
-                      title={jaEnviou ? 'Enviado nesta semana — clique para marcar como pendente' : 'Clique para marcar como enviado'}
+                      title={jaEnviou ? 'Enviado nesta semana. Clique para marcar como pendente' : 'Clique para marcar como enviado'}
                       className={`text-[10px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1 shrink-0 transition-colors disabled:opacity-50
                         ${jaEnviou
                           ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'

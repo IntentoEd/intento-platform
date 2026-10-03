@@ -97,7 +97,7 @@ const numOrNull = (val) => {
 const STEPS = [
   { id: 'meta-anterior', titulo: 'Revisão da meta anterior',  sub: 'Bateu o combinado?', retro: true },
   { id: 'plano-anterior',titulo: 'Revisão do plano de ação',  sub: 'O que foi feito', retro: true },
-  { id: 'fech-retro',    titulo: 'Retrospectiva do ciclo',    sub: 'O que o trimestre construiu', fechamento: true },
+  { id: 'fech-retro',    titulo: 'Retrospectiva do ciclo',    sub: 'Resultados do trimestre', fechamento: true },
   { id: 'fech-marco',    titulo: 'Carimbo do marco',          sub: 'Congela o retrato do ciclo', fechamento: true },
   { id: 'balanco',       titulo: 'Vitórias e Obstáculos',     sub: 'Balanço do período' },
   { id: 'foco',          titulo: 'Foco do encontro',          sub: 'Categoria do desafio' },
@@ -354,7 +354,7 @@ export default function ModoEncontro() {
         // status 'erro' = falha ANTES do append (lock/aba/auth) — retry é seguro
         // (falha pós-append volta como sucesso+marcoSalvo:false, nunca cai aqui).
         setConfirma({
-          descricao: `Não consegui salvar o encontro${data?.mensagem ? ` (${data.mensagem})` : ''}. Seu rascunho está guardado neste navegador. Tentar de novo?`,
+          descricao: `Não foi possível salvar o encontro${data?.mensagem ? ` (${data.mensagem})` : ''}. Seu rascunho está guardado neste navegador. Tentar de novo?`,
           onConfirmar: () => salvarEncontro(marco),
         });
       }
@@ -397,7 +397,7 @@ export default function ModoEncontro() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'salvarSemanaLote', idPlanilhaAluno: params.id, rotina, metaHoras: metaHorasSemanal.trim() }),
       });
-      setModalSemana(false); flash('Semana padrão salva!');
+      setModalSemana(false); flash('Semana padrão salva.');
     } catch (e) { flash('Erro ao salvar a semana.'); }
     finally { setSalvandoSemana(false); }
   };
@@ -538,7 +538,7 @@ export default function ModoEncontro() {
             <p className="text-sm text-slate-500 font-medium mt-1">O diário de {nomeAluno || 'do aluno'} já aparece no painel dele e alimenta o acompanhamento da semana.</p>
             {marcoSalvo && (
               <div className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 mt-3">
-                🏁 Marco do {marcoSalvo.ciclo} estampado — o retrato do trimestre está congelado na Linha do Ano.
+                🏁 Marco do {marcoSalvo.ciclo} estampado. O retrato do trimestre está congelado na Linha do Ano.
                 {!ehDemo && (
                   <button
                     onClick={() => router.push(`/mentor/ig/retrato?id=${params.id}&ano=${marcoSalvo.ano}&ciclo=${marcoSalvo.ciclo}&nome=${encodeURIComponent(nomeAluno || '')}`)}
@@ -551,7 +551,7 @@ export default function ModoEncontro() {
             )}
             {marcoNaoGravado && (
               <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
-                ⚠️ O diário foi salvo, mas o marco do ciclo NÃO foi gravado — o Fechamento de Ciclo volta a aparecer no próximo encontro.
+                ⚠️ O diário foi salvo, mas o marco do ciclo NÃO foi gravado. O Fechamento de Ciclo volta a aparecer no próximo encontro.
               </p>
             )}
           </div>
@@ -579,7 +579,7 @@ export default function ModoEncontro() {
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Onde paramos</p>
         {!ultimo ? (
-          <p className="text-xs text-slate-500 font-medium">Primeiro encontro registrado — sem histórico anterior.</p>
+          <p className="text-xs text-slate-500 font-medium">Primeiro encontro registrado, sem histórico anterior.</p>
         ) : (
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
@@ -670,7 +670,7 @@ export default function ModoEncontro() {
         </div>
         <textarea
           className="w-full p-2.5 text-xs font-medium text-slate-700 bg-white border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-amber-300"
-          rows="4" placeholder="Observações que NÃO aparecem pro aluno..."
+          rows="4" placeholder="Observações que NÃO aparecem para o aluno..."
           value={form.notasPrivadas} onChange={e => upd({ notasPrivadas: e.target.value })} />
       </div>
     </>
@@ -714,11 +714,11 @@ export default function ModoEncontro() {
           <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2.5 flex items-center gap-3 flex-wrap">
             <span className="text-[10px] font-black text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">🏁 Fechamento de Ciclo</span>
             <p className="text-xs text-amber-800 font-medium flex-1 min-w-[200px]">
-              1º encontro após o fim do <b>{marcoPend.ciclo.id} · {marcoPend.ciclo.nome}</b> de {marcoPend.ano} — o roteiro de hoje inclui a retrospectiva do trimestre e o carimbo do marco.
+              1º encontro após o fim do <b>{marcoPend.ciclo.id} · {marcoPend.ciclo.nome}</b> de {marcoPend.ano}. O roteiro de hoje inclui a retrospectiva do trimestre e o carimbo do marco.
             </p>
             <button onClick={() => setStepAtivo('fech-retro')}
               className="text-[11px] font-bold text-amber-800 border border-amber-300 rounded-lg px-2.5 py-1 hover:bg-amber-100 transition-all shrink-0">
-              ir pro fechamento →
+              ir para o fechamento →
             </button>
           </div>
         </div>
@@ -793,7 +793,7 @@ export default function ModoEncontro() {
             <div className="flex items-center justify-between mb-2">
               <div>
                 <h3 className="text-sm font-bold text-intento-blue">Exploração</h3>
-                <p className="text-[11px] text-slate-500 font-medium">Sempre aberta — anote durante toda a reunião</p>
+                <p className="text-[11px] text-slate-500 font-medium">Sempre aberta. Anote durante toda a reunião</p>
               </div>
               <button onClick={() => setExplorExpandida(true)}
                 className="text-[11px] font-bold text-intento-blue border border-intento-blue/30 rounded-lg px-2.5 py-1 hover:bg-intento-blue/5 transition-all shrink-0">
@@ -801,7 +801,7 @@ export default function ModoEncontro() {
               </button>
             </div>
             <textarea className={inputClass + ' resize-y'} rows="6"
-              placeholder="Espaço livre pra desenvolver os focos do encontro — resumos, descobertas, o que surgir na conversa..."
+              placeholder="Espaço livre para desenvolver os focos do encontro: resumos, descobertas, o que surgir na conversa..."
               value={form.exploracao} onChange={e => upd({ exploracao: e.target.value })} />
           </div>
 
@@ -820,13 +820,13 @@ export default function ModoEncontro() {
           <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-intento-blue">Exploração · {nomeAluno || 'Aluno'}</h2>
-              <p className="text-[11px] text-slate-500 font-medium">O texto é o mesmo do painel — salvo no rascunho automaticamente</p>
+              <p className="text-[11px] text-slate-500 font-medium">O texto é o mesmo do painel, salvo no rascunho automaticamente</p>
             </div>
             <button onClick={() => setExplorExpandida(false)}
               className="text-sm font-bold text-intento-blue border border-intento-blue/30 rounded-lg px-3 py-1.5 hover:bg-intento-blue/5 transition-all">recolher ✕</button>
           </div>
           <textarea autoFocus className="flex-1 w-full p-8 text-base font-medium text-slate-700 outline-none resize-none leading-relaxed"
-            placeholder="Espaço livre pra desenvolver os focos do encontro..."
+            placeholder="Espaço livre para desenvolver os focos do encontro..."
             value={form.exploracao} onChange={e => upd({ exploracao: e.target.value })} />
         </div>
       )}
@@ -991,7 +991,7 @@ function SemanaModal({ grade, setGrade, metaHoras, setMetaHoras, onSalvar, salva
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-intento-blue">Editar Semana Padrão</h2>
-            <p className="text-[11px] text-slate-500 font-medium">Arraste (mouse ou dedo) pra selecionar os horários e escolha a atividade no balão</p>
+            <p className="text-[11px] text-slate-500 font-medium">Arraste (mouse ou dedo) para selecionar os horários e escolha a atividade no balão</p>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-red-500 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1106,7 +1106,7 @@ function RegistrosModal({ registros, onClose }) {
       <div className="bg-white w-full max-w-6xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-intento-blue">Registros — mês e tendência</h2>
+            <h2 className="text-base font-bold text-intento-blue">Registros: mês e tendência</h2>
             <p className="text-[11px] text-slate-500 font-medium">{registros.length} semana(s) · consulta durante o encontro</p>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-red-500 transition-colors">
@@ -1144,7 +1144,7 @@ function RegistrosModal({ registros, onClose }) {
           {/* Tabela completa de semanas */}
           <div>
             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Histórico semanal</p>
-            <p className="text-[10px] text-slate-500 font-medium mb-2">Domínio e progresso por disciplina, semana a semana — role pro lado pra ver tudo.</p>
+            <p className="text-[10px] text-slate-500 font-medium mb-2">Domínio e progresso por disciplina, semana a semana. Role para o lado para ver tudo.</p>
             <div className="overflow-x-auto border border-slate-200 rounded-xl">
               <table className="text-sm whitespace-nowrap">
                 <thead className="bg-slate-50">
@@ -1247,11 +1247,11 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
       <div className="flex-1 space-y-5">
         <Cabecalho />
         <p className="text-sm text-slate-500 font-medium">
-          Retrato do <b>{c?.id} · {c?.nome}</b> de {marcoPend?.ano}, computado dos registros — apresente ao aluno o que o trimestre construiu antes de olhar pra frente.
+          Retrato do <b>{c?.id} · {c?.nome}</b> de {marcoPend?.ano}, computado dos registros. Apresente ao aluno os resultados do trimestre antes de planejar o próximo.
         </p>
         {/* Aviso de irreversibilidade ANTES do passo do carimbo (Lente 1.3) */}
         <p className="text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          🏁 No fim deste encontro você grava o marco oficial do ciclo — ele fica congelado na Linha do Ano.
+          🏁 No fim deste encontro você grava o marco oficial do ciclo. Ele fica congelado na Linha do Ano.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {tiles.map(t => (
@@ -1262,7 +1262,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
           ))}
         </div>
         <div className="space-y-4 pt-1">
-          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Reflexão do aluno — na voz dele</p>
+          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Reflexão do aluno, na voz dele</p>
           <div>
             <label className={labelClass}>Maior vitória do ciclo</label>
             <textarea className={inputClass + ' mt-2'} rows="2" placeholder="O que o aluno mais se orgulha de ter conquistado no trimestre?"
@@ -1275,7 +1275,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
           </div>
           <div>
             <label className={labelClass}>O que muda no próximo ciclo</label>
-            <textarea className={inputClass + ' mt-2'} rows="2" placeholder="Um compromisso concreto pro trimestre que começa."
+            <textarea className={inputClass + ' mt-2'} rows="2" placeholder="Um compromisso concreto para o trimestre que começa."
               value={form.fechamento?.mudancaCiclo || ''} onChange={e => updFech({ mudancaCiclo: e.target.value })} />
           </div>
         </div>
@@ -1297,7 +1297,7 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
       <div className="flex-1 space-y-4">
         <Cabecalho />
         <p className="text-sm text-slate-500 font-medium">
-          A proposta vem calculada dos dados — ajuste onde a sua leitura clínica divergir. O que você confirmar aqui vira o retrato <b>oficial e congelado</b> do ciclo.
+          A proposta é calculada a partir dos dados. Ajuste onde a sua leitura clínica divergir. O que você confirmar aqui vira o retrato <b>oficial e congelado</b> do ciclo.
         </p>
         {dims.map(dim => {
           const proposto = diagAtual?.[dim] || null;
@@ -1311,8 +1311,8 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
                   {proposto
                     ? <>proposta dos dados: {CARIMBO_LABEL[proposto]}{ajustado ? ' · ajustado por você' : ''}</>
                     : dim === 'simulado'
-                      ? 'sem simulado concluído nas últimas 10 semanas — marque só se tiver leitura'
-                      : 'sem dado suficiente pra proposta'}
+                      ? 'sem simulado concluído nas últimas 10 semanas; marque só se tiver leitura'
+                      : 'sem dado suficiente para proposta'}
                 </p>
               </div>
               <div className="flex gap-2 flex-wrap items-center">
@@ -1335,14 +1335,14 @@ function PassoAtivo({ stepAtivo, form, upd, updArr, updFech, ultimo, nomeAluno, 
         <div className="bg-white border-2 border-intento-blue/15 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
             <span className="text-sm font-bold text-slate-700">Perfil do marco</span>
-            <p className="text-[10px] text-slate-500 font-medium">Elo mais fraco das dimensões carimbadas — diagnóstico de onde aplicar força, nunca nota.</p>
+            <p className="text-[10px] text-slate-500 font-medium">Dimensão carimbada com o nível mais baixo. Indica onde concentrar esforço e não é uma nota.</p>
           </div>
           <CarimboBadge nivel={perfil} />
         </div>
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
             <span className="text-sm font-bold text-slate-700">Nível-alvo de simulado</span>
-            <p className="text-[10px] text-slate-500 font-medium">Combinado pro próximo ciclo — entre 71 e 100 (fora disso vale o padrão {NIVEL_ALVO_SIMULADO_PADRAO}%). É a régua do Mestre na dimensão Simulado.</p>
+            <p className="text-[10px] text-slate-500 font-medium">Combinado para o próximo ciclo, entre 71 e 100 (fora disso vale o padrão {NIVEL_ALVO_SIMULADO_PADRAO}%). É o critério do nível Mestre na dimensão Simulado.</p>
           </div>
           <div className="flex items-center gap-2">
             <input type="number" min="71" max="100" step="1" placeholder={String(NIVEL_ALVO_SIMULADO_PADRAO)}

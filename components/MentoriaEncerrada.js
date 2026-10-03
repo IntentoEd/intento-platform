@@ -23,7 +23,7 @@ export default function MentoriaEncerrada({ dtSaida, onSair }) {
         </h1>
 
         <p className="text-sm text-slate-600 leading-relaxed mb-6">
-          {`Sua jornada com a gente foi encerrada${dtSaida ? ` em ${dtSaida}` : ''}. O que você construiu continua guardado — e a porta segue aberta: se quiser retomar a mentoria, é só chamar.`}
+          {`Sua mentoria foi encerrada${dtSaida ? ` em ${dtSaida}` : ''}. Seus dados continuam guardados. Para retomar, fale com a equipe Intento.`}
         </p>
 
         <a

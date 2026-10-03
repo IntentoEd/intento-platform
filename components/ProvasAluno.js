@@ -274,7 +274,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
       const data = await res.json();
       if (data.status !== 'sucesso') { mostrarToast(data.mensagem || 'Erro ao salvar.'); return; }
       setResultadoProva(null);
-      mostrarToast('✓ Registrado — seu mentor vai ver');
+      mostrarToast('✓ Registrado. Seu mentor vai ver.');
       await carregar();
     } catch (e) {
       mostrarToast('Erro de conexão.');
@@ -375,7 +375,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
         {!erro && proximas.length === 0 && (
           <div className="px-5 pb-5 text-center">
             <p className="text-sm text-slate-500">
-              {ehEM ? 'Nenhuma prova no radar. Ficou sabendo de uma?' : 'Nenhum vestibular no radar ainda.'}
+              {ehEM ? 'Nenhuma prova cadastrada.' : 'Nenhum vestibular cadastrado ainda.'}
             </p>
             <button
               onClick={abrirSheet}
@@ -463,7 +463,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
               <button key={p.id} onClick={() => abrirResultado(p)}
                       className="w-full text-left py-1 group">
                 <span className="text-xs font-medium text-slate-600 group-hover:text-intento-blue transition">
-                  {p.materia} · {formatarData(p.data)} — <span className="font-semibold text-intento-blue">registrar como foi</span>
+                  {p.materia} · {formatarData(p.data)}: <span className="font-semibold text-intento-blue">registrar como foi</span>
                 </span>
               </button>
             ))}
@@ -608,7 +608,7 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
             {!ehProvaVestibular(resultadoProva) && (
               <button onClick={() => salvarResultado(true)} disabled={salvandoRes}
                       className="w-full mt-2 py-2 text-xs font-medium text-slate-500 hover:text-intento-blue transition">
-                ainda não sei a nota — salvar só o relato
+                ainda não sei a nota: salvar só o relato
               </button>
             )}
           </div>
@@ -620,8 +620,8 @@ export default function ProvasAluno({ idAluno, tipoAluno = 'EM' }) {
         titulo="Remover prova?"
         descricao={provaParaRemover
           ? (criadaPorMim(provaParaRemover)
-            ? `${provaParaRemover.materia} de ${formatarData(provaParaRemover.data)} sai do seu radar.`
-            : `Essa prova foi adicionada pelo seu mentor. ${provaParaRemover.materia} de ${formatarData(provaParaRemover.data)} sai do radar de vocês dois.`)
+            ? `${provaParaRemover.materia} de ${formatarData(provaParaRemover.data)} será removida da sua lista.`
+            : `Essa prova foi adicionada pelo seu mentor. ${provaParaRemover.materia} de ${formatarData(provaParaRemover.data)} será removida da sua lista e da do mentor.`)
           : ''}
         textoConfirmar="Remover"
         tom="danger"

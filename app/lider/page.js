@@ -198,8 +198,8 @@ function CardDimensional({ a, d, ciclo, onClose }) {
           <CarimboBadge nivel={d.perfil} />
         </div>
         <div className="p-6 space-y-3">
-          {d.alerta && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs font-semibold text-red-700">🚨 Alerta clínico ativo{d.alertaMotivo && <span className="font-medium"> — {d.alertaMotivo}</span>}</div>}
-          {d.overstudying && <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs font-semibold text-amber-700">⚠️ Overstudying — 2+ semanas seguidas acima de 105% da meta (trava Mestre)</div>}
+          {d.alerta && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs font-semibold text-red-700">🚨 Alerta clínico ativo{d.alertaMotivo && <span className="font-medium">: {d.alertaMotivo}</span>}</div>}
+          {d.overstudying && <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs font-semibold text-amber-700">⚠️ Overstudying: 2+ semanas seguidas acima de 105% da meta (trava Mestre)</div>}
           {linhas.map(l => (
             <div key={l.key} className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-600 w-28 shrink-0">{DIM_LABEL[l.key]}</span>
@@ -209,7 +209,7 @@ function CardDimensional({ a, d, ciclo, onClose }) {
           ))}
           <div className="flex items-center gap-3 opacity-60">
             <span className="text-xs font-semibold text-slate-600 w-28 shrink-0">Simulado</span>
-            <span className="text-[10px] text-slate-500 font-semibold">Fase 2 — aba de simulados da planilha</span>
+            <span className="text-[10px] text-slate-500 font-semibold">Fase 2: aba de simulados da planilha</span>
           </div>
         </div>
         <div className="bg-slate-50 px-6 py-3 flex justify-between items-center border-t border-slate-100">
@@ -670,7 +670,7 @@ export default function PainelLider() {
   const sair = async () => { await auth.signOut(); sessionStorage.removeItem('emailLogado'); router.push('/'); };
 
   if (!autorizado) return <LoadingScreen mensagem="Carregando..." />;
-  if (carregando) return <LoadingScreen mensagem="Sincronizando painel — pode levar até 1 minuto na primeira carga..." />;
+  if (carregando) return <LoadingScreen mensagem="Sincronizando painel. Pode levar até 1 minuto na primeira carga..." />;
   if (erro) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 font-sans">
@@ -908,7 +908,7 @@ export default function PainelLider() {
               </div>
               <div className={cardClass}>
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide">Bem-estar — média da base</h3>
+                  <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide">Bem-estar: média da base</h3>
                   {checkinAlertas > 0 && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{checkinAlertas} em alerta</span>}
                 </div>
                 <p className="text-[10px] font-medium text-slate-500 mb-4">maior = melhor (inclusive estresse) · alerta ≤ 40</p>
@@ -924,7 +924,7 @@ export default function PainelLider() {
             </div>
             <div className={cardClass}>
               <div className="flex items-center justify-between mb-1">
-                <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide">Horas estudadas vs Meta — média da base</h3>
+                <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide">Horas estudadas vs meta: média da base</h3>
                 <select value={periodoFiltro} onChange={e => setPeriodoFiltro(e.target.value)} className="text-[10px] font-semibold text-intento-blue bg-slate-50 border border-slate-200 px-2 py-1 rounded outline-none cursor-pointer">
                   <option value="4">4 sem</option><option value="8">8 sem</option><option value="tudo">tudo</option>
                 </select>
@@ -940,7 +940,7 @@ export default function PainelLider() {
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fora do app</p>
                   <span className="bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{foraDoApp.length}</span>
                 </div>
-                <p className="text-[11px] text-slate-500 font-medium mb-3">Não se adaptaram / não vão usar o app — fora do diagnóstico dimensional. Encontros e acompanhamento ainda valem; acompanhe pelo perfil.</p>
+                <p className="text-[11px] text-slate-500 font-medium mb-3">Não se adaptaram ou não vão usar o app, por isso ficam fora do diagnóstico dimensional. Encontros e acompanhamento continuam valendo; acompanhe pelo perfil.</p>
                 <div className="flex flex-wrap gap-2">
                   {foraDoApp.map(a => (
                     <span key={a.idAluno + a.nome} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full">
@@ -1031,7 +1031,7 @@ export default function PainelLider() {
                   )}
                   {(m.marcosPend || []).length > 0 && (
                     <div className="mb-4 rounded-lg border border-amber-100 overflow-hidden"
-                      title="O Fechamento de Ciclo aparece automaticamente no próximo Diário de Bordo de cada aluno — pendente = o encontro ainda não aconteceu ou o mentor adiou.">
+                      title="O Fechamento de Ciclo aparece automaticamente no próximo Diário de Bordo de cada aluno. Pendente significa que o encontro ainda não aconteceu ou que o mentor adiou.">
                       <p className="text-[9px] font-bold text-amber-700 uppercase tracking-wide bg-amber-50 px-3 py-1.5">
                         🏁 Fechamento de Ciclo pendente · {m.marcosPend.length} aluno{m.marcosPend.length !== 1 ? 's' : ''} ({m.marcosPend[0].a.metricas.marcoPendente.ciclo})
                       </p>
@@ -1059,7 +1059,7 @@ export default function PainelLider() {
                 </button>
               );
             })}
-            <span className="text-[10px] text-slate-500 font-medium ml-auto">use os Filtros acima p/ buscar por nome/mentor/plano</span>
+            <span className="text-[10px] text-slate-500 font-medium ml-auto">use os Filtros acima para buscar por nome, mentor ou plano</span>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
@@ -1136,14 +1136,14 @@ export default function PainelLider() {
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Selecione o mentor</label>
                   <select value={mentorEscolhido} onChange={(e) => setMentorEscolhido(e.target.value)} className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue">
-                    <option value="">— Escolha um mentor ativo —</option>
+                    <option value="">Selecione um mentor ativo</option>
                     {(dados?.mentoresAtivos || []).map(m => <option key={m.email} value={m.email}>{m.nome}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Plano contratado{alunoDesignar.plano && <span className="ml-2 normal-case text-slate-500 font-medium">(atual: {alunoDesignar.plano})</span>}</label>
                   <select value={planoEscolhido} onChange={(e) => setPlanoEscolhido(e.target.value)} className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue">
-                    <option value="">— Escolha o plano —</option>
+                    <option value="">Selecione o plano</option>
                     {PLANOS_DISPONIVEIS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
@@ -1170,7 +1170,7 @@ export default function PainelLider() {
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Motivo da saída</label>
                   <select value={motivoSaida} onChange={(e) => setMotivoSaida(e.target.value)} className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-intento-blue text-sm font-medium text-intento-blue">
-                    <option value="">— Escolha o motivo —</option>
+                    <option value="">Selecione o motivo</option>
                     {MOTIVOS_SAIDA.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </div>

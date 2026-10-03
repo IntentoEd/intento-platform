@@ -41,7 +41,7 @@ export function BarraCarimbo({ nivel }) {
 // Carimbos computados no front a partir do BD_Registro cru — mesmas fórmulas
 // do /lider via lib/carimbos.js. Faixa compacta por padrão (colapsada);
 // clique expande o detalhe por dimensão.
-const NOTA_OVERSTUDYING = '2+ semanas acima de 105% da meta — atenção à sustentabilidade (trava Mestre)';
+const NOTA_OVERSTUDYING = '2+ semanas acima de 105% da meta: atenção à sustentabilidade (trava Mestre)';
 
 export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoAluno, simulados, exportRetrato }) {
   const foraDoApp = STATUS_FORA_DO_APP.includes(statusApp);
@@ -97,13 +97,13 @@ export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoA
         <span className="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider">{ciclo.id} {ciclo.nome}</span>
         {marcoPend && (
           <span className="text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full"
-            title={`O ${marcoPend.ciclo.id} · ${marcoPend.ciclo.nome} de ${marcoPend.ano} terminou sem marco registrado — o Fechamento de Ciclo aparece automaticamente no próximo Diário de Bordo.`}>
+            title={`O ${marcoPend.ciclo.id} · ${marcoPend.ciclo.nome} de ${marcoPend.ano} terminou sem marco registrado. O Fechamento de Ciclo aparece automaticamente no próximo Diário de Bordo.`}>
             🏁 Fechamento {marcoPend.ciclo.id}{marcoPend.ano !== new Date().getFullYear() ? `/${marcoPend.ano}` : ''} pendente
           </span>
         )}
       </span>
       {foraDoApp ? (
-        <span className="text-xs text-slate-500 font-medium">Sem dados dimensionais — aluno fora do app.</span>
+        <span className="text-xs text-slate-500 font-medium">Sem dados dimensionais: aluno fora do app.</span>
       ) : (
         <>
           <CarimboDimensional d={d} detalhes={detalhes} alertas={{ comportamento: d.overstudying }} />
@@ -111,7 +111,7 @@ export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoA
           {resumo && <span className="text-[11px] text-slate-500 font-medium">{resumo}</span>}
         </>
       )}
-      <span className="ml-auto flex items-center gap-1.5 shrink-0" title="Perfil — leitura contínua; o retrato oficial congela no Marco de Ciclo">
+      <span className="ml-auto flex items-center gap-1.5 shrink-0" title="Perfil: leitura contínua. O retrato oficial congela no Marco de Ciclo">
         <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Perfil</span>
         <CarimboBadge nivel={d.perfil} />
         {!foraDoApp && <span className={`text-[10px] text-slate-400 transition-transform ${aberto ? 'rotate-180' : ''}`} aria-hidden="true">▾</span>}
@@ -164,11 +164,11 @@ export function CardCarimbosAluno({ registros, statusApp, marcos, diarios, tipoA
           <details className="pt-1">
             <summary className="text-[10px] font-semibold text-slate-500 cursor-pointer select-none">Faixas dos carimbos</summary>
             <div className="text-[10px] text-slate-500 font-medium leading-relaxed mt-1 space-y-0.5">
-              <p><b>Comportamento</b> — semanas válidas na janela de 4 mensuráveis (≥3 dias planejados): ≤2 Aprendiz · 3 Veterano · 4 (ou 3 + 1 rompida absorvida) Mestre. Presença: semana válida = no máx. 1 dia planejado sem registro. Aproveitamento: válida ≥70% da meta (Mestre exige ≥85%).</p>
-              <p><b>Cobertura</b> — % do edital validado (último valor informado): &lt;30 Aprendiz · 30–70 Veterano · &gt;70 Mestre.</p>
-              <p><b>Domínio</b> — % de acerto acumulado (último valor informado): &lt;70 Aprendiz · 70–80 Veterano · &gt;80 Mestre (nenhuma matéria &lt;70).</p>
-              <p><b>Simulado</b> — RESULTADO FINAL da prova: média do aproveitamento geral dos últimos 3 simulados concluídos (validade 10 semanas): &lt;70 Aprendiz · 70–alvo Veterano · ≥alvo Mestre (alvo = nível-alvo do marco; padrão 85). Sem simulado recente = sem dado (cinza), nunca Aprendiz por ausência.</p>
-              <p><b>Perfil</b> — a dimensão menos avançada (regra do elo mais fraco).</p>
+              <p><b>Comportamento</b>: semanas válidas na janela de 4 mensuráveis (≥3 dias planejados): ≤2 Aprendiz · 3 Veterano · 4 (ou 3 + 1 rompida absorvida) Mestre. Presença: semana válida = no máx. 1 dia planejado sem registro. Aproveitamento: válida ≥70% da meta (Mestre exige ≥85%).</p>
+              <p><b>Cobertura</b>: % do edital validado (último valor informado): &lt;30 Aprendiz · 30–70 Veterano · &gt;70 Mestre.</p>
+              <p><b>Domínio</b>: % de acerto acumulado (último valor informado): &lt;70 Aprendiz · 70–80 Veterano · &gt;80 Mestre (nenhuma matéria &lt;70).</p>
+              <p><b>Simulado</b>: RESULTADO FINAL da prova: média do aproveitamento geral dos últimos 3 simulados concluídos (validade 10 semanas): &lt;70 Aprendiz · 70–alvo Veterano · ≥alvo Mestre (alvo = nível-alvo do marco; padrão 85). Sem simulado recente = sem dado (cinza), nunca Aprendiz por ausência.</p>
+              <p><b>Perfil</b>: a dimensão menos avançada (regra do elo mais fraco).</p>
             </div>
           </details>
         </div>
@@ -197,7 +197,7 @@ export function CarimboDimensional({ d, tamanho = 'md', detalhes, alertas }) {
           ? 'Simulado sem dado recente'
           : nivel ? `${nome}: ${CARIMBO_LABEL[nivel]}` : `${nome} sem dado`;
         const extra = detalhes?.[key];
-        const aria = extra ? (nivel ? `${base} — ${extra}` : `${nome}: ${extra}`) : base;
+        const aria = extra ? (nivel ? `${base}. ${extra}` : `${nome}: ${extra}`) : base;
         return (
           <span key={key} aria-label={aria} title={aria}
             className={`relative font-bold rounded ${cls} ${inativo ? 'opacity-70' : ''}`}
@@ -246,7 +246,7 @@ export function LinhaDoAno({ marcos, marcoPendente, hoje, exportRetrato }) {
   return (
     <div>
       <div className="flex items-center gap-2">
-        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider shrink-0" title={`Linha do Ano ${ano} — os nós são os Marcos de Ciclo`}>Linha do Ano</span>
+        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider shrink-0" title={`Linha do Ano ${ano}: os nós são os Marcos de Ciclo`}>Linha do Ano</span>
         {(marcoC4Anterior || pendC4Anterior) && (
           <span className="flex items-center gap-1 shrink-0">
             <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider hidden sm:block">C4·{ano - 1}</span>
@@ -264,7 +264,7 @@ export function LinhaDoAno({ marcos, marcoPendente, hoje, exportRetrato }) {
             <div key={c.id} className="flex items-center gap-1.5 flex-1 min-w-0">
               <div className="flex-1 min-w-0" title={`${c.id} · ${c.nome}`}>
                 <p className={`text-[8px] font-bold uppercase tracking-wider truncate hidden sm:block ${corrente ? 'text-intento-blue' : 'text-slate-500'}`}>{c.id} · {c.nome}</p>
-                <div className="relative h-1.5 rounded-full bg-slate-100 mt-0.5" role="img" aria-label={`${c.id} · ${c.nome}${corrente ? ' — ciclo atual' : passado ? ' — concluído' : ' — futuro'}`}>
+                <div className="relative h-1.5 rounded-full bg-slate-100 mt-0.5" role="img" aria-label={`${c.id} · ${c.nome}${corrente ? ': ciclo atual' : passado ? ': concluído' : ': futuro'}`}>
                   <div className="absolute inset-y-0 left-0 rounded-full bg-intento-blue/80"
                     style={{ width: passado ? '100%' : corrente ? `${Math.round(frac * 100)}%` : '0%' }} />
                   {corrente && (
@@ -287,7 +287,7 @@ export function LinhaDoAno({ marcos, marcoPendente, hoje, exportRetrato }) {
 
 function NoMarco({ ciclo, marco, pendente, aberto, onToggle }) {
   if (marco) {
-    const tt = `Marco ${ciclo.id} · Perfil ${CARIMBO_LABEL[marco.perfil] || '—'} · ${marco.data || ''}${marco.origem === 'retroativo' ? ' · retroativo' : ''} — clique pra ver o retrato`;
+    const tt = `Marco ${ciclo.id} · Perfil ${CARIMBO_LABEL[marco.perfil] || '—'} · ${marco.data || ''}${marco.origem === 'retroativo' ? ' · retroativo' : ''}. Clique para ver o retrato`;
     return (
       <button type="button" onClick={onToggle} title={tt} aria-label={tt} aria-expanded={aberto}
         className={`relative after:absolute after:-inset-1.5 after:content-[''] w-4 h-4 rounded-full bg-emerald-500 text-white text-[8px] font-black flex items-center justify-center shrink-0 border-2 shadow-sm hover:scale-110 transition-transform ${aberto ? 'border-intento-blue' : 'border-white'}`}>
@@ -296,7 +296,7 @@ function NoMarco({ ciclo, marco, pendente, aberto, onToggle }) {
     );
   }
   if (pendente) {
-    const tt = `Fechamento do ${ciclo.id} pendente — acontece automaticamente no próximo Diário de Bordo`;
+    const tt = `Fechamento do ${ciclo.id} pendente. Acontece automaticamente no próximo Diário de Bordo`;
     return (
       <span title={tt} role="img" aria-label={tt}
         className="w-4 h-4 rounded-full bg-amber-100 border-2 border-amber-400 text-amber-700 text-[8px] font-black flex items-center justify-center shrink-0">
@@ -304,7 +304,7 @@ function NoMarco({ ciclo, marco, pendente, aberto, onToggle }) {
       </span>
     );
   }
-  const tt = `Marco do ${ciclo.id} — ainda não chegou`;
+  const tt = `Marco do ${ciclo.id}: ainda não chegou`;
   return <span className="w-4 h-4 rounded-full bg-white border-2 border-slate-200 shrink-0" title={tt} role="img" aria-label={tt} />;
 }
 
@@ -333,14 +333,14 @@ function RetratoMarco({ marco, onFechar, exportRetrato }) {
         <span className="text-[10px] font-bold text-intento-blue uppercase tracking-wider">🏁 Marco {marco.ciclo}{info ? ` · ${info.nome}` : ''} · {marco.ano}</span>
         {marco.data && <span className="text-[10px] text-slate-500 font-medium">carimbado em {marco.data}</span>}
         {marco.origem === 'retroativo' && (
-          <span className="text-[9px] font-bold bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Retrato computado do histórico — o ciclo fechou antes da feature existir">retroativo</span>
+          <span className="text-[9px] font-bold bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Retrato computado do histórico: o ciclo fechou antes deste recurso existir">retroativo</span>
         )}
         <span className="ml-auto flex items-center gap-3">
           {exportRetrato && marco.ano != null && marco.ciclo && (
             <Link
               href={`/mentor/ig/retrato?id=${exportRetrato.id}&ano=${marco.ano}&ciclo=${marco.ciclo}&nome=${encodeURIComponent(exportRetrato.nome || '')}`}
               className="text-[10px] font-bold text-intento-blue hover:underline whitespace-nowrap"
-              title="Gera o .png do Retrato do Ciclo pra enviar ao aluno"
+              title="Gera o .png do Retrato do Ciclo para enviar ao aluno"
             >
               Exportar retrato →
             </Link>
@@ -360,7 +360,7 @@ function RetratoMarco({ marco, onFechar, exportRetrato }) {
           <CarimboBadge nivel={marco.perfil} />
         </span>
         {marco.nivelAlvo != null && (
-          <span className="text-[10px] text-slate-500 font-medium ml-auto" title="Nível-alvo de simulado combinado pro ciclo seguinte">alvo simulado: {marco.nivelAlvo}%</span>
+          <span className="text-[10px] text-slate-500 font-medium ml-auto" title="Nível-alvo de simulado combinado para o ciclo seguinte">alvo simulado: {marco.nivelAlvo}%</span>
         )}
       </div>
       {stats.length > 0 && (

@@ -91,7 +91,7 @@ export default function Termos() {
         </p>
         <ul className={list}>
           <li>Que a plataforma estará disponível de forma ininterrupta, sem falhas ou erros.</li>
-          <li>Resultados específicos em provas, vestibulares ou processos seletivos — o desempenho do Usuário depende de múltiplos fatores além da mentoria.</li>
+          <li>Resultados específicos em provas, vestibulares ou processos seletivos, pois o desempenho do Usuário depende de múltiplos fatores além da mentoria.</li>
           <li>Que conteúdos de terceiros eventualmente referenciados na plataforma estarão sempre disponíveis ou atualizados.</li>
         </ul>
         <p className={paragraph}>

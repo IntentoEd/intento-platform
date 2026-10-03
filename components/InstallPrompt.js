@@ -75,7 +75,7 @@ export default function InstallPrompt() {
           <p className="text-xs text-slate-500 mt-0.5 leading-snug">
             {isIOS
               ? <>No Safari, toque em <b>Compartilhar</b> e depois em <b>"Adicionar à Tela de Início"</b>.</>
-              : <>Tenha o app na sua tela inicial — abre mais rápido e funciona offline.</>}
+              : <>Adicione o app à sua tela inicial. Ele abre mais rápido e funciona offline.</>}
           </p>
         </div>
         <button
