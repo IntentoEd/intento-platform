@@ -16,10 +16,27 @@ import { computarSelos } from '@/lib/selos';
 // única, compartilhada com os exports do mentor em ig/painel e ig/retrato).
 import { MetalDefs, SeloSvg, METAL_DOT } from '@/components/SeloMetal';
 
+// Vaga do álbum: selo ainda não conquistado. Mesma silhueta, em cinza, com o
+// romano do primeiro degrau e o critério pra chegar lá. Volta por Cima não
+// mostra critério (anunciar o retorno antes seria convite a parar).
+function SeloSombra({ selo }) {
+  const p = selo.proximo;
+  const dica = selo.ocultarComoProxima ? 'Selo surpresa' : (p?.criterio || 'a conquistar');
+  return (
+    <div className="flex flex-col items-center text-center w-28" title={selo.descricao}>
+      <SeloSvg sombreado tierRomano={p?.tierRomano || 'I'} className="w-20 h-20"
+        ariaLabel={`Selo ${selo.nome}: ainda não conquistado`} />
+      <p className="text-xs font-bold text-slate-400 mt-1.5 leading-tight">{selo.nome}</p>
+      <p className="text-[10px] font-medium text-slate-400 leading-tight">{dica}</p>
+    </div>
+  );
+}
+
 // Selo postal: círculo navy com anel serrilhado; tier em romano no centro.
 // Anel na cor do metal do tier; novo (não visto): anel em amarelo da marca
 // + pill "nova desta semana" (o destaque temporal vence o metal na visita).
 function SeloVisual({ selo, naoVisto }) {
+  if (selo.tierIdx < 0) return <SeloSombra selo={selo} />;
   return (
     <div className="flex flex-col items-center text-center w-28">
       <div className="relative">
@@ -178,29 +195,29 @@ export default function Jornada({ sessao, caderno }) {
         </p>
       </div>
 
-      {/* Selos estampados */}
+      {/* Álbum de selos: catálogo completo em ordem fixa; os não conquistados
+          ficam sombreados até serem estampados (vaga visível = convite). */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <MetalDefs />
-        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-4">Selos estampados · {selos.estampados.length}</p>
-        {selos.estampados.length === 0 ? (
-          <p className="text-sm text-slate-500 font-medium">Os primeiros selos são estampados a partir das primeiras semanas de estudo registradas.</p>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-x-4 gap-y-6">
-              {selos.estampados.map(s => <SeloVisual key={s.id} selo={s} naoVisto={naoVisto(s)} />)}
-            </div>
-            <p className="flex items-center gap-1.5 flex-wrap text-[10px] text-slate-500 font-medium mt-4 border-t border-slate-100 pt-2.5">
-              O anel mostra o nível do selo:
-              {['bronze', 'prata', 'ouro', 'platina'].map((m, i) => (
-                <span key={m} className="inline-flex items-center gap-1">
-                  {i > 0 && <span aria-hidden="true">→</span>}
-                  <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: METAL_DOT[m] }} aria-hidden="true" />
-                  {m}
-                </span>
-              ))}
-            </p>
-          </>
-        )}
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Álbum de selos · {selos.estampados.length} de {selos.todos.length}</p>
+        <p className="text-xs text-slate-500 font-medium mb-4">
+          {selos.estampados.length === 0
+            ? 'Os primeiros selos são estampados a partir das primeiras semanas de estudo registradas.'
+            : 'Selos em cinza ainda não foram conquistados. Cada um mostra o que falta para a primeira estampa.'}
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-6">
+          {selos.todos.map(s => <SeloVisual key={s.id} selo={s} naoVisto={naoVisto(s)} />)}
+        </div>
+        <p className="flex items-center gap-1.5 flex-wrap text-[10px] text-slate-500 font-medium mt-4 border-t border-slate-100 pt-2.5">
+          O anel mostra o nível do selo:
+          {['bronze', 'prata', 'ouro', 'platina'].map((m, i) => (
+            <span key={m} className="inline-flex items-center gap-1">
+              {i > 0 && <span aria-hidden="true">→</span>}
+              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: METAL_DOT[m] }} aria-hidden="true" />
+              {m}
+            </span>
+          ))}
+        </p>
       </div>
 
       {/* Próximas estampas — no máx. 2, sempre alcançáveis */}
