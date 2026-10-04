@@ -164,7 +164,7 @@ function handleCadastrarAvaliacoes(dados) {
     for (var i = 0; i < lista.length; i++) {
       if (ehProprioAluno) {
         var temNota = lista[i] && lista[i].nota !== undefined && lista[i].nota !== null && lista[i].nota !== '';
-        if (temNota) return responderJSON({ status: 'erro', mensagem: 'avaliação #' + (i + 1) + ': aluno cadastra sem nota — ela entra depois, no resultado', indice: i });
+        if (temNota) return responderJSON({ status: 'erro', mensagem: 'avaliação #' + (i + 1) + ': aluno cadastra sem nota. A nota entra depois, no resultado', indice: i });
         if (txt(lista[i] && lista[i].substituiId)) return responderJSON({ status: 'erro', mensagem: 'avaliação #' + (i + 1) + ': vínculo de recuperação é feito pelo mentor', indice: i });
       }
       var v = _validarAvaliacao(lista[i], i, aluno.tipoAluno);
@@ -371,7 +371,7 @@ function handleAtualizarAvaliacao(dados) {
       atualizacoes.push({ col: COL_AV.RESULTADO_EM + 1, valor: new Date() });
     }
 
-    if (atualizacoes.length === 0) return responderJSON({ status: 'erro', mensagem: 'nenhum campo pra atualizar' });
+    if (atualizacoes.length === 0) return responderJSON({ status: 'erro', mensagem: 'nenhum campo para atualizar' });
 
     for (var k = 0; k < atualizacoes.length; k++) {
       av.aba.getRange(av.linha, atualizacoes[k].col).setValue(atualizacoes[k].valor);

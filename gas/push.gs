@@ -159,7 +159,7 @@ function cronLembreteAluno() {
     _enviarPush(
       em,
       '📚 Sua semana começou',
-      'Veja o plano de ação que você combinou com seu mentor pra essa semana.',
+      'Veja o plano de ação que você combinou com seu mentor para esta semana.',
       '/painel'
     );
     count++;
@@ -257,7 +257,7 @@ function cronAlertaLiderMentoresFaltantes() {
     _enviarPush(
       'filippe@metodointento.com.br',
       '🤝 ' + pend60.length + ' encontro(s) de 60 dias pendente(s)',
-      pend60.join(', ') + ' — na janela de 60-90 dias desde o 1º diário de bordo.',
+      pend60.join(', ') + '. Janela de 60 a 90 dias desde o 1º diário de bordo.',
       '/lider'
     );
   }
@@ -268,7 +268,7 @@ function _notificarLiderAlunoAguardando(nomeAluno) {
   _enviarPush(
     'filippe@metodointento.com.br',
     '🎯 Aluno aguardando designação',
-    nomeAluno + ' completou o onboarding e está pronto pra ser designado a um mentor.',
+    nomeAluno + ' completou o onboarding e aguarda designação de mentor.',
     '/lider'
   );
 }

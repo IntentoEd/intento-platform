@@ -662,7 +662,7 @@ function handleOnboarding(dados) {
           return responderJSON({
             status: 'erro',
             codigo: 'duplicado',
-            mensagem: 'Já existe um cadastro com este e-mail. Faça login pra continuar de onde parou.'
+            mensagem: 'Já existe um cadastro com este e-mail. Faça login para continuar de onde parou.'
           });
         }
       }
@@ -853,7 +853,7 @@ function provisionarPlanilhaAluno(nomeMentorado, emailMentorado, arrayOnboarding
   if (emailMentorado) {
     try {
       MailApp.sendEmail(emailMentorado,
-        "Intento — próximo passo: seu Diagnóstico Teórico",
+        "Intento: próximo passo, seu Diagnóstico Teórico",
         "Olá, " + primeiroNome + ",\n\n" +
         "Recebi agora seu Questionário de Onboarding. Antes de qualquer coisa,\n" +
         "obrigado pela confiança em nos escolher.\n\n" +
@@ -862,7 +862,7 @@ function provisionarPlanilhaAluno(nomeMentorado, emailMentorado, arrayOnboarding
         "  1. Entre em " + URL_APP + "\n" +
         "  2. Faça login com este mesmo e-mail (" + emailMentorado + ")\n" +
         "  3. No Hub, clique em 'Diagnóstico Teórico'\n\n" +
-        "Filippe Lemos\nHead de Mentoria — Intento"
+        "Filippe Lemos\nHead de Mentoria, Intento"
       );
     } catch (e) { registrarErro(e, "email ao aluno: " + emailMentorado); }
   }
@@ -3266,25 +3266,25 @@ function handleDesignarMentor(dados) {
           ? 'A partir de agora, seu acompanhamento na Intento será feito pelo(a) mentor(a) ' + mentorObj.nome + '.'
           : 'Você foi designado(a) para o(a) mentor(a) ' + mentorObj.nome + '.';
         var seguimentoAluno = ehTroca
-          ? 'Em breve ele(a) entrará em contato com você pelo WhatsApp para se apresentar e combinar os próximos encontros. Todo o seu histórico continua valendo — a transição é só de quem te acompanha.'
+          ? 'Em breve ele(a) entrará em contato com você pelo WhatsApp para se apresentar e combinar os próximos encontros. Todo o seu histórico continua valendo. Muda apenas quem acompanha você.'
           : 'Em breve ele(a) entrará em contato com você pelo WhatsApp para agendar a primeira reunião e alinhar os primeiros passos da sua mentoria.';
         GmailApp.sendEmail(
           dadosAluno.email,
-          ehTroca ? 'Atualização na sua mentoria — novo(a) mentor(a)' : 'Sua mentoria começa agora — bem-vindo(a) à Intento',
+          ehTroca ? 'Atualização na sua mentoria: novo(a) mentor(a)' : 'Sua mentoria começa agora. Bem-vindo(a) à Intento',
           'Olá ' + (dadosAluno.nome || '') + ',\n\n' +
           introAluno + '\n\n' +
           seguimentoAluno + '\n\n' +
-          'Se tiver alguma dúvida nesse meio tempo, é só responder este email diretamente.\n\n' +
-          'Bons estudos!\n— Filippe Ximenes\nEquipe Intento',
+          'Se tiver alguma dúvida nesse meio tempo, responda este e-mail diretamente.\n\n' +
+          'Bons estudos.\nFilippe Ximenes\nEquipe Intento',
           {
-            name: 'Filippe Ximenes — Intento',
+            name: 'Filippe Ximenes, Intento',
             replyTo: 'filippe@metodointento.com.br',
             htmlBody:
               '<p>Olá <b>' + (dadosAluno.nome || '') + '</b>,</p>' +
               '<p>' + introAluno.replace(mentorObj.nome, '<b>' + mentorObj.nome + '</b>') + '</p>' +
               '<p>' + seguimentoAluno + '</p>' +
-              '<p>Se tiver alguma dúvida nesse meio tempo, é só responder este email diretamente.</p>' +
-              '<p>Bons estudos!<br/>— Filippe Ximenes<br/><b>Equipe Intento</b></p>'
+              '<p>Se tiver alguma dúvida nesse meio tempo, responda este e-mail diretamente.</p>' +
+              '<p>Bons estudos.<br/>Filippe Ximenes<br/><b>Equipe Intento</b></p>'
           }
         );
         emailsEnviados.aluno = true;
@@ -3296,31 +3296,31 @@ function handleDesignarMentor(dados) {
     try {
       GmailApp.sendEmail(
         emailMentor,
-        (ehTroca ? 'Mentorado transferido pra você: ' : 'Novo mentorado: ') + (dadosAluno.nome || 'sem nome'),
+        (ehTroca ? 'Mentorado transferido para você: ' : 'Novo mentorado: ') + (dadosAluno.nome || 'sem nome'),
         'Olá ' + mentorObj.nome + ',\n\n' +
-        (ehTroca ? 'Um mentorado foi transferido pra você (já estava em mentoria com outro mentor):\n\n' : 'Um novo mentorado foi designado pra você:\n\n') +
+        (ehTroca ? 'Um mentorado foi transferido para você (já estava em mentoria com outro mentor):\n\n' : 'Um novo mentorado foi designado para você:\n\n') +
         '- Nome: ' + (dadosAluno.nome || '—') + '\n' +
         '- Email: ' + (dadosAluno.email || '—') + '\n' +
         '- Telefone: ' + (dadosAluno.telefone || '—') + '\n\n' +
         (ehTroca
-          ? 'Por favor, entre em contato em até 48h pra se apresentar e combinar os próximos encontros. O histórico dele(a) já está na plataforma.\n\n'
+          ? 'Por favor, entre em contato em até 48h para se apresentar e combinar os próximos encontros. O histórico dele(a) já está na plataforma.\n\n'
           : 'Por favor, entre em contato em até 48h e cadastre o primeiro encontro no Diário de Bordo após a reunião inicial.\n\n') +
-        '— Filippe Ximenes\nEquipe Intento',
+        'Filippe Ximenes\nEquipe Intento',
         {
-          name: 'Filippe Ximenes — Intento',
+          name: 'Filippe Ximenes, Intento',
           replyTo: 'filippe@metodointento.com.br',
           htmlBody:
             '<p>Olá <b>' + mentorObj.nome + '</b>,</p>' +
-            (ehTroca ? '<p>Um mentorado foi <b>transferido</b> pra você (já estava em mentoria com outro mentor):</p>' : '<p>Um novo mentorado foi designado pra você:</p>') +
+            (ehTroca ? '<p>Um mentorado foi <b>transferido</b> para você (já estava em mentoria com outro mentor):</p>' : '<p>Um novo mentorado foi designado para você:</p>') +
             '<ul>' +
               '<li><b>Nome:</b> ' + (dadosAluno.nome || '—') + '</li>' +
               '<li><b>Email:</b> ' + (dadosAluno.email || '—') + '</li>' +
               '<li><b>Telefone:</b> ' + (dadosAluno.telefone || '—') + '</li>' +
             '</ul>' +
             (ehTroca
-              ? '<p>Por favor, entre em contato em até 48h pra se apresentar e combinar os próximos encontros. O histórico dele(a) já está na plataforma.</p>'
+              ? '<p>Por favor, entre em contato em até 48h para se apresentar e combinar os próximos encontros. O histórico dele(a) já está na plataforma.</p>'
               : '<p>Por favor, entre em contato em até 48h e cadastre o primeiro encontro no Diário de Bordo após a reunião inicial.</p>') +
-            '<p>— Filippe Ximenes<br/><b>Equipe Intento</b></p>'
+            '<p>Filippe Ximenes<br/><b>Equipe Intento</b></p>'
         }
       );
       emailsEnviados.mentor = true;
@@ -3390,7 +3390,7 @@ function handleAtualizarDadosAluno(dados) {
     }
 
     if (atualizacoes.length === 0) {
-      return responderJSON({ status: 'erro', mensagem: 'nenhum campo pra atualizar' });
+      return responderJSON({ status: 'erro', mensagem: 'nenhum campo para atualizar' });
     }
 
     for (var k = 0; k < atualizacoes.length; k++) {
