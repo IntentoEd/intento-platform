@@ -690,7 +690,7 @@ export default function PainelDoAluno() {
       if (resultado.ok) {
         const msg = editando
           ? (resultado.analiseResetada ? "Alterações salvas. A análise de erros foi reiniciada (os números mudaram)." : "Alterações salvas.")
-          : "Registro salvo!";
+          : "Registro salvo.";
         setModalRegistroAberto(false);
         setEditandoSimuladoId(null);
         setMateriasCustom([]);
@@ -754,7 +754,7 @@ export default function PainelDoAluno() {
       if (data.status === 'sucesso') {
         setSimuladoAnalise(null);
         await recarregarDados();
-        mostrarToast("Análise gravada com sucesso!", "success");
+        mostrarToast("Análise gravada.", "success");
       }
     } catch (e) {
       mostrarToast("Erro ao sincronizar análise.", "error");
@@ -788,7 +788,7 @@ export default function PainelDoAluno() {
       });
       setSimuladoAnalise(null);
       await recarregarDados();
-      mostrarToast("Progresso salvo!", "success");
+      mostrarToast("Progresso salvo.", "success");
     } catch (e) {
       mostrarToast("Erro ao salvar progresso.", "error");
     }
@@ -1013,7 +1013,7 @@ export default function PainelDoAluno() {
       setCaderno(prev => [novoCard, ...prev]);
       setModalCadernoAberto(false);
       setFormCaderno({ disciplina: '', topico: '', data: new Date().toISOString().split('T')[0], fonte: '', classificacao: '', pergunta: '', resposta: '' });
-      mostrarToast('Erro registrado no caderno!');
+      mostrarToast('Erro registrado no caderno.');
     } catch (e) { mostrarToast('Erro ao salvar: ' + (e.message || 'sem detalhes'), 'error'); }
     finally { setSalvandoCaderno(false); }
   };
@@ -1066,7 +1066,7 @@ export default function PainelDoAluno() {
       mostrarToast('Anotação apagada.');
     } catch (e) {
       setCaderno(prev => [card, ...prev]);
-      mostrarToast('Não deu pra apagar agora — a anotação foi mantida. Tente de novo.', 'error');
+      mostrarToast('Não foi possível apagar agora. A anotação foi mantida. Tente de novo.', 'error');
     }
   };
 
@@ -1090,14 +1090,14 @@ export default function PainelDoAluno() {
       });
       const data = await res.json();
       if (data?.codigo === 'PLANO_DESATUALIZADO') {
-        mostrarToast('O plano de ação foi atualizado pelo seu mentor — recarregando.', 'error');
+        mostrarToast('O plano de ação foi atualizado pelo seu mentor. Recarregando.', 'error');
         recarregarDados();
         return;
       }
       if (!res.ok || data?.status === 'erro') throw new Error(data?.mensagem || 'http_' + res.status);
     } catch (e) {
       setPlanoChecks(anteriores);
-      mostrarToast('Não deu pra salvar o check agora. Tente de novo.', 'error');
+      mostrarToast('Não foi possível salvar o check agora. Tente de novo.', 'error');
     }
   };
 
@@ -1255,7 +1255,7 @@ export default function PainelDoAluno() {
             <div className="flex items-center justify-end gap-0.5 text-xs text-slate-500 -mb-6">
               <span>Atualizado {tempoRelativo(dadosTs)}</span>
               <button
-                onClick={async () => { const ok = await recarregarDados(); if (!ok) mostrarToast('Não deu pra atualizar agora. Tente de novo.', 'error'); }}
+                onClick={async () => { const ok = await recarregarDados(); if (!ok) mostrarToast('Não foi possível atualizar agora. Tente de novo.', 'error'); }}
                 disabled={atualizandoDados}
                 aria-label="Atualizar dados"
                 title="Atualizar dados"
@@ -1430,7 +1430,7 @@ export default function PainelDoAluno() {
                 <div className="space-y-8 animate-in slide-in-from-bottom-4 fade-in pb-10">
                   <div>
                     <h3 className="text-lg font-semibold text-intento-blue">Análise da Prova</h3>
-                    <p className="text-slate-500 text-sm">Quatro perguntas rápidas pra transformar este simulado em ação concreta.</p>
+                    <p className="text-slate-500 text-sm">Quatro perguntas rápidas para definir ações a partir deste simulado.</p>
                   </div>
 
                   {/* ETAPA 1 — O que eu esperava? */}
@@ -1472,7 +1472,7 @@ export default function PainelDoAluno() {
                         </div>
                       );
                     })()}
-                    <textarea className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 placeholder-slate-500 outline-none resize-none text-sm leading-relaxed focus:border-intento-blue/40 custom-scrollbar" rows="3" placeholder="O que mais te chamou atenção no resultado? Alguma matéria te surpreendeu — pra melhor ou pra pior?" value={formAutopsia.aar.aconteceu} onChange={e => setAarCampo('aconteceu', e.target.value)}></textarea>
+                    <textarea className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 placeholder-slate-500 outline-none resize-none text-sm leading-relaxed focus:border-intento-blue/40 custom-scrollbar" rows="3" placeholder="O que mais chamou sua atenção no resultado? Alguma matéria surpreendeu, para melhor ou para pior?" value={formAutopsia.aar.aconteceu} onChange={e => setAarCampo('aconteceu', e.target.value)}></textarea>
                     {simuladoAnalise.redacao > 0 && (
                       <p className="text-xs text-slate-500">Nota da redação: <span className="font-semibold text-purple-500">{simuladoAnalise.redacao}</span></p>
                     )}
@@ -1702,7 +1702,7 @@ export default function PainelDoAluno() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           <div className={cardClass}><h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Execução (Horas vs Meta)</h3><div className="h-64"><Bar data={{ labels: mensalMes.labels, datasets: [{ type: 'line', label: 'Meta', data: mensalMes.meta, borderColor: '#64748b', tension: 0.1 }, { type: 'bar', label: 'Horas', data: mensalMes.horas, backgroundColor: '#D4B726', borderRadius: 4 }] }} options={opcoesMes} /></div></div>
                           <div className={cardClass}><h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Domínio e Progresso</h3><div className="h-64"><Bar data={{ labels: mensalMes.labels, datasets: [{ type: 'line', label: 'Domínio', data: mensalMes.domTot, borderColor: '#3b82f6', tension: 0.3 }, { type: 'bar', label: 'Progresso', data: mensalMes.progTot, backgroundColor: 'rgba(100, 116, 139, 0.2)', borderRadius: 4 }] }} options={opcoesMes} /></div></div>
-                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Estilo de Vida</h3><p className="text-[10px] text-slate-500 mb-3">Seu check-in é feito no Aplicativo Intento — os dados aparecem pro seu mentor.</p><div className="h-64"><Line data={{ labels: mensalMes.labels, datasets: [{ label: 'Estresse', data: mensalMes.estresse, borderColor: '#ef4444' }, { label: 'Ansiedade', data: mensalMes.ansiedade, borderColor: '#f97316' }, { label: 'Sono', data: mensalMes.sono, borderColor: '#8b5cf6' }] }} options={{...opcoesMes, scales: { ...opcoesMes.scales, y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } } }}} /></div></div>
+                          <div className={cardClass}><h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Estilo de Vida</h3><p className="text-[10px] text-slate-500 mb-3">Seu check-in é feito no Aplicativo Intento. Os dados ficam visíveis para o seu mentor.</p><div className="h-64"><Line data={{ labels: mensalMes.labels, datasets: [{ label: 'Estresse', data: mensalMes.estresse, borderColor: '#ef4444' }, { label: 'Ansiedade', data: mensalMes.ansiedade, borderColor: '#f97316' }, { label: 'Sono', data: mensalMes.sono, borderColor: '#8b5cf6' }] }} options={{...opcoesMes, scales: { ...opcoesMes.scales, y: { min: 0, max: 100, ticks: { callback: (v) => v + '%' } } }}} /></div></div>
                         </div>
                       </div>
                     )}
@@ -1738,7 +1738,7 @@ export default function PainelDoAluno() {
                     return (
                       <div className={cardClass}>
                         <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 mb-1">
-                          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide">Consistência — Horas vs Meta</h3>
+                          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide">Consistência: horas vs meta</h3>
                           {semanas.length > 0 && (
                             <p className="text-[11px] font-medium text-slate-500">
                               <span className="text-slate-700 font-bold">{dentroMeta} de {semanas.length}</span> semana{semanas.length !== 1 ? 's' : ''} dentro da meta
@@ -1836,11 +1836,11 @@ export default function PainelDoAluno() {
                     </div>
                   ) : (
                     <>
-                      {semanal.isFirstWeek && <div className="bg-blue-50 text-blue-700 p-4 rounded-xl font-medium text-sm border border-blue-100">Esta é a sua primeira semana. Comparativos aparecerão na próxima!</div>}
+                      {semanal.isFirstWeek && <div className="bg-blue-50 text-blue-700 p-4 rounded-xl font-medium text-sm border border-blue-100">Esta é a sua primeira semana. Os comparativos aparecem a partir da próxima semana.</div>}
                       <div><h2 className="text-base font-semibold text-slate-700 mb-5">Aspectos Gerais</h2><div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10"><RenderMiniCards dataArray={semanal.geral} isFirstWeek={semanal.isFirstWeek} fullBorder={false} /></div></div>
                       <div>
                         <h2 className="text-base font-semibold text-slate-700 mb-1">Estilo de Vida</h2>
-                        <p className="text-xs text-slate-500 mb-5">Seu check-in é feito no <button onClick={() => setAbaAtiva(6)} className="font-semibold text-intento-blue hover:underline">Aplicativo Intento</button> — os dados aparecem pro seu mentor.</p>
+                        <p className="text-xs text-slate-500 mb-5">Seu check-in é feito no <button onClick={() => setAbaAtiva(6)} className="font-semibold text-intento-blue hover:underline">Aplicativo Intento</button>. Os dados ficam visíveis para o seu mentor.</p>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10"><RenderMiniCards dataArray={semanal.estilo} isFirstWeek={semanal.isFirstWeek} fullBorder={false} /></div>
                       </div>
                       <div><h2 className="text-base font-semibold text-slate-700 mb-5">Desempenho</h2><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(0, 2)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(2, 4)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(4, 6)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div><div className="space-y-4"><RenderMiniCards dataArray={semanal.desempenho?.slice(6, 8)} isFirstWeek={semanal.isFirstWeek} fullBorder={true} /></div></div></div>
@@ -2009,7 +2009,7 @@ export default function PainelDoAluno() {
                         return (
                           <div key={dia} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                             <div className={`px-4 py-2.5 border-b border-slate-100 ${isToday ? 'bg-intento-yellow/10' : 'bg-slate-50'}`}>
-                              <p className={`text-xs font-semibold uppercase tracking-wider ${isToday ? 'text-intento-yellow' : 'text-slate-500'}`}>{abbr} — {dia}</p>
+                              <p className={`text-xs font-semibold uppercase tracking-wider ${isToday ? 'text-intento-yellow' : 'text-slate-500'}`}>{abbr} · {dia}</p>
                             </div>
                             <div className="divide-y divide-slate-100">
                               {eventos.map((att, attIdx) => {
@@ -2084,7 +2084,7 @@ export default function PainelDoAluno() {
                                   key={attIdx}
                                   className={`absolute left-0.5 right-0.5 border-l-2 rounded-[4px] px-1.5 py-1 cursor-pointer overflow-hidden flex flex-col gap-0.5 ${style.bg} ${style.text} ${isChecked ? 'opacity-40' : ''}`}
                                   style={{ top: topPx, height: heightPx }}
-                                  title={`${categoria} — ${label}`}
+                                  title={`${categoria}: ${label}`}
                                 >
                                   <div className="flex items-center gap-1 min-w-0">
                                     <input type="checkbox" checked={isChecked} onChange={() => toggleTask(tId)} className="w-3 h-3 shrink-0 rounded" onClick={e => e.stopPropagation()} />
@@ -2662,7 +2662,7 @@ export default function PainelDoAluno() {
         aberto={!!excluindoSimulado}
         titulo="Excluir simulado?"
         descricao={excluindoSimulado
-          ? `"${excluindoSimulado.especificacao}" (${formatSimuladoDate(excluindoSimulado.data)}) será removido, junto com a análise de erros. Não dá pra desfazer.`
+          ? `"${excluindoSimulado.especificacao}" (${formatSimuladoDate(excluindoSimulado.data)}) será removido, junto com a análise de erros. Esta ação não pode ser desfeita.`
           : ''}
         textoConfirmar="Excluir"
         tom="danger"
@@ -2674,7 +2674,7 @@ export default function PainelDoAluno() {
         aberto={!!excluindoCard}
         titulo="Apagar esta anotação?"
         descricao={excluindoCard
-          ? `A anotação${excluindoCard.disciplina ? ` de ${excluindoCard.disciplina}` : ''} sai do seu caderno de erros e não dá pra desfazer.`
+          ? `A anotação${excluindoCard.disciplina ? ` de ${excluindoCard.disciplina}` : ''} será removida do seu caderno de erros. Esta ação não pode ser desfeita.`
           : ''}
         textoConfirmar="Apagar"
         tom="danger"
@@ -2698,7 +2698,7 @@ export default function PainelDoAluno() {
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-intento-blue/60 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white w-full max-w-lg rounded-xl shadow-lg flex flex-col overflow-hidden max-h-full">
             <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center shrink-0">
-              <h2 className="text-base font-semibold text-intento-blue">Anotar erro — Caderno de Erros</h2>
+              <h2 className="text-base font-semibold text-intento-blue">Anotar erro no Caderno de Erros</h2>
               <button onClick={fecharModalCaderno} aria-label="Fechar modal" className="text-slate-400 hover:text-slate-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
             <div className="p-7 space-y-4 min-h-0 overflow-y-auto overscroll-contain">
@@ -2741,7 +2741,7 @@ export default function PainelDoAluno() {
                 <textarea rows={3} placeholder='Ex: "Qual a função do RNA mensageiro na síntese proteica?"' className={inputClass + " resize-none"} value={formCaderno.pergunta} onChange={e => setFormCaderno({...formCaderno, pergunta: e.target.value})} />
               </div>
               <div>
-                <label className={labelClass}>Resposta correta <span className="text-slate-500 font-normal normal-case">(fica oculta — recordação ativa)</span></label>
+                <label className={labelClass}>Resposta correta <span className="text-slate-500 font-normal normal-case">(fica oculta, para recordação ativa)</span></label>
                 <textarea rows={3} placeholder="Resposta correta ou explicação completa..." className={inputClass + " resize-none"} value={formCaderno.resposta} onChange={e => setFormCaderno({...formCaderno, resposta: e.target.value})} />
               </div>
             </div>

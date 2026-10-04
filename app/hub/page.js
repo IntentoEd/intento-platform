@@ -187,7 +187,7 @@ export default function HubChecklist() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-intento-blue">Todas as etapas concluídas!</p>
+                <p className="text-sm font-semibold text-intento-blue">Todas as etapas concluídas.</p>
                 <p className="text-sm text-slate-500 mt-1 leading-relaxed">
                   Seu painel já está liberado. Seu mentor entrará em contato pelo WhatsApp para marcar o primeiro encontro.
                 </p>

@@ -170,7 +170,7 @@ export default function Boletim({ provas }) {
   if (provas.length === 0) {
     return (
       <p className="text-sm text-slate-500 italic py-6 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
-        Sem provas cadastradas ainda — Boletim aparece quando houver dados.
+        Sem provas cadastradas ainda. O Boletim aparece quando houver dados.
       </p>
     );
   }

@@ -289,7 +289,7 @@ export default function OnboardingWizard() {
       localStorage.setItem(chave, JSON.stringify({ ...cl, onboarding: true }));
     } catch (e) {
       console.error('[onboarding] enviar falhou:', e?.message);
-      setErro('Erro ao conectar com o servidor. Tente novamente — seu rascunho foi mantido.');
+      setErro('Erro ao conectar com o servidor. Tente novamente. Seu rascunho foi mantido.');
     } finally {
       setEnviando(false);
     }
@@ -335,7 +335,7 @@ export default function OnboardingWizard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-intento-blue mb-2">Tudo certo!</h2>
+          <h2 className="text-xl font-semibold text-intento-blue mb-2">Tudo certo.</h2>
           <p className="text-slate-500 mb-8 text-sm font-medium leading-relaxed">
             Seu perfil foi criado com sucesso. Você já recebeu os dados de acesso no e-mail (verifique a caixa de spam se não encontrar).
           </p>
@@ -344,7 +344,7 @@ export default function OnboardingWizard() {
               <span className="bg-intento-yellow text-intento-blue w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">!</span>
               Próximo passo obrigatório
             </h3>
-            <p className="text-sm text-slate-600 leading-relaxed">Realize o <b>Diagnóstico Teórico</b> para que seu mentor possa montar um plano cirúrgico baseado nas suas reais lacunas.</p>
+            <p className="text-sm text-slate-600 leading-relaxed">Realize o <b>Diagnóstico Teórico</b> para que seu mentor possa montar um plano baseado nas suas lacunas reais.</p>
           </div>
           <Link href="/diagnostico" className="block w-full py-3 px-6 bg-intento-yellow text-intento-blue font-semibold text-sm rounded-lg hover:bg-yellow-500 transition-all">
             Iniciar Diagnóstico Teórico →
@@ -364,7 +364,7 @@ export default function OnboardingWizard() {
           <div className="flex items-center gap-2">
             <Image src="/simbolo-azul.png" alt="Intento" width={24} height={24} className="object-contain shrink-0" />
             <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              {passoAtual < 4 ? PASSOS[passoAtual - 1].nome : `${PASSOS[3].nome} — ${secaoAtual.titulo}`}
+              {passoAtual < 4 ? PASSOS[passoAtual - 1].nome : `${PASSOS[3].nome}: ${secaoAtual.titulo}`}
             </p>
           </div>
           <p className="text-xs font-semibold text-intento-blue">
@@ -433,7 +433,7 @@ export default function OnboardingWizard() {
               <div className="mb-6 flex items-center justify-between gap-3 bg-blue-50 border border-blue-200 text-blue-700 text-sm font-medium px-4 py-3 rounded-lg">
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
-                  Rascunho recuperado — suas respostas anteriores foram restauradas.
+                  Rascunho recuperado. Suas respostas anteriores foram restauradas.
                 </div>
                 <button onClick={() => setRascunhoRecuperado(false)} className="text-blue-400 hover:text-blue-700 shrink-0" aria-label="Fechar aviso">✕</button>
               </div>
@@ -453,7 +453,7 @@ export default function OnboardingWizard() {
                 <div>
                   <h2 className="text-xl font-semibold text-intento-blue">Vamos te conhecer melhor</h2>
                   <p className="text-slate-500 text-sm font-medium mt-1">Preencha seus dados pessoais para criarmos seu perfil.</p>
-                  <p className="text-xs text-slate-500 mt-2">Leva uns 12 minutos. Suas respostas ficam salvas neste navegador.</p>
+                  <p className="text-xs text-slate-500 mt-2">Leva cerca de 12 minutos. Suas respostas ficam salvas neste navegador.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="md:col-span-2">
@@ -474,7 +474,7 @@ export default function OnboardingWizard() {
                   <div className="md:col-span-2">
                     <label className={labelCls}>E-mail de Acesso</label>
                     <input type="email" value={respostas.dadosPessoais.email} disabled className="w-full p-3 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 cursor-not-allowed font-medium" />
-                    <p className="text-xs text-slate-500 mt-1.5">Vinculado ao seu login — não pode ser alterado.</p>
+                    <p className="text-xs text-slate-500 mt-1.5">Vinculado ao seu login. Não pode ser alterado.</p>
                   </div>
                   <div>
                     <label className={labelCls}>Responsável Financeiro <span className="text-slate-400 normal-case font-normal">(opcional)</span></label>
@@ -580,12 +580,12 @@ export default function OnboardingWizard() {
                   <p className="text-slate-500 text-sm font-medium mt-1">
                     {respostas.perfilAcademico.fezEnemAntes === 'Sim'
                       ? 'Informe suas notas do ENEM para que o mentor possa montar seu diagnóstico inicial.'
-                      : 'Você ainda não fez o ENEM — sem problemas! Avance para a próxima etapa.'}
+                      : 'Você ainda não fez o ENEM. Avance para a próxima etapa.'}
                   </p>
                 </div>
                 {respostas.perfilAcademico.fezEnemAntes === 'Sim' && (<>
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-500 font-medium">
-                  Informe sua nota TRI (0–1000) por área — o mesmo valor que aparece no seu boletim do ENEM.
+                  Informe sua nota TRI (0–1000) por área, o mesmo valor que aparece no seu boletim do ENEM.
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {[

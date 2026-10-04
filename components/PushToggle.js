@@ -62,7 +62,7 @@ export default function PushToggle({ email }) {
       const data = await res.json();
       if (data.status !== 'sucesso') throw new Error(data.mensagem || 'falha ao registrar');
       setEstado('active');
-      setMensagem('Notificações ativas — você vai receber um teste em alguns segundos');
+      setMensagem('Notificações ativas. Você vai receber um teste em alguns segundos.');
 
       // Dispara push de teste imediato pra confirmar que tudo funciona
       apiFetch('/api/push/send', {
@@ -71,7 +71,7 @@ export default function PushToggle({ email }) {
         body: JSON.stringify({
           email,
           title: '🔔 Notificações ativadas',
-          body: 'Tudo pronto! Você receberá lembretes importantes da Intento por aqui.',
+          body: 'Tudo pronto. Você receberá lembretes importantes da Intento por aqui.',
           url: '/',
         }),
       }).catch(() => {});
@@ -113,7 +113,7 @@ export default function PushToggle({ email }) {
   if (estado === 'denied') {
     return (
       <span
-        title="Permissão bloqueada — habilite nas configurações do navegador"
+        title="Permissão bloqueada. Habilite nas configurações do navegador."
         className="text-[11px] font-semibold text-slate-500 px-1 py-1.5 cursor-not-allowed select-none"
       >
         🔕 Notificações bloqueadas
@@ -126,7 +126,7 @@ export default function PushToggle({ email }) {
       <button
         onClick={estado === 'active' ? desativar : ativar}
         disabled={estado === 'working'}
-        title={estado === 'active' ? 'Clique pra desativar as notificações' : undefined}
+        title={estado === 'active' ? 'Clique para desativar as notificações' : undefined}
         className={`text-[11px] font-semibold transition disabled:opacity-50 ${
           estado === 'active'
             ? 'text-slate-500 hover:text-slate-600 px-1 py-1.5'

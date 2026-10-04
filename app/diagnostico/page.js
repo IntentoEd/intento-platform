@@ -127,7 +127,7 @@ export default function DiagnosticoTeorico() {
   const enviarParaGoogle = async () => {
     const email = (emailBlindado || '').trim().toLowerCase();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      alert('Informe um e-mail válido — o mesmo que você usou no Questionário de Onboarding.');
+      alert('Informe um e-mail válido, o mesmo que você usou no Questionário de Onboarding.');
       return;
     }
     setEnviando(true);
@@ -161,7 +161,7 @@ export default function DiagnosticoTeorico() {
       localStorage.setItem(chave, JSON.stringify({ ...checklist, diagnostico: true }));
     } catch (e) {
       console.error('[diagnostico] enviar falhou:', e?.message);
-      alert('Erro ao enviar: ' + (e?.message || 'falha desconhecida') + '\n\nSuas respostas foram mantidas. Tente de novo. Se persistir, fale com o Filippe.');
+      alert('Erro ao enviar: ' + (e?.message || 'falha desconhecida') + '\n\nSuas respostas foram mantidas. Tente novamente. Se o erro persistir, fale com o Filippe.');
     } finally {
       setEnviando(false);
     }
@@ -181,7 +181,7 @@ export default function DiagnosticoTeorico() {
               Antes de começar, leia isto.
             </h1>
             <p className="text-slate-500 font-medium text-base max-w-2xl mx-auto">
-              Entender o propósito e o método fará toda a diferença na precisão do seu plano de estudos.
+              Entender o propósito e o método do teste melhora a precisão do seu plano de estudos.
             </p>
           </div>
 
@@ -210,7 +210,7 @@ export default function DiagnosticoTeorico() {
                 </li>
                 <li>
                   <b className="text-intento-blue block mb-1">Para otimizar seu tempo</b>
-                  Ao identificarmos suas dificuldades conceituais, montamos um plano cirúrgico. Você estudará menos, mas estudará melhor.
+                  Ao identificarmos suas dificuldades conceituais, montamos um plano direcionado a elas, com menos tempo gasto em conteúdo já consolidado.
                 </li>
                 <li>
                   <b className="text-intento-blue block mb-1">Para fortalecer a base</b>
@@ -224,10 +224,10 @@ export default function DiagnosticoTeorico() {
               <div className="space-y-4">
                 {[
                   { n: '1', titulo: 'Sem consultas', desc: 'Sem livros, cadernos ou internet. O objetivo é mapear o que já está consolidado na sua mente.' },
-                  { n: '2', titulo: 'Não "roube" de si mesmo', desc: 'Olhar gabaritos sabota seu plano. Um diagnóstico impreciso gera um planejamento ineficaz.' },
-                  { n: '3', titulo: 'Foco total', desc: 'Reserve tempo num ambiente sem distrações. Sugerimos 2 blocos de 90 questões.' },
+                  { n: '2', titulo: 'Não consulte gabaritos', desc: 'Consultar gabaritos distorce o resultado. Um diagnóstico impreciso gera um planejamento ineficaz.' },
+                  { n: '3', titulo: 'Foco total', desc: 'Reserve tempo em um ambiente sem distrações. Sugerimos 2 blocos de 90 questões.' },
                   { n: '4', titulo: 'Faça do início ao fim', desc: 'Responda um bloco de uma vez. Sua primeira intuição é valiosa.' },
-                  { n: '5', titulo: 'Abrace o erro', desc: 'O erro é um GPS que aponta onde direcionar sua energia. Não tenha medo.' },
+                  { n: '5', titulo: 'Erros são esperados', desc: 'Os erros indicam onde direcionar seu estudo. Responda sem medo de errar.' },
                 ].map(item => (
                   <div key={item.n} className="flex gap-4 items-start">
                     <div className="w-6 h-6 shrink-0 rounded-full border-2 border-intento-yellow text-intento-blue font-bold flex items-center justify-center text-xs mt-0.5">{item.n}</div>
@@ -307,7 +307,7 @@ export default function DiagnosticoTeorico() {
                     <div className="flex-1">
                       <p className={`text-[10px] font-bold uppercase tracking-wider mb-1.5
                         ${estaConcluida ? cores.icone : foiIniciada ? 'text-amber-600' : 'text-slate-400'}`}>
-                        {estaConcluida ? '✓ Concluído' : foiIniciada ? `Em andamento — ${respondidas}/45` : 'Disponível'}
+                        {estaConcluida ? '✓ Concluído' : foiIniciada ? `Em andamento: ${respondidas}/45` : 'Disponível'}
                       </p>
                       <h3 className="text-base font-bold text-intento-blue">{disc}</h3>
                       <p className="text-xs text-slate-500 mt-0.5 font-medium">45 questões</p>
@@ -348,7 +348,7 @@ export default function DiagnosticoTeorico() {
           {todosConcluidos ? (
             <div className="text-center">
               <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-full mb-4">
-                <span className="text-emerald-600 font-bold text-sm">Todas as disciplinas concluídas!</span>
+                <span className="text-emerald-600 font-bold text-sm">Todas as disciplinas concluídas.</span>
               </div>
               <br />
               <button onClick={finalizarTesteGeral}
@@ -382,7 +382,7 @@ export default function DiagnosticoTeorico() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-intento-blue text-center mb-1">Diagnóstico Concluído!</h2>
+          <h2 className="text-xl font-bold text-intento-blue text-center mb-1">Diagnóstico concluído</h2>
           <p className="text-slate-500 text-center mb-8 text-sm font-medium">Veja o detalhamento da sua pontuação abaixo.</p>
 
           {/* Cards de disciplina */}
@@ -436,7 +436,7 @@ export default function DiagnosticoTeorico() {
                 <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-emerald-700 font-semibold text-sm">Notas enviadas com sucesso!</span>
+                <span className="text-emerald-700 font-semibold text-sm">Notas enviadas.</span>
               </div>
               <Link href="/painel"
                 className="block w-full bg-intento-blue text-white py-3 rounded-lg font-bold hover:bg-blue-900 transition text-sm">

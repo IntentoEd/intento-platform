@@ -1,6 +1,6 @@
 export default function manifest() {
   return {
-    name: 'Intento — Mentoria',
+    name: 'Intento Mentoria',
     short_name: 'Intento',
     description: 'Plataforma de mentoria para vestibulares e ENEM',
     start_url: '/',

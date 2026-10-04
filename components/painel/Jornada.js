@@ -24,9 +24,9 @@ function SeloVisual({ selo, naoVisto }) {
     <div className="flex flex-col items-center text-center w-28">
       <div className="relative">
         <SeloSvg tierRomano={selo.tierRomano} tierMetal={selo.tierMetal} naoVisto={naoVisto} className="w-20 h-20"
-          ariaLabel={`Selo ${selo.nome} — nível ${selo.tierRomano} · ${selo.tierMetal} (${selo.tierLabel})${naoVisto ? ' — nova desta semana' : ''}`} />
+          ariaLabel={`Selo ${selo.nome}: nível ${selo.tierRomano} · ${selo.tierMetal} (${selo.tierLabel})${naoVisto ? '. Nova desta semana' : ''}`} />
         {naoVisto && (
-          <span className="absolute -top-1 -right-2 text-[8px] font-bold bg-intento-yellow text-intento-blue px-1.5 py-0.5 rounded-full whitespace-nowrap">nova!</span>
+          <span className="absolute -top-1 -right-2 text-[8px] font-bold bg-intento-yellow text-intento-blue px-1.5 py-0.5 rounded-full whitespace-nowrap">nova</span>
         )}
       </div>
       <p className="text-xs font-bold text-intento-blue mt-1.5 leading-tight">{selo.nome}</p>
@@ -122,7 +122,7 @@ export default function Jornada({ sessao, caderno }) {
       key: 'simulado',
       texto: diag.simulado
         ? `${Math.round(diag.simMed)}% de aproveitamento`
-        : 'sem simulado recente — que tal um Ensaio Geral?',
+        : 'sem simulado recente. Um simulado concluído ativa esta dimensão.',
     },
   ];
 
@@ -144,7 +144,7 @@ export default function Jornada({ sessao, caderno }) {
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <LinhaDoAno marcos={marcos} marcoPendente={marcoPend} />
           <p className="text-[10px] text-slate-500 font-medium mt-3">
-            O ano da mentoria se divide em 4 ciclos. No fim de cada um, a Reunião de Fechamento com seu mentor estampa o marco — clique nos nós verdes pra rever cada retrato.
+            O ano da mentoria se divide em 4 ciclos. No fim de cada um, a Reunião de Fechamento com seu mentor estampa o marco. Clique nos nós verdes para rever cada retrato.
           </p>
         </div>
       )}
@@ -172,8 +172,8 @@ export default function Jornada({ sessao, caderno }) {
           ))}
         </div>
         <p className="text-[10px] text-slate-500 font-medium leading-relaxed mt-3 border-t border-slate-100 pt-2.5">
-          O Perfil segue sua dimensão <b>menos avançada</b> — ele não é nota, é a bússola de onde aplicar força agora.
-          Um Aprendiz em Comportamento com Domínio de Mestre não precisa de mais conteúdo: precisa de rotina.
+          O Perfil acompanha sua dimensão <b>menos avançada</b>. Ele indica onde concentrar esforço agora e não é uma nota.
+          Um aluno Aprendiz em Comportamento e Mestre em Domínio precisa de rotina, não de mais conteúdo.
           O retrato oficial é carimbado com seu mentor no fechamento de cada ciclo.
         </p>
       </div>
@@ -183,7 +183,7 @@ export default function Jornada({ sessao, caderno }) {
         <MetalDefs />
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-4">Selos estampados · {selos.estampados.length}</p>
         {selos.estampados.length === 0 ? (
-          <p className="text-sm text-slate-500 font-medium">Seus primeiros selos chegam com as primeiras semanas de estudo registradas — a jornada começa agora.</p>
+          <p className="text-sm text-slate-500 font-medium">Os primeiros selos são estampados a partir das primeiras semanas de estudo registradas.</p>
         ) : (
           <>
             <div className="flex flex-wrap gap-x-4 gap-y-6">
@@ -214,7 +214,7 @@ export default function Jornada({ sessao, caderno }) {
       )}
 
       <p className="text-[10px] text-slate-500 font-medium">
-        Os selos são estampados no fechamento de cada semana (domingo) — sequências pausam em semana sem dado, e selo estampado é seu pra sempre.
+        Os selos são estampados no fechamento de cada semana (domingo). Sequências pausam em semanas sem dado. Selos já estampados são permanentes.
       </p>
     </div>
   );
