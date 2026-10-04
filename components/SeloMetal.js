@@ -43,7 +43,20 @@ export function MetalDefs() {
 //   não existe "não visto"; o metal comunica o nível permanente).
 // - `comDefs`: embute o gradiente do próprio metal DENTRO deste svg — obriga-
 //   tório nos cards capturados pelo html2canvas (defs fora do card somem).
-export function SeloSvg({ tierRomano, tierMetal, naoVisto, comDefs, className, width, height, ariaLabel }) {
+// - `sombreado`: selo ainda não conquistado (álbum da Jornada). Mesma forma,
+//   em cinza chapado, com o romano do próximo degrau — lê como "vaga a
+//   preencher", não como selo de nível. Sem metal, sem amarelo.
+export function SeloSvg({ tierRomano, tierMetal, naoVisto, comDefs, sombreado, className, width, height, ariaLabel }) {
+  if (sombreado) {
+    return (
+      <svg viewBox="0 0 80 80" className={className} width={width} height={height} role="img" aria-label={ariaLabel}>
+        <circle cx="40" cy="40" r="37" fill="none" stroke="#CBD5E1" strokeWidth="2.5" strokeDasharray="4 3" />
+        <circle cx="40" cy="40" r="30" fill="#E2E8F0" />
+        <text x="40" y="38" textAnchor="middle" fill="#94A3B8" fontSize="17" fontWeight="700" fontFamily="Ubuntu, sans-serif">{tierRomano}</text>
+        <text x="40" y="52" textAnchor="middle" fill="#94A3B8" fontSize="8" fontWeight="700" fontFamily="Ubuntu, sans-serif" letterSpacing="0.5">SELO</text>
+      </svg>
+    );
+  }
   const anel = naoVisto ? '#D4B726' : (tierMetal ? `url(#anel-metal-${tierMetal})` : '#060242');
   const par = tierMetal ? METAL_ANEL[tierMetal] : null;
   return (
