@@ -58,20 +58,15 @@ gh pr create --title "..." --body "..."
 - `app/api/mentor/`, `app/api/submit/`, `app/api/auth/`, `app/api/push/`
 - `components/AbaProvas.js`, `components/Boletim*.js`, `components/Provas*.js`, `components/Push*.js`
 - `lib/`, `scripts/`, `app/layout.js`, `package.json`, `CLAUDE.md`, `AGENTS.md`, `docs/`
-- `gas/` (split por domínio): `Code.gs` (core: constantes ABA/COL_*/FASES_LEAD/TIPOS_*/OUTCOMES_* + handlers de aluno/onboarding/diagnóstico/simulados), `escolar.gs`, `push.gs`, `marcos.gs`, `integracaoApp.gs`, `SmokeTest.gs`
+- `gas/` (split por domínio): `Code.gs` (core: constantes ABA/COL_*/TIPOS_* + handlers de aluno/onboarding/diagnóstico/simulados), `escolar.gs`, `push.gs`, `marcos.gs`, `integracaoApp.gs`, `SmokeTest.gs`
 
-**Legado CRM/comercial (ex-módulo do Rafael, sem dono ativo):**
-- `app/vendas/`, `app/vendedor/`
-- `app/api/leads/`, `app/api/agenda/`
-- `components/ModalLead.js`, `components/ModalNovoLead.js`
-- `gas/crm.gs` (Lead/Pipeline), `gas/agenda.gs`
+**CRM/comercial: front retirado em 06/10/2026, backend preservado.** O funil comercial roda em plataforma externa. Foram apagados só os arquivos de interface: `app/vendas/`, `app/vendedor/`, `components/ModalLead.js`, `components/ModalNovoLead.js`, `lib/whatsapp.js` (helper usado só por eles) e a dependência `@dnd-kit/core`. O card "CRM / Vendas" saiu do `/selecionar-modo` e o login bloqueia perfil "vendedor" puro com mensagem.
 
-Esse código permanece no repo como **legado funcional** — sem dono ativo e sem uso operacional garantido. Mudanças ali merecem cautela extra: confirmar com Filippe antes de mexer.
+Continuam no repo, **a pedido do Rafa (pode ter coisa útil)**, sem dono ativo e sem uso operacional garantido: `gas/crm.gs`, `gas/agenda.gs`, as constantes CRM em `gas/Code.gs` (ABA.LEADS/VENDEDORES/EVENTOS_PIPELINE, COL_LEAD/COL_VENDEDOR/COL_EVENTO/COL_EXCECAO, FASES_LEAD, OUTCOMES_REUNIAO) e o dispatch das ações em `doPost`, o papel "vendedor" no `loginGlobal`, `app/api/leads/` (webhook Typebot), `app/api/agenda/`, `app/api/vendedor/`, `lib/googleCalendar.js`, a allowlist/cache dessas ações em `app/api/mentor/route.js` e os guias `docs/GUIA_TYPEBOT_WEBHOOK.md` e `docs/GUIA_AGENDA_API_AGENTE.md`. Mexer nisso = confirmar com Filippe antes. As abas `BD_Leads`/`BD_Vendedores`/`Eventos_Pipeline`/`BD_Disponibilidade_Excecoes` seguem na planilha.
 
-(Arquivos deletados que docs antigos ainda podem citar: `components/PainelLiderPipeline.js` (#109) e `components/ModalRegistro.js` (#101).)
+(Outros arquivos deletados que docs antigos ainda podem citar: `components/PainelLiderPipeline.js` (#109) e `components/ModalRegistro.js` (#101).)
 
 **Como você (assistente) usa isso:**
 
-- Quando o usuário pede pra mexer no legado CRM (ex: `app/vendas/page.js`, `gas/crm.gs`), confirme que a mudança é intencional antes de prosseguir — não há dono ativo nem garantia de uso.
 - Quando aparece commit ou stash de "outra conversa" mexendo nos mesmos arquivos que você, sinalize claramente — pode ser outra janela Claude do Filippe.
 - Branch + PR continua sendo o default do fluxo (audit trail + preview da Vercel); review de PR é opcional — self-merge é o normal.
