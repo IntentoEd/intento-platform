@@ -181,6 +181,13 @@ export default function Home() {
           setCarregando(false);
           return;
         }
+        // O backend do CRM continua no GAS e pode devolver perfil "vendedor" com
+        // rota /vendas, mas o front do CRM foi retirado da plataforma.
+        if (dados.perfil === 'vendedor' || dados.rota === '/vendas') {
+          setErro('O acesso de vendedor não está mais disponível na plataforma.');
+          setCarregando(false);
+          return;
+        }
         sessionStorage.setItem('emailLogado', emailUsuario.toLowerCase());
         // Guarda a resposta pra /selecionar-modo reaproveitar sem repetir o
         // loginGlobal (GAS leva segundos por chamada). Roteamento de UX apenas —

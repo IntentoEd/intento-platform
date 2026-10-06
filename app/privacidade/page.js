@@ -145,7 +145,7 @@ export default function Privacidade() {
           Adotamos medidas técnicas e administrativas razoáveis para proteger seus dados contra acessos
           não autorizados, perda, alteração e divulgação indevida, incluindo: criptografia em trânsito
           (HTTPS), autenticação por provedor reconhecido (Firebase Auth), controle de acesso baseado em
-          perfil (aluno, mentor, vendedor, líder) e logs de auditoria.
+          perfil (aluno, mentor, líder) e logs de auditoria.
         </p>
 
         <h2 className={sectionTitle}>11. Cookies</h2>
