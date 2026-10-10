@@ -556,7 +556,15 @@ export default function ModoEncontro() {
             )}
           </div>
           <div className="flex flex-col gap-2 pt-2">
-            <button onClick={() => router.push(voltarUrl)} className="w-full bg-intento-blue text-white font-bold py-2.5 rounded-lg hover:bg-intento-blue/90 transition-all text-sm">
+            {!ehDemo && (
+              <button
+                onClick={() => router.push(`/mentor/ig/diario?id=${params.id}&linha=ultima&nome=${encodeURIComponent(nomeAluno || '')}`)}
+                className="w-full bg-intento-yellow text-intento-blue font-bold py-2.5 rounded-lg hover:bg-yellow-500 transition-all text-sm"
+              >
+                Exportar Diário para o aluno →
+              </button>
+            )}
+            <button onClick={() => router.push(voltarUrl)} className={`w-full font-bold py-2.5 rounded-lg transition-all text-sm ${ehDemo ? 'bg-intento-blue text-white hover:bg-intento-blue/90' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
               {ehDemo ? 'Voltar' : 'Ver no histórico do aluno'}
             </button>
             <button onClick={() => router.push('/mentor')} className="w-full bg-white border border-slate-200 text-slate-500 font-bold py-2.5 rounded-lg hover:bg-slate-50 transition-all text-sm">

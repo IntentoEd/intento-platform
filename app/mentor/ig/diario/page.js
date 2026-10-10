@@ -36,7 +36,11 @@ function ExportarDiario() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const idPlanilha = searchParams.get('id') || '';
-  const linhaParam = parseInt(searchParams.get('linha') || '0', 10);
+  // linha=ultima: abre o diário mais recente (usado logo após salvar no Modo
+  // Encontro, quando o GAS ainda não devolve o número da linha nova).
+  const linhaRaw = searchParams.get('linha') || '';
+  const pegarUltimo = linhaRaw === 'ultima';
+  const linhaParam = pegarUltimo ? 0 : parseInt(linhaRaw || '0', 10);
   const nomeFromQuery = searchParams.get('nome') || '';
 
   const cardRef = useRef(null);
@@ -50,7 +54,7 @@ function ExportarDiario() {
   // Carrega o encontro específico
   useEffect(() => {
     if (!emailMentor || !idPlanilha) return;
-    if (!linhaParam || linhaParam < 2) { setErro('Encontro inválido.'); setCarregando(false); return; }
+    if (!pegarUltimo && (!linhaParam || linhaParam < 2)) { setErro('Encontro inválido.'); setCarregando(false); return; }
     setCarregando(true);
     apiFetch('/api/mentor', {
       method: 'POST',
@@ -60,13 +64,14 @@ function ExportarDiario() {
       .then(r => r.json())
       .then(d => {
         if (d.status !== 'sucesso') { setErro(d.mensagem || 'Erro ao carregar.'); return; }
-        const enc = (d.diarios || []).find(e => e.linha === linhaParam);
+        // d.diarios vem do GAS do mais recente pro mais antigo.
+        const enc = pegarUltimo ? (d.diarios || [])[0] : (d.diarios || []).find(e => e.linha === linhaParam);
         if (!enc) { setErro('Encontro não encontrado.'); return; }
         setEncontro(enc);
       })
       .catch(() => setErro('Erro de conexão.'))
       .finally(() => setCarregando(false));
-  }, [emailMentor, idPlanilha, linhaParam]);
+  }, [emailMentor, idPlanilha, linhaParam, pegarUltimo]);
 
   const exportar = async () => {
     if (!cardRef.current || !encontro) return;
@@ -101,6 +106,8 @@ function ExportarDiario() {
   const acoesRender = encontro
     ? encontro.acoes.map((a, i) => ({ acao: a, resultado: encontro.resultados?.[i] || '' })).filter(x => String(x.acao || '').trim() !== '')
     : [];
+
+  const temResultados = acoesRender.some(x => String(x.resultado || '').trim() !== '');
 
   const estrelas = parseInt(encontro?.autoavaliacao) || 0;
   const dataFmt = formatarData(encontro?.data);
@@ -248,7 +255,7 @@ function ExportarDiario() {
               {/* Plano de Ação */}
               {acoesRender.length > 0 && (
                 <div>
-                  {secaoLabel('Plano de Ação e Resultados')}
+                  {secaoLabel(temResultados ? 'Plano de Ação e Resultados' : 'Plano de Ação')}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {acoesRender.map((it, i) => {
                       const cor = RESULTADO_COR[it.resultado] || { bg: '#f1f5f9', fg: '#64748b' };
@@ -260,12 +267,14 @@ function ExportarDiario() {
                           <span style={{ fontSize: 12, color: '#1e293b', fontWeight: 600, flex: 1 }}>
                             {i + 1}. {it.acao}
                           </span>
-                          <span style={{
-                            fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
-                            background: cor.bg, color: cor.fg, padding: '4px 10px', borderRadius: 6, whiteSpace: 'nowrap',
-                          }}>
-                            {it.resultado || 'Aguardando'}
-                          </span>
+                          {temResultados && (
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                              background: cor.bg, color: cor.fg, padding: '4px 10px', borderRadius: 6, whiteSpace: 'nowrap',
+                            }}>
+                              {it.resultado || 'Aguardando'}
+                            </span>
+                          )}
                         </div>
                       );
                     })}
