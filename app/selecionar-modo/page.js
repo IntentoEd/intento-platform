@@ -14,7 +14,7 @@ export default function SelecionarModo() {
   const router = useRouter();
   const [primeiroNome, setPrimeiroNome] = useState('');
   const [autorizado, setAutorizado] = useState(false);
-  const [papeis, setPapeis] = useState({ lider: false, vendedor: false, mentor: false });
+  const [papeis, setPapeis] = useState({ lider: false, mentor: false });
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -24,24 +24,23 @@ export default function SelecionarModo() {
       // Decide a rota (ou mostra a tela) a partir dos papéis — mesma lógica
       // independente de os papéis virem do cache ou do backend.
       const aplicarPapeis = (papeisBackend) => {
-        const ehLider    = !!papeisBackend.lider    || EMAILS_LIDER.includes(email);
-        const ehVendedor = !!papeisBackend.vendedor;
-        const ehMentor   = !!papeisBackend.mentor;
+        const ehLider  = !!papeisBackend.lider || EMAILS_LIDER.includes(email);
+        const ehMentor = !!papeisBackend.mentor;
+        // papeisBackend.vendedor ainda pode vir do GAS (backend CRM preservado),
+        // mas o front do CRM foi retirado: o papel é ignorado aqui.
 
         // Sem nenhum papel relevante → manda pro fluxo correto
-        if (!ehLider && !ehVendedor && !ehMentor) {
+        if (!ehLider && !ehMentor) {
           router.push(email.endsWith('@metodointento.com.br') ? '/mentor' : '/painel');
           return;
         }
-        // Se tem só 1 papel, não faz sentido mostrar a tela
-        const totalPapeis = (ehLider ? 1 : 0) + (ehVendedor ? 1 : 0) + (ehMentor ? 1 : 0);
-        if (!ehLider && totalPapeis === 1) {
-          if (ehVendedor) router.push('/vendas');
-          else if (ehMentor) router.push('/mentor');
+        // Só mentor (sem líder) → não faz sentido mostrar a tela
+        if (!ehLider && ehMentor) {
+          router.push('/mentor');
           return;
         }
 
-        setPapeis({ lider: ehLider, vendedor: ehVendedor, mentor: ehMentor });
+        setPapeis({ lider: ehLider, mentor: ehMentor });
         const primeiro = email.split('@')[0];
         setPrimeiroNome(primeiro.charAt(0).toUpperCase() + primeiro.slice(1));
         setAutorizado(true);
@@ -74,7 +73,7 @@ export default function SelecionarModo() {
       } catch {
         // Fallback: se falhar, autoriza só se for líder conhecido
         if (EMAILS_LIDER.includes(email)) {
-          setPapeis({ lider: true, vendedor: false, mentor: false });
+          setPapeis({ lider: true, mentor: false });
           const primeiro = email.split('@')[0];
           setPrimeiroNome(primeiro.charAt(0).toUpperCase() + primeiro.slice(1));
           setAutorizado(true);
@@ -98,9 +97,8 @@ export default function SelecionarModo() {
   const cards = [];
   if (papeis.mentor) cards.push('mentor');
   if (papeis.lider) cards.push('lider');
-  if (papeis.vendedor || papeis.lider) cards.push('vendas');
 
-  const gridCols = cards.length === 1 ? 'md:grid-cols-1' : cards.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3';
+  const gridCols = cards.length === 1 ? 'md:grid-cols-1' : 'md:grid-cols-2';
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
@@ -161,27 +159,6 @@ export default function SelecionarModo() {
                   Visão geral da operação: mentores, alunos, métricas agregadas e gestão.
                 </p>
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-intento-yellow group-hover:gap-2.5 transition-all">
-                  <span>Entrar</span>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                </div>
-              </button>
-            )}
-
-            {cards.includes('vendas') && (
-              <button
-                onClick={() => router.push('/vendas')}
-                className="bg-white rounded-2xl border-2 border-slate-200 p-8 shadow-sm hover:border-emerald-500 hover:shadow-md transition-all text-left group"
-              >
-                <div className="w-14 h-14 rounded-full bg-emerald-500/10 group-hover:bg-emerald-500/15 flex items-center justify-center mb-5 transition-colors">
-                  <svg className="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                  </svg>
-                </div>
-                <h2 className="text-base font-bold text-intento-blue mb-1.5">CRM / Vendas</h2>
-                <p className="text-xs text-slate-500 leading-relaxed mb-5">
-                  Pipeline de leads, acompanhamento de vendedores e conversões.
-                </p>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 group-hover:gap-2.5 transition-all">
                   <span>Entrar</span>
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </div>
